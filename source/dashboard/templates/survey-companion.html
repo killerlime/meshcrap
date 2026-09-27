@@ -1,0 +1,29 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Meshcrap Survey · Phone setup</title>
+<style>body{font:16px/1.55 system-ui,sans-serif;background:#111713;color:#e1ebe4;max-width:780px;margin:auto;padding:24px}h1{color:#6ee79a}a{color:#80d7ff}section{padding:20px;margin:20px 0;border:1px solid #344b3a;border-radius:12px;background:#19221b}button{font:inherit;background:#25482d;color:#e9fff0;border:1px solid #6b9975;border-radius:8px;padding:10px 16px;margin:8px 8px 8px 0;cursor:pointer}button:focus-visible,a:focus-visible,textarea:focus-visible{outline:3px solid #80d7ff}textarea{box-sizing:border-box;width:100%;background:#101b13;color:#ecfff1;border:1px solid #6b9975;border-radius:6px;padding:12px}small{color:#bbcabf}.notice{border-left:4px solid #e7b56c;padding-left:16px}#status{min-height:2em;overflow-wrap:anywhere}</style></head><body>
+<a href="/">← Meshcrap dashboard</a><h1>Meshcrap Survey · Android phone setup</h1>
+<p class="notice">First test build. Software checks have run; the Bluetooth connection still needs verification on your phone and radio. Automatic traceroutes start disabled.</p>
+<section><h2>1. Install the private survey app</h2>
+{% if apk_available %}<p><a href="/survey-companion/jk-survey-test.apk">Download Meshcrap Survey APK</a></p>{% else %}<p>Build the Android project included in this repository and install its APK on your phone. See the repository README for build and optional download-hosting instructions.</p>{% endif %}
+<p>Use Android 8 or later. Your phone must reach the collector through trusted HTTPS, for example over Tailscale. The app connects directly to an already-paired radio: disconnect the Meshtastic app from that radio first.</p></section>
+<section><h2>2. Pair it with your collector</h2>
+<p>Open <a href="https://{{ https_host }}/survey-companion">this private HTTPS setup page</a>, unlock <a href="/node-control">Receiver admin controls</a> in the same browser, then return here. The pairing code is for survey uploads only; it is not a radio admin key.</p>
+<button id="pair">Generate phone pairing code</button><button id="revoke">Revoke phone access</button>
+<p><small>Generating a new code replaces the previous phone pairing. Saved results on the phone remain available for upload after re-pairing.</small></p>
+<label for="code">Phone pairing code</label><textarea id="code" rows="4" readonly autocomplete="off" spellcheck="false" placeholder="Your pairing code will appear here once. Keep it private."></textarea>
+<button id="copy">Copy pairing code</button><p id="status" role="status" aria-live="polite"></p></section>
+<section><h2>3. Verify one traceroute</h2><ol>
+<li>Paste the pairing code into Meshcrap Survey. Allow Bluetooth and location, list paired radios, and connect your chosen local radio.</li>
+<li>Confirm the node name, ID and channel shown in the app. Choose the appropriate channel if needed.</li>
+<li>On the website, select a coverage area and start a coverage survey.</li>
+<li>In Meshcrap Survey, choose one nearby destination and send a test traceroute. Wait for a successful response before enabling the nearby-node survey.</li>
+</ol><p>The app requires a recent position and recently heard destinations with known positions. It starts with a 10-mile radius, adjustable on the phone.</p></section>
+<section><h2>During your outing</h2><p>One request at a time, at least two minutes apart, with up to five minutes for a response. Each candidate is tried once per outing. Requests pause if Bluetooth or the collector connection is lost. A lost connection may take up to 30 seconds to expire.</p>
+<p>Use the notification’s Pause or Stop controls. Stop releases Bluetooth so you can reconnect Meshtastic. Saved results upload on the next connection; no uncertain request is automatically resent after a restart.</p>
+<p>Phone GPS records your path. It does not automatically turn a cell into proven RF coverage. Phone traceroutes are stored separately from measurements heard by Receiver.</p></section>
+<script>
+const status=document.getElementById('status'),code=document.getElementById('code');
+async function action(path){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error||'Request failed');return d;}
+document.getElementById('pair').onclick=async()=>{try{const d=await action('/api/survey-phone/pair');code.value=d.pairing_code;status.textContent='Copy this code into Meshcrap Survey. The previous pairing has been revoked.';}catch(e){status.textContent=e.message;}};
+document.getElementById('revoke').onclick=async()=>{if(!confirm('Revoke phone survey access? Automatic requests will pause when the current lease expires, within 30 seconds.'))return;try{await action('/api/survey-phone/revoke');code.value='';status.textContent='Phone access revoked.';}catch(e){status.textContent=e.message;}};
+document.getElementById('copy').onclick=async()=>{if(!code.value){status.textContent='Generate a pairing code first.';return;}try{await navigator.clipboard.writeText(code.value);status.textContent='Copied. Paste into Meshcrap Survey.';}catch(e){code.focus();code.select();status.textContent='Select and copy the code above.';}};
+</script></body></html>

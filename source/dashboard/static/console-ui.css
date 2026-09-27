@@ -1,0 +1,21 @@
+:root{--bg:#0d0f0e;--surface:#151816;--surface-2:#1b1f1c;--border:#303630;--border-soft:#252a26;--text:#f0f3f0;--muted:#abb5ad;--mesh:#67ea94;--mesh-soft:rgba(103,234,148,.12);--mesh-border:rgba(103,234,148,.35)}
+[hidden]{display:none!important}
+body{font-family:Inter,system-ui,sans-serif;color:var(--text);background:var(--bg)}
+main{min-width:0}h1{font-size:clamp(22px,3vw,28px)}h2{font-size:19px}h3{font-size:15px}p{line-height:1.55}
+button,input,select,textarea{font:inherit}button{min-height:40px;border-radius:8px}button:disabled{cursor:not-allowed;opacity:.5}
+input:not([type=checkbox]):not([type=radio]),select,textarea{background:var(--surface-2)!important;color:var(--text)!important;border:1px solid var(--border)!important;border-radius:8px;padding:9px 11px;max-width:100%}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--mesh);outline-offset:3px}
+button:not(.bad):not(.resume){color:var(--text);background:var(--surface-2);border-color:var(--border)}button.primary{background:var(--mesh-soft);border-color:var(--mesh-border);color:var(--mesh)}
+.card,article,dialog,fieldset{border-color:var(--border)!important;background:var(--surface)!important;color:var(--text);border-radius:12px}.card{padding:20px}.muted,small,.subtitle{color:var(--muted)}
+.toolbar,.bar{gap:10px;align-items:center;flex-wrap:wrap}.console-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:14px 0}.console-toolbar label{display:flex;gap:8px;align-items:center}
+.console-panel-heading{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin:0}.console-panel-heading h2{margin:0}.console-panel-heading p{margin:0;color:var(--muted);font-size:13px;max-width:75ch}
+.console-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0}.console-metric{padding:12px 14px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:9px}.console-metric dt{color:var(--muted);font-size:12px}.console-metric dd{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums;margin:5px 0 0}.console-metric small{display:block;margin-top:4px;font-size:11px}
+.console-notes{border-top:1px solid var(--border-soft);margin:14px 0;padding-top:10px;font-size:13px}.console-notes summary{cursor:pointer;color:var(--muted);padding:5px 0}.console-notes p{margin:8px 0}
+.console-scope{font-size:12px;color:var(--muted);margin-left:auto}.controls button[aria-pressed=true]{background:var(--mesh-soft);border-color:var(--mesh-border);color:var(--mesh)}
+#dashboardTabs{scrollbar-width:thin}#dashboardTabs button{font-size:13px}#dashboardTabs button[aria-selected=true]{background:var(--mesh-soft);color:var(--mesh);border-color:var(--mesh-border)}
+.dashboard-panel iframe{width:100%;height:calc(100vh - 215px)!important;min-height:560px!important;background:var(--bg)}
+table{font-size:13px;font-variant-numeric:tabular-nums}thead th{background:var(--surface-2);color:var(--muted);white-space:nowrap}td{vertical-align:top}td,th{border-color:var(--border-soft)!important}tbody tr:hover{background:var(--mesh-soft)}.node-table-scroll,.scroll{border:1px solid var(--border-soft);border-radius:8px}
+.console-day{font-size:13px;color:var(--muted);padding:12px 0 5px;margin:0}#status,.console-status{line-height:1.6;font-size:13px}.console-feed{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:14px 16px;margin:16px 0}.console-feed summary{cursor:pointer;font-size:13px}.console-feed p{font-size:12px;color:var(--muted);margin:10px 0 0}
+html.console-embedded main{max-width:none;padding:20px}html.console-embedded h1{font-size:22px}html.console-embedded .card{margin:14px 0}html.console-embedded #backDashboard{display:none}
+@media(max-width:700px){main{padding:12px}.card{padding:14px}.console-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.console-panel-heading{gap:6px}.console-toolbar label{flex-wrap:wrap}.console-scope{width:100%;margin-left:0}html.console-embedded main{padding:12px}.dashboard-panel iframe{min-height:520px!important}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
