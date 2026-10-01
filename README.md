@@ -10,7 +10,7 @@ This is a portable extraction of a working personal installation. It starts with
 
 ## Work in progress — contributions welcome
 
-Meshcrap is a community project in active development. Expect rough edges and help make it better: report bugs, test your device or VM host, improve the interface and documentation, or send a pull request. See [CONTRIBUTING.md](CONTRIBUTING.md) for a safe way to get started and the checks to run. VM formats are experimental; consult the build results and [verification limits](deploy/vm/README.md) before relying on them.
+Meshcrap is a community project in active development. Expect rough edges and help make it better: report bugs, test your device or VM host, improve the interface and documentation, or send a pull request. Future measurement-quality ideas are in the [RF roadmap](docs/RF-ROADMAP.md); these are planning items, not enabled features. See [CONTRIBUTING.md](CONTRIBUTING.md) for a safe way to get started and the checks to run. VM formats are experimental; consult the build results and [verification limits](deploy/vm/README.md) before relying on them.
 
 ## What is included
 
