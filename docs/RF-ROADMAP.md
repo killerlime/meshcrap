@@ -208,3 +208,16 @@ Use within-receiver normalized anomalies, not a raw subtraction of dBFS from dBm
 Offer an optional regional panel with three synchronized timelines: Meshtastic, local ADS-B reception and atmospheric conditions. Display direction/altitude bins and source gaps. Keep “possible shared environmental effect” distinct from “ordinary traffic change” and “insufficient evidence.”
 
 Acceptance fixtures must cover stale snapshots, counter resets, absent RSSI, gain changes, duplicate polling, remote-derived positions, receiver outages and an aircraft moving closer with no RF change. First deliverable is an offline matched-window study; no unattended probing or live collector changes tonight. Local address and access questions stay parked until implementation planning.
+
+
+### RF-16 extension — graphs1090 historical metrics
+
+Include an optional graphs1090 adapter in the same future study. Its graph categories can cover message rates, aircraft/tracks, range, signal and system health; actual availability depends on the decoder and installation. The inspected interface uses generated PNGs. A readable graph is not a numeric time-series API, so correlation should use read-only exports of the underlying collectd/RRD data where available, not values guessed from pixels. [graphs1090 project and storage behavior](https://github.com/wiedehopf/graphs1090).
+
+Before implementation, inventory the installed data sources, units, time step, consolidation functions and retention tiers. Preserve unknown values, distinguish counter rates from gauges, and avoid comparing a downsampled historical maximum with a fine-grained recent average. Gain/adaptive-gain changes and host CPU/temperature/drop counters can help distinguish receiver performance changes from propagation; expose only metrics actually present.
+
+A future export must be narrowly scoped and read-only, with bounded time windows and caching. Do not expose the entire RRD directory or add an unauthenticated shell-command endpoint. Keep graph rendering and decoder operation unchanged. Backups and memory-to-disk flushing can affect the amount of recoverable history after power loss; inspect the local configuration rather than assuming unlimited history.
+
+Acceptance: export known test intervals, reconcile numeric results against the existing graph at the same resolution, and reproduce missing periods and consolidation correctly. Longer term, place graphs1090 trends beside the RF/weather timelines without treating an ADS-B signal metric as an absolute calibration for Meshtastic.
+
+For band context, the FAA distinguishes 1090 MHz and 978 MHz ADS-B links; this project must preserve that distinction. [FAA ADS-B capabilities](https://www.faa.gov/air_traffic/technology/equipadsb/capabilities/benefits).
