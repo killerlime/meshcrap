@@ -1,5 +1,5 @@
-#!/bin/bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y python3-venv python3-pip sudo systemd-resolved qemu-guest-agent
