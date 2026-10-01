@@ -181,3 +181,30 @@ The ITU rain-attenuation model P.838 specifies a frequency range beginning at 1 
 4. Only after useful validation, an optional dashboard feature; no automated channel/power changes or weather-triggered probing.
 
 Questions about geographic scope, data providers, storage and display can wait for the next planning session.
+
+
+## RF-16 — Optional local ADS-B / PiAware comparison
+
+**Backlog only, alongside RF-15.** Explore a read-only connection to a user-configured LAN receiver running PiAware/dump1090-fa. Prefer its local data over a FlightAware website scrape or cloud API. No receiver discovery scan, account connection, decoder changes or additional upload is enabled by this plan; identify the installed software and endpoint later.
+
+FlightAware's dump1090 documentation describes `receiver.json`, `aircraft.json` and `stats.json`; exposure through HTTP depends on the local webserver. Available fields include source time, recent aircraft positions, position age, message counters, signal values and indicators for MLAT/TIS-B-derived fields. Its RSSI is expressed in dBFS, not Meshtastic's dBm. Fields can be absent and counters reset. [FlightAware JSON format reference](https://github.com/flightaware/dump1090/blob/master/README-json.md), [PiAware project](https://github.com/flightaware/piaware).
+
+### Proposed adapter
+
+- Explicit local base URL in private configuration; disabled by default. Read receiver metadata once, then use a modest, configurable cadence for current observations and statistics. Respect source update intervals and back off on failure. Do not repeatedly reread the same snapshot as new evidence.
+- Retain observation time, decoder/version, local-versus-network source, gain/configuration epoch and collection health. Do not publish receiver location, LAN endpoints, credentials or aircraft histories in the repository or public demo.
+- Keep 1090 MHz and any separately available 978 MHz UAT data distinct. Establish installed capabilities instead of assuming a PiAware setup has both receivers.
+- Separate local direct aircraft reports from MLAT, TIS-B, ADS-R and network-fed positions. A remote-derived position is not evidence of a direct aircraft-to-receiver RF path.
+- Summarize hourly rather than retaining unlimited detailed tracks. Preserve altitude datum and units: barometric and geometric altitude are not interchangeable.
+
+### Correlation study
+
+Compare directional range percentiles, fresh directly received aircraft counts and message rate per connected receiver-minute with regional weather and Meshtastic direct-link changes. Stratify by aircraft altitude, bearing, distance, hour of day and receiver configuration. Aircraft schedules, changing routes, receiver gain, antenna obstruction and downtime can all change the sample without any ducting event. A high-altitude aircraft naturally has a different radio horizon from a ground-level mesh node.
+
+Use within-receiver normalized anomalies, not a raw subtraction of dBFS from dBm. Similar timing across the two systems would be supporting evidence for further investigation, not proof of a common cause: frequencies, modulation, antenna patterns, heights and paths differ. A faraway aircraft is not automatically a ducting detection, and decoded message counts are not packet-delivery rates without a transmitted denominator.
+
+### Later UI and acceptance
+
+Offer an optional regional panel with three synchronized timelines: Meshtastic, local ADS-B reception and atmospheric conditions. Display direction/altitude bins and source gaps. Keep “possible shared environmental effect” distinct from “ordinary traffic change” and “insufficient evidence.”
+
+Acceptance fixtures must cover stale snapshots, counter resets, absent RSSI, gain changes, duplicate polling, remote-derived positions, receiver outages and an aircraft moving closer with no RF change. First deliverable is an offline matched-window study; no unattended probing or live collector changes tonight. Local address and access questions stay parked until implementation planning.
