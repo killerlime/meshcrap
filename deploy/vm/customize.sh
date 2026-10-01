@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 export DEBIAN_FRONTEND=noninteractive
-# The offline guest has no running resolved; use the guestfs SLIRP DNS proxy during customization.
-rm -f /etc/resolv.conf
-printf "nameserver 169.254.0.3\n" > /etc/resolv.conf
+# virt-customize supplies the appliance resolver while running in the guest.
+# Do not replace it with a guessed SLIRP address or the host's loopback resolver.
+getent hosts deb.debian.org >/dev/null || { echo 'Build appliance DNS lookup failed'; exit 1; }
 apt-get update -o APT::Update::Error-Mode=any
 apt-get install -y python3-venv python3-pip sudo systemd-resolved qemu-guest-agent
 mkdir -p /opt/meshcrap

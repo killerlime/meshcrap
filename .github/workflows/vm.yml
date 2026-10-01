@@ -14,9 +14,16 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y live-build debootstrap squashfs-tools xorriso isolinux syslinux-common qemu-system-x86
-      - run: sudo bash deploy/live/build.sh
-      - run: sudo bash deploy/live/verify.sh
+      # Use Debian's live-build for Debian images. Ubuntu's older fork generates
+      # obsolete security-suite names for Bookworm.
+      - name: Build and boot-test in disposable Debian environment
+        run: |
+          docker run --rm --privileged -v "$PWD:/src" -w /src debian:bookworm-slim sh -ec '
+            apt-get update
+            apt-get install -y --no-install-recommends git ca-certificates live-build debootstrap squashfs-tools xorriso isolinux syslinux-common qemu-system-x86
+            bash deploy/live/build.sh
+            bash deploy/live/verify.sh
+          '
       - uses: actions/upload-artifact@v4
         if: inputs.publish_artifacts
         with:
