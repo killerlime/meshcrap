@@ -11,22 +11,29 @@
 >
 
 <title>Meshcrap RF Console</title>
+<link rel="manifest" href="/static/app-assets/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/app-assets/icon-180.png">
+<meta name="theme-color" content="#111713">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meshcrap">
+<script src="/static/install-app.js" defer></script>
+<script src="/static/visible-poll.js"></script>
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+
+<link href="/static/vendor/fonts.css" rel="stylesheet">
 
 <script
- src="https://cdn.jsdelivr.net/npm/chart.js">
+ src="/static/vendor/chart-4.5.1.js">
 </script>
 
 <link
  rel="stylesheet"
- href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+ href="/static/vendor/leaflet-1.9.4.css"
 />
 
 <script
- src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+ src="/static/vendor/leaflet-1.9.4.js">
 </script>
 
 
@@ -1017,7 +1024,7 @@ tbody tr:hover .node-distance {
 
 <body>
 
-<header>
+<header><a href="/install" style="float:right">Install on iPhone</a>
 
 <h1>Meshcrap RF Console</h1>
 
@@ -2603,8 +2610,8 @@ async function resumeCollector(){
     },1500);
 }
 
-setInterval(updateMobileCountdown,1000);
-setInterval(()=>{if(!document.hidden)loadMobileAccess();},3000);
+setInterval(()=>{if(!document.hidden)updateMobileCountdown();},1000);
+MeshcrapPoll.watch('mobileAccessControls',loadMobileAccess,3000,()=>mobileAccessState?.enabled!==false);
 
 
 
@@ -4171,7 +4178,7 @@ window.addEventListener('offline',()=>{
 });
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDashboard();});
 
-loadMobileAccess(); // mobile-access-mode
+// Mobile status is loaded when its controls become visible.
 </script>
 
 
@@ -4264,6 +4271,7 @@ loadMobileAccess(); // mobile-access-mode
                 throw new Error("HTTP " + r.status);
 
             const d = await r.json();
+            el.title = `Checked ${new Date(d.generated).toLocaleString()} · shared for up to 5 seconds`;
             const c = d.checks || {};
 
             const overall =
@@ -4332,8 +4340,7 @@ loadMobileAccess(); // mobile-access-mode
         }
     }
 
-    loadDashboardSelfTest();
-    setInterval(()=>{if(!document.hidden)loadDashboardSelfTest();},15000);
+    MeshcrapPoll.watch('dashboardSelfTest',loadDashboardSelfTest,15000);
 
 })();
 </script>

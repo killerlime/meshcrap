@@ -1,6 +1,6 @@
 """Reject common accidental state/credential additions to the outgoing Git tree."""
 from pathlib import Path
-import re,subprocess,sys,hashlib
+import re,subprocess,sys,hashlib,json
 
 root=Path(__file__).resolve().parents[1]
 result=subprocess.run(['git','ls-files','-z','--cached','--others','--exclude-standard'],cwd=root,capture_output=True,check=True)
@@ -12,6 +12,17 @@ for name in result.stdout.decode().split('\0'):
     if any(part in ('data','.runtime','.venv','backups','snapshots') for part in p.relative_to(root).parts):errors.append(name+': private state directory')
     if p.suffix.lower() in ('.db','.sqlite','.sqlite3','.pem','.key','.dpapi','.jks','.keystore','.apk','.aab'):errors.append(name+': private state or binary artifact')
     raw=p.read_bytes()
+    vendor=root/'source/dashboard/static/vendor'
+    if p.is_relative_to(vendor) and p.name!='manifest.json':
+        manifest=json.loads((vendor/'manifest.json').read_text())
+        entry=manifest.get(p.relative_to(vendor).as_posix(),{})
+        if hashlib.sha256(raw).hexdigest()!=entry.get('sha256'):errors.append(name+': vendor checksum mismatch')
+        continue
+    assets=root/'source/dashboard/static/app-assets'
+    if p.is_relative_to(assets) and p.suffix=='.png':
+        manifest=json.loads((assets/'asset-checksums.json').read_text())
+        if hashlib.sha256(raw).hexdigest()!=manifest.get(p.name):errors.append(name+': app icon checksum mismatch')
+        continue
     try:text=raw.decode('utf-8')
     except UnicodeDecodeError:errors.append(name+': unreviewed binary file');continue
     if name==str(Path(__file__).relative_to(root)).replace('\\','/'):continue

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from flask import Flask, render_template, jsonify, request, g
+from flask import Flask, render_template, jsonify, request, g, send_from_directory
 import sqlite3
 import subprocess
 import time
@@ -24,6 +24,17 @@ def optional_features():
 
 
 DB = Path("@@DATA_DIR@@/mesh.db")
+
+@app.get('/install')
+def install_app():
+    return render_template('install.html')
+
+@app.get('/service-worker.js')
+def service_worker():
+    response=send_from_directory(app.static_folder, 'service-worker.js')
+    response.headers['Cache-Control']='no-cache'
+    return response
+
 
 
 def db():
@@ -2518,7 +2529,10 @@ def rf_health_hourly():
 
 
 
+from health_cache import shared_health_check
+
 @app.route("/api/self-test")
+@shared_health_check(seconds=5)
 def dashboard_self_test():
     import subprocess
     from datetime import datetime, timezone
@@ -2804,8 +2818,10 @@ if __name__ == "__main__":
     # Use the supplied service manager restart policy; no host-specific watchdog.
 
 
-    app.run(
-        host="@@BIND_HOST@@",
-        port=@@WEB_PORT@@,
-        debug=False
-    )
+    from waitress import serve
+    serve(app, host="@@BIND_HOST@@", port=@@WEB_PORT@@,
+          threads=4, connection_limit=100, channel_timeout=30,
+          max_request_body_size=65536, max_request_header_size=16384,
+          # LocalHTTPSProxy alone validates loopback + exact configured host.
+          # Waitress must preserve headers for that existing trust boundary.
+          clear_untrusted_proxy_headers=False, ident='')

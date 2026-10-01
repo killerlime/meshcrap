@@ -1,0 +1,78 @@
+{
+  "chart-4.5.1.js": {
+    "source": "https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js",
+    "sha256": "48444a82d4edcb5bec0f1965faacdde18d9c17db3063d042abada2f705c9f54a"
+  },
+  "Chart-LICENSE.md": {
+    "source": "https://cdn.jsdelivr.net/npm/chart.js@4.5.1/LICENSE.md",
+    "sha256": "41a84aa2caba645f966a18d9c2056b73e6d3a81d80bc0046bc0011a2634d4cce"
+  },
+  "leaflet-1.9.4.js": {
+    "source": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+    "sha256": "db49d009c841f5ca34a888c96511ae936fd9f5533e90d8b2c4d57596f4e5641a"
+  },
+  "leaflet-1.9.4.css": {
+    "source": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+    "sha256": "a7837102824184820dfa198d1ebcd109ff6d0ff9a2672a074b9a1b4d147d04c6"
+  },
+  "Leaflet-LICENSE": {
+    "source": "https://unpkg.com/leaflet@1.9.4/LICENSE",
+    "sha256": "53e8dc25862014e4324741ca18fbe3611e11d42ef69f59f86ea8c5389647d4cb"
+  },
+  "images/layers.png": {
+    "source": "https://unpkg.com/leaflet@1.9.4/dist/images/layers.png",
+    "sha256": "1dbbe9d028e292f36fcba8f8b3a28d5e8932754fc2215b9ac69e4cdecf5107c6"
+  },
+  "images/layers-2x.png": {
+    "source": "https://unpkg.com/leaflet@1.9.4/dist/images/layers-2x.png",
+    "sha256": "066daca850d8ffbef007af00b06eac0015728dee279c51f3cb6c716df7c42edf"
+  },
+  "images/marker-icon.png": {
+    "source": "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+    "sha256": "574c3a5cca85f4114085b6841596d62f00d7c892c7b03f28cbfa301deb1dc437"
+  },
+  "images/marker-icon-2x.png": {
+    "source": "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+    "sha256": "00179c4c1ee830d3a108412ae0d294f55776cfeb085c60129a39aa6fc4ae2528"
+  },
+  "images/marker-shadow.png": {
+    "source": "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+    "sha256": "264f5c640339f042dd729062cfc04c17f8ea0f29882b538e3848ed8f10edb4da"
+  },
+  "font-0.ttf": {
+    "source": "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf",
+    "sha256": "1b08e7fc267a5c7e1d614100f604b83e7e8a0be241f0f288faa2b3ac93a683ba"
+  },
+  "font-1.ttf": {
+    "source": "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fMZg.ttf",
+    "sha256": "8c883f63b2c4157d997319f2c8bc6995ed4357ef371940d31ca159004a4aae63"
+  },
+  "font-2.ttf": {
+    "source": "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf",
+    "sha256": "e7a1aaf7eda9f2fad4131725fa556265ec75ca7b2d756260173a040363e8d4f7"
+  },
+  "font-3.ttf": {
+    "source": "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf",
+    "sha256": "b37284b5701b6b168dfc770aa1a4ac492106422fd3ba76bc7641e37434e8019c"
+  },
+  "font-4.ttf": {
+    "source": "https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxjPQ.ttf",
+    "sha256": "44ce4a84f20d60f24539bd0cef11f79c29e38609e0f8adf18551c9794a5d9dc3"
+  },
+  "font-5.ttf": {
+    "source": "https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8-qxjPQ.ttf",
+    "sha256": "3386a05f6ece969e4537de6be894170d20558e82f7d56c8c5d332972ef172160"
+  },
+  "fonts.css": {
+    "source": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+    "sha256": "a7cfad00c40ef6406fbae44d020b4cab1b5bae740b44a04353270b32a446a6d1"
+  },
+  "Inter-OFL.txt": {
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/OFL.txt",
+    "sha256": "5b9321a4298cfeb6b34354164a1c3afc3db114569984c502b9b35d988fd58c57"
+  },
+  "JetBrainsMono-OFL.txt": {
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/jetbrainsmono/OFL.txt",
+    "sha256": "b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d"
+  }
+}

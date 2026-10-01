@@ -21,5 +21,5 @@
    card.dataset.stale=String(w.stale);
   }catch(e){status.textContent='Weather feed unavailable · displayed values may be out of date';card.dataset.stale='true';}
  }
- update();setInterval(update,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)update();});
+ MeshcrapPoll.watch('hqWeather',update,60000);
 })();

@@ -21,5 +21,7 @@ jobs:
       - run: python tests/smoke.py
       - run: python tests/feed_policy.py
       - run: python tests/role_comparison.py
+      - run: python tests/efficiency.py
+      - run: node tests/visible-poll.cjs
       - run: python tests/frontend.py
       - run: python tests/privacy_check.py

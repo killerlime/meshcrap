@@ -1,8 +1,16 @@
 # Meshcrap
 
+> **Mesh + CRAP — CuriousityReportingAndPossibilties**
+>
+> **Curiousity. Reporting. And Possibilties.** Explore what your mesh is doing, report what you observe, and investigate what might be possible.
+
 A private Meshtastic receiver console: collect packets into SQLite, see what your radio is hearing, explore nodes and messages, map demonstrated coverage, and compare LNA test periods.
 
 This is a portable extraction of a working personal installation. It starts with an **empty database**, a **loopback-only dashboard**, and **no radio connection**. Set your own receiver, location and regions before collecting. No original node history, messages, credentials, ownership badges or home-network configuration are included.
+
+## Work in progress — contributions welcome
+
+Meshcrap is a community project in active development. Expect rough edges and help make it better: report bugs, test your device or VM host, improve the interface and documentation, or send a pull request. See [CONTRIBUTING.md](CONTRIBUTING.md) for a safe way to get started and the checks to run. VM formats are experimental; consult the build results and [verification limits](deploy/vm/README.md) before relying on them.
 
 ## What is included
 
@@ -24,6 +32,10 @@ Use Linux with Python 3.11 or newer, SQLite with JSON support, and a Meshtastic 
 
 Serial/USB radio transport is not implemented in this release. A USB-attached radio needs a separately configured TCP bridge. Hardware-specific display power controls, the original second-radio relay, automatic PKI polling and host network switching are not included as working integrations. Their dashboard entry points may report unavailable. They do not run automatically. Potato feeding is a separate opt-in integration described below.
 
+## Try it before installing
+
+[Open the interactive demo](https://killerlime.github.io/meshcrap/). Choose a city or coordinates and explore fictional nodes, maps, activity, messages and what-if insights. All data is simulated; this is not a real coverage forecast.
+
 ## Quick start
 
 ```sh
@@ -32,10 +44,11 @@ cd meshcrap
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements.txt
-cp config.example.json config.json
-python meshcrap.py init
+python meshcrap.py setup
 python meshcrap.py serve
 ```
+
+Prefer JSON? Copy `config.example.json` to `config.json`, edit it, and run `python meshcrap.py init` instead. Both paths use the same validation and configuration format. The wizard backs up an existing configuration before replacing it; it never starts the radio or sends data. Press Enter through the defaults for an empty local dashboard.
 
 Open **http://127.0.0.1:8080** on that computer. This is a real empty installation, not a bundled sample of someone else's mesh.
 
@@ -164,3 +177,19 @@ PKI probing has been removed; historical observations remain readable. The Funny
 ## Portable identity update
 
 The survey companion now uses the application ID `org.meshcrap.survey`. It installs separately from earlier personal builds and needs its own one-time pairing. Browser preferences and trust cookies also use the Meshcrap identity; unlock the new browser session once. Published download filenames use the `meshcrap-survey` prefix. Existing local databases are not modified by this source cleanup.
+
+## Browser efficiency and server runtime
+
+The dashboard uses Waitress with one process and four request threads. Reinstall requirements when updating; the existing `serve` command and service files stay the same. HTTPS forwarding is recognized only by the existing loopback/exact-host middleware, never arbitrary forwarded headers.
+
+Chart.js 4.5.1, Leaflet 1.9.4 and the interface fonts are bundled with licenses and checksums. Only map tiles and explicitly configured integrations need external services. Health checks share a result for at most five seconds per process; the original check timestamp remains visible on hover. Mobile controls, weather and detailed health refresh only while displayed, immediately refreshing when reopened. The radio collector, packet retention and survey request cadence are unchanged.
+
+## iPhone and VM options
+
+On iPhone, open your private HTTPS dashboard in Safari and use Share → Add to Home Screen. The dashboard's Install on iPhone link walks through it. This version provides dashboard and controls; Bluetooth surveys remain Android-only. No Mac or App Store account is needed.
+
+VM builds are available through the **Build VM appliances** GitHub Actions workflow. See [VM setup and formats](deploy/vm/README.md) for VHDX, QCOW2, VMDK and OVA instructions, hardware requirements and verification limits.
+
+## Thanks, MSPmesh
+
+Thank you to the entire **MSPmesh community** for your help, guidance, support, knowledge, and friendships—and for being good people. This project is better because of you.

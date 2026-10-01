@@ -106,8 +106,11 @@ def render(config,data):
         AREA_OPTIONS=''.join('<option value="'+k+'">'+html.escape(v['name'])+'</option>' for k,v in config['regions'].items()),
         CHANNEL_OPTIONS=''.join('<option value="'+k+'">'+html.escape(v)+'</option>' for k,v in config['channels'].items()))
     for source in (ROOT/'source').rglob('*'):
-        if not source.is_file():continue
+        if not source.is_file() or '__pycache__' in source.parts or source.suffix in ('.pyc','.pyo'):continue
         target=runtime/source.relative_to(ROOT/'source');target.parent.mkdir(parents=True,exist_ok=True)
+        if any(part in ('vendor','app-assets') for part in source.relative_to(ROOT/'source').parts):
+            stage=target.with_name(target.name+'.tmp');stage.write_bytes(source.read_bytes());stage.replace(target)
+            continue
         text=source.read_text(encoding='utf-8')
         def substitute(match):
             if match[1] not in tokens:raise ValueError('Unknown source token: '+match[1])
@@ -156,8 +159,17 @@ def _initialize(config,data):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config',default=str(ROOT/'config.json'))
-    parser.add_argument('command',choices=('init','serve','collect','check','feed'))
+    parser.add_argument('command',choices=('setup','init','serve','collect','check','feed'))
     args=parser.parse_args()
+    if args.command=='setup':
+        from setup_wizard import configure
+        if not configure(args.config,json.loads((ROOT/'config.example.json').read_text()),load_config):return
+        config,data=load_config(args.config)
+        initialize(config,data)
+        print(f'Ready. Run: python meshcrap.py --config "{Path(args.config).resolve()}" serve')
+        print(f'Then open http://127.0.0.1:{config["web_port"]}')
+        print('To receive packets, run the collect command separately after configuring a radio.')
+        return
     config,data=load_config(args.config)
     if args.command=='collect' and (not config['radio_host'] or int(config['receiver_id'][1:],16) in (0,0xffffffff)):
         raise ValueError('Set radio_host and the actual receiver_id before starting collection')

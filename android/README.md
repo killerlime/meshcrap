@@ -1,5 +1,9 @@
 # Meshcrap Survey — private Android test build
 
+**CRAP = CuriousityReportingAndPossibilties**
+
+The survey companion brings that curiosity into the field: collect observations, report survey results, and explore your mesh.
+
 Connects directly to a paired configured Meshtastic radio over Bluetooth during a coverage survey. Disconnect the Meshtastic app first. Android 8 or later is required.
 
 Open your collector's `/survey-companion` page over private HTTPS for the APK and pairing instructions. Start a survey on the website, connect the radio, verify its identity and channel, then send one manually selected test traceroute. Automatic requests require that test to succeed.

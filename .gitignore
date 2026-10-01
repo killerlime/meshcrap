@@ -34,3 +34,6 @@ local.properties
 .gradle/
 build/
 dist/
+
+config.json.backup-*
+.meshcrap-setup-*

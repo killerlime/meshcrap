@@ -1,0 +1,13 @@
+#!/bin/bash
+set -euo pipefail
+if [ "$(id -u)" != 0 ]; then echo 'Run sudo meshcrap-setup from the VM console.'; exit 1; fi
+cd /opt/meshcrap
+echo 'Addresses assigned to this VM:'
+hostname -I
+echo 'Choose private-network access in the wizard to open the dashboard from another device.'
+runuser -u meshcrap -- .venv/bin/python meshcrap.py setup
+if [ ! -f config.json ]; then exit 0; fi
+systemctl enable --now meshcrap-dashboard
+echo 'Dashboard service started. Radio collection remains off.'
+read -r -p 'Start radio collection now? Only choose yes after configuring its host and node ID. [y/N] ' answer
+if [ "$answer" = y ]; then systemctl enable --now meshcrap-collector; fi
