@@ -23,7 +23,12 @@ final class Outbox extends SQLiteOpenHelper {
             while(c.moveToNext())result.put(new JSONObject(c.getString(0)));
         }return result;
     }
-    synchronized void acknowledge(JSONArray ids){SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
+    synchronized void acknowledge(JSONArray ids,JSONArray submitted)throws Exception {
+        java.util.Set<String> sent=new java.util.HashSet<>();java.util.List<String> accepted=new java.util.ArrayList<>();
+        for(int i=0;i<submitted.length();i++)sent.add(submitted.getJSONObject(i).getString("id"));
+        for(int i=0;i<ids.length();i++)accepted.add(ids.getString(i));
+        SurveyRules.validateAcknowledgments(sent,accepted);
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
         for(int i=0;i<ids.length();i++)db.delete("outbox","id=?",new String[]{ids.optString(i)});db.setTransactionSuccessful();
     }finally{db.endTransaction();}}
 }

@@ -3750,7 +3750,7 @@ function renderSurveyRoute(s) {
 }
 function renderSurvey(d) {
     surveyData=d||{};
-    const active=d?.active?.area_id===coverageArea?d.active:null, recent=(d?.recent||[]).filter(r=>(r.area_id||'home')===coverageArea);
+    const active=(d?.active?.area_id==='roaming'||d?.active?.area_id===coverageArea)?d.active:null, recent=(d?.recent||[]).filter(r=>r.area_id==='roaming'||(r.area_id||'home')===coverageArea);
     const selected=document.getElementById('surveyHistory')?.value;
     const s=active || recent.find(r=>String(r.survey_id)===selected) || recent[0];
     const start=document.getElementById('surveyStart'),stop=document.getElementById('surveyStop');
@@ -3773,8 +3773,8 @@ function renderSurvey(d) {
     if(!s)return;
     const cards=[['Survey',s.active?'Recording':'Completed'],['Probe',(s.probe_nodes||[]).join(', ')||'Waiting for a travelling local node'],
         ['GPS samples',s.gps_samples||0],['Observed distance',Number(s.distance_miles||0).toFixed(1)+' mi'],
-        ['Cells visited',s.cells_visited||0],['Proven this outing',s.cells_proven_this_survey||0],
-        ['Newly proven cells',s.new_coverage_cells||0],['Stale cells refreshed',s.stale_cells_refreshed||0]];
+        ['Cells visited',s.area_id==='roaming'?'Not grid-limited':s.cells_visited||0],['Proven this outing',s.area_id==='roaming'?'Not inferred from GPS':s.cells_proven_this_survey||0],
+        ['Newly proven cells',s.area_id==='roaming'?'—':s.new_coverage_cells||0],['Stale cells refreshed',s.area_id==='roaming'?'—':s.stale_cells_refreshed||0]];
     const traceRows=(s.phone?.traces||[]).map(t=>{
         const node=id=>Number(id)===4294967295?'Unknown relay (!ffffffff)':(s.phone?.names?.[id]||'!'+Number(id).toString(16).padStart(8,'0'));
         const path=(ids)=>ids.map(node).join(' → ');
@@ -3783,7 +3783,11 @@ function renderSurvey(d) {
     }).join('');
     live.innerHTML=cards.map(([label,value])=>`<div class="noc-record"><div class="muted">${esc(label)}</div><div class="value">${esc(String(value))}</div></div>`).join('')+
         `<div class="muted" style="grid-column:1/-1">${esc(s.contribution_note||'')}<br>Phone survey: ${esc(s.traceroute_status||'Phone not connected')}. ${Number(s.phone?.successes||0)} successful routes from ${Number(s.phone?.trace_count||0)} recorded requests. Phone GPS is a path record, not proof of radio coverage.</div>`+
+        `<button id="surveyFitRoute" type="button" style="min-height:44px">Fit recorded route</button>`+
         (traceRows?`<details style="grid-column:1/-1;min-width:0"><summary>Phone traceroute results</summary><div style="overflow:auto"><table><thead><tr><th>Route</th><th>Outcome</th><th>Channel</th><th>Time</th><th>Observed path</th></tr></thead><tbody>${traceRows}</tbody></table></div><p class="muted">Latest 100 requests from the most recent 5,000 phone records. Unknown relays remain unknown. Complete records are retained separately.</p></details>`:'');
+    const routePoints=(s.routes||[]).flatMap(route=>(route.segments||[]).flat());
+    const fitRoute=document.getElementById('surveyFitRoute');fitRoute.disabled=!routePoints.length;
+    fitRoute.onclick=()=>{if(meshMap&&routePoints.length)meshMap.fitBounds(L.latLngBounds(routePoints),{padding:[24,24],maxZoom:15});};
 }
 
 async function loadSurvey() {
@@ -3817,7 +3821,7 @@ async function surveyAction(action) {
         action === "start"
         &&
         !confirm(
-            "Start a coverage survey in the selected area?"
+            "Start a roaming survey? Record your route and results across all grids and outside them."
         )
     )
         return;
@@ -3841,7 +3845,7 @@ async function surveyAction(action) {
                     "application/json"
             },
 
-            body: JSON.stringify({action,area_id:coverageArea})
+            body: JSON.stringify({action})
         }
     );
 
@@ -4357,5 +4361,5 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDas
 .leaflet-interactive[role="button"]:focus-visible{outline:3px solid #fff;outline-offset:3px}
 </style><script src="/static/map-node-hover.js?v=1"></script>
 
-<script src="/static/role-compare.js?v=1"></script><script src="/static/snow-day.js?v=1"></script></body>
+<script src="/static/role-compare.js?v=1"></script><script src="/static/snow-day.js?v=1"></script><script src="/static/receiver-diagnostics.js?v=1"></script></body>
 </html>

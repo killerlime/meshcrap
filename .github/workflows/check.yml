@@ -23,6 +23,9 @@ jobs:
       - run: python tests/role_comparison.py
       - run: python tests/efficiency.py
       - run: python tests/setup_labels.py
+      - run: python tests/heywhatsthat_test.py
+      - run: python tests/receiver_diagnostics_test.py
+      - run: python tests/survey_phone_test.py
       - run: python tests/environment_evidence.py
       - run: python tests/tropo_evidence.py
       - run: python tests/public_weather_cache.py

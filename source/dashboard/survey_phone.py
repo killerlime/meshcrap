@@ -1,7 +1,7 @@
 """Private Android survey uploads, isolated from HQ radio measurements."""
 import hashlib,json,math,secrets,sqlite3,time,uuid
 from pathlib import Path
-from contextlib import contextmanager
+from contextlib import contextmanager,closing
 from datetime import datetime,timezone
 from flask import request,jsonify,g,render_template,send_from_directory
 
@@ -23,7 +23,7 @@ def validate_position(p,now):
     out=dict(lat=lat,lon=lon,time=stamp,source=source)
     if source=='phone_gps':
         accuracy=p.get('accuracy_m')
-        if type(accuracy) not in (int,float) or not math.isfinite(accuracy) or not 0<=accuracy<=100:raise ValueError('Invalid GPS accuracy')
+        if type(accuracy) not in (int,float) or not math.isfinite(accuracy) or not 0<=accuracy<=804.672:raise ValueError('Invalid GPS accuracy')
         out['accuracy_m']=accuracy
     return out
 
@@ -55,7 +55,7 @@ class SurveyPhone:
         with self.db() as db:client=db.execute('SELECT * FROM clients WHERE token_hash=? AND revoked=0',(digest,)).fetchone()
         if not client:return jsonify(error='Phone pairing expired or revoked'),401
         g.survey_phone_client=dict(client)
-        if client['last_seen'] and time.time()-client['last_seen']<2:return jsonify(error='Wait before syncing again'),429
+        if request.path.endswith('/sync') and client['last_seen'] and time.time()-client['last_seen']<2:return jsonify(error='Wait before syncing again'),429
         return None
     def pair(self,https_host):
         token=secrets.token_urlsafe(32)
@@ -92,7 +92,7 @@ class SurveyPhone:
                     if p is not None:
                         clean['position']=validate_position(p,now)
                         reference=event.get('requested_at',stamp)
-                        if type(reference) is not int or not -120<=reference-clean['position']['time']<=300:raise ValueError('Position was not fresh at observation')
+                        if type(reference) is not int or not -120<=reference-clean['position']['time']<=3600:raise ValueError('Position was not fresh at observation')
                     if kind=='position':
                         if p is None:raise ValueError('Missing position')
                         if survey['ended_at'] and stamp>epoch(survey['ended_at'])+30:raise ValueError('Position outside survey')
@@ -104,6 +104,16 @@ class SurveyPhone:
                         status=event.get('status')
                         if status not in ('requested','success','late_success','timeout','routing_error','transport_error','stopped'):raise ValueError('Unknown result status')
                         clean.update(destination=dest,requested_at=at,packet_id=integer(event.get('packet_id'),1,0xffffffff),channel=integer(event.get('channel'),0,7),status=status,test=event.get('test') is True)
+                        target=event.get('destination_position')
+                        if target is not None:
+                            if not isinstance(target,dict):raise ValueError('Invalid destination position')
+                            position=validate_position(dict(target,source='radio_position'),now)
+                            position['source']=integer(target.get('source'),0,3)
+                            position['precision_bits']=integer(target.get('precision_bits'),0,32)
+                            position['last_heard']=integer(target.get('last_heard'),1,int(now+120))
+                            if not 0<=at-position['time']<=(86400 if position['source']==1 else 300):raise ValueError('Stale destination position')
+                            if not 0<=at-position['last_heard']<=900:raise ValueError('Destination not recently heard')
+                            clean['destination_position']=position
                         details=event.get('details',{})
                         if not isinstance(details,dict):raise ValueError('Invalid response details')
                         if status in ('success','late_success'):
@@ -130,8 +140,43 @@ class SurveyPhone:
                 db.execute('UPDATE clients SET last_seen=?,status=? WHERE id=?',(now,json.dumps(status),client['id']))
             from coverage_areas import AREAS
             return jsonify(ok=True,accepted=[e['id'] for e in normalized],survey_id=active['survey_id'] if active else 0,
-                           area_name=AREAS[active['area_id']]['name'] if active else '',lease_seconds=30 if source in known and status['ready'] else 0)
+                           phone_controls=True,
+                           area_name=('Roaming survey' if active['area_id']=='roaming' else AREAS[active['area_id']]['name']) if active else '',lease_seconds=30 if source in known and status['ready'] else 0)
         except (ValueError,TypeError,KeyError,AttributeError,OverflowError) as e:return jsonify(error=str(e)),400
+    def control(self):
+        """Survey-only controls; replay protection is committed with the survey change."""
+        from coverage_areas import AREAS
+        data=request.get_json(silent=True)
+        try:
+            if not isinstance(data,dict):raise ValueError('Expected object')
+            command=str(uuid.UUID(data.get('id','')))
+            action=data.get('action')
+            if action not in ('start','stop'):raise ValueError('Choose start or stop')
+            area='roaming'
+            wanted=integer(data.get('survey_id',0),0,2147483647)
+            payload=json.dumps(dict(action=action,area_id=area,survey_id=wanted),sort_keys=True)
+            with closing(sqlite3.connect(self.mesh,timeout=5)) as db, db:
+                db.row_factory=sqlite3.Row
+                db.execute('BEGIN IMMEDIATE')
+                db.execute('CREATE TABLE IF NOT EXISTS survey_phone_commands(id TEXT PRIMARY KEY,client INTEGER NOT NULL,payload TEXT NOT NULL,result TEXT NOT NULL)')
+                old=db.execute('SELECT * FROM survey_phone_commands WHERE id=?',(command,)).fetchone()
+                if old:
+                    if old['client']!=g.survey_phone_client['id'] or old['payload']!=payload:raise ValueError('Conflicting command identifier')
+                    return jsonify(json.loads(old['result']))
+                active=db.execute('SELECT * FROM coverage_surveys WHERE ended_at IS NULL ORDER BY survey_id DESC LIMIT 1').fetchone()
+                now=datetime.now(timezone.utc).isoformat()
+                row=db.execute('SELECT coalesce(max(row_id),0) FROM packets').fetchone()[0]
+                if action=='start':
+                    if active:return jsonify(error='A survey is already active. Refresh before starting another.'),409
+                    survey=db.execute('INSERT INTO coverage_surveys(started_at,start_row_id,area_id) VALUES(?,?,?)',(now,row,area)).lastrowid
+                else:
+                    if not active or active['survey_id']!=wanted:return jsonify(error='The active survey changed. Refresh before ending it.'),409
+                    survey=wanted
+                    db.execute('UPDATE coverage_surveys SET ended_at=?,end_row_id=? WHERE survey_id=?',(now,row,survey))
+                result=dict(ok=True,action=action,survey_id=survey)
+                db.execute('INSERT INTO survey_phone_commands VALUES(?,?,?,?)',(command,g.survey_phone_client['id'],payload,json.dumps(result)))
+            return jsonify(result)
+        except (ValueError,TypeError,AttributeError):return jsonify(error='Invalid survey command'),400
     def report(self,survey_id):
         with self.db() as db:
             # Bound the response; all original records remain in the separate phone database.
@@ -189,4 +234,8 @@ def register_survey_phone(app,root='@@DATA_DIR@@'):
     def sync():
         if not hasattr(g,'survey_phone_client'):return jsonify(error='Phone authentication required'),401
         return phone.sync()
+    @app.post('/api/survey-phone/control')
+    def control():
+        if not hasattr(g,'survey_phone_client'):return jsonify(error='Phone authentication required'),401
+        return phone.control()
     return phone

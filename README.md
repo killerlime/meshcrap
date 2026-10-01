@@ -26,7 +26,7 @@ Meshcrap is a community project in active development. Expect rough edges and he
 - Expanded recent-node details and one-time phone pairing with optional 30-day browser trust.
 - Optional authenticated radio controls through the collector's existing connection.
 - Optional Weather Underground display, configured with your own station and key.
-- Android Bluetooth survey companion source. Automatic traceroutes require a successful manual test first, then use one outstanding request, two-minute minimum spacing and a two-minute timeout.
+- Android Bluetooth survey companion source. Automatic traceroutes start after you explicitly enable surveying, with one outstanding request, 30-second minimum spacing and a 30-second timeout.
 
 The Android companion is a **test build**: compilation and software tests are verified; real-phone Bluetooth/radio testing remains necessary. The dashboard does not claim that a phone GPS point proves RF coverage.
 
@@ -120,8 +120,8 @@ Install `app/build/outputs/apk/debug/app-debug.apk` on an Android 8+ phone. Debu
 1. Open `/survey-companion` on your collector through its private HTTPS hostname.
 2. Unlock dashboard controls and generate a phone pairing code. Paste it into the app; it includes your configured local-node prefix.
 3. Disconnect Meshtastic's Bluetooth connection to the radio, then connect the survey app to that already-paired radio.
-4. Start a website coverage survey. Confirm the radio identity and channel in the app.
-5. Complete one successful manual traceroute before enabling automatic nearby-node requests.
+4. Confirm the radio identity. Slot 0 is the default; an explicit channel choice is remembered for that radio.
+5. Tap **Start survey** in Android. This starts a roaming survey and automatic nearby-node requests when ready. No area selection or manual traceroute is required. Routes and results are retained outside every configured grid.
 
 Stop releases Bluetooth so Meshtastic can reconnect. Collector authorization expires within 30 seconds of lost connectivity. Results queue locally and upload idempotently when connected; unknown relay IDs remain unknown. The current request hop limit is three.
 

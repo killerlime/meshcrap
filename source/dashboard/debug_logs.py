@@ -29,11 +29,26 @@ def register_debug_logs(app,root=Path('@@DATA_DIR@@')):
         level=request.args.get('level','all')
         try:limit=int(request.args.get('limit','200'))
         except ValueError:return jsonify(error='Invalid line limit'),400
-        if service not in (*SERVICES,'all') or window not in WINDOWS or level not in ('all','warning') or limit not in (100,200,500):
+        if service not in (*SERVICES,'all','receiver') or window not in WINDOWS or level not in ('all','warning') or limit not in (100,200,500):
             return jsonify(error='Invalid log selection'),400
         if not slots.acquire(blocking=False):
             return jsonify(error='Log viewer is busy. Retry shortly.'),503
         try:
+            if service == 'receiver':
+                from receiver_diagnostics import remote_read
+                query = dict(action='logs', window=window, level=level, limit=limit)
+                if request.args.get('before'): query['before'] = request.args['before']
+                try: data = remote_read(root, query)
+                except RuntimeError: return jsonify(error='Receiver logs are unavailable. Check its SSH connection.'),503
+                secrets=[]
+                for name in ('potato-feed/api-token','.node-control-key'):
+                    try: secrets.append((root/name).read_text().strip())
+                    except OSError: pass
+                for entry in data.get('entries',[]):
+                    message = entry.get('message','')
+                    entry['truncated'] = bool(entry.get('truncated') or len(message)>4000)
+                    entry['message'] = scrub(message, secrets)
+                return jsonify(data)
             command=['journalctl','--no-pager','--quiet','--output=json',
                      '--output-fields=MESSAGE,__REALTIME_TIMESTAMP,PRIORITY,_SYSTEMD_UNIT',
                      '--lines='+str(limit),'--since='+WINDOWS[window]]
