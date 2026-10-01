@@ -7,8 +7,15 @@
   "enable_radio_controls": false,
   "bind_host": "127.0.0.1",
   "web_port": 8080,
-  "trusted_hosts": ["localhost", "127.0.0.1", "::1"],
-  "allowed_networks": ["127.0.0.0/8", "::1/128"],
+  "trusted_hosts": [
+    "localhost",
+    "127.0.0.1",
+    "::1"
+  ],
+  "allowed_networks": [
+    "127.0.0.0/8",
+    "::1/128"
+  ],
   "https_host": "",
   "timezone": "UTC",
   "node_prefix": "MY",
@@ -18,17 +25,28 @@
   "enable_potato": false,
   "potato_url": "",
   "potato_channel_slot": 0,
-  "potato_types": ["TEXT_MESSAGE_APP"],
+  "potato_types": [
+    "TEXT_MESSAGE_APP"
+  ],
   "weather_station": "",
   "initial_lna_state": "UNKNOWN",
   "regions": {
     "home": {
       "name": "Home area (configure location)",
-      "bounds": [-0.1, 0.1, -0.1, 0.1],
+      "bounds": [
+        -0.1,
+        0.1,
+        -0.1,
+        0.1
+      ],
       "cell_miles": 1.0,
       "accent": "#45d68c",
       "tagline": "Your coverage region"
     }
   },
-  "channels": {"0": "Primary", "1": "Secondary"}
+  "channels": {
+    "0": "Primary",
+    "1": "Secondary"
+  },
+  "app_title": "Meshcrap RF Console"
 }

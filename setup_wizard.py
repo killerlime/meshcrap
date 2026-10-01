@@ -28,10 +28,15 @@ def configure(path, defaults, validate, ask=input):
                 pass
             print('Please enter a valid value.')
 
+    config['app_title'] = field('App title', defaults.get('app_title','Meshcrap RF Console'), lambda v: 1 <= len(v) <= 80 and not any(ord(c)<32 for c in v))
     config['data_dir'] = field('Data folder', './data')
     config['web_port'] = field('Dashboard port', 8080, lambda v: 1 <= v <= 65535, int)
-    if ask('Configure a TCP radio now? [y/N] ').strip().lower() == 'y':
-        config['radio_host'] = field('Radio hostname or IP', '', lambda v: bool(re.fullmatch(r'[A-Za-z0-9_.:\-]+', v)))
+    if ask('Configure a radio connection now? [y/N] ').strip().lower() == 'y':
+        connection=field('Connection: direct radio or Raspberry Pi TCP bridge (direct/pi)', 'direct', lambda v: v in ('direct','pi'))
+        if connection=='pi':
+            print('Use your Pi running an existing TCP radio bridge. SSH credentials are not required or stored.')
+            print('The wizard configures this app; it does not install a bridge or change the Pi.')
+        config['radio_host'] = field('Raspberry Pi bridge hostname or IP' if connection=='pi' else 'Radio hostname or IP', '', lambda v: bool(re.fullmatch(r'[A-Za-z0-9_.:\-]+', v)))
         config['radio_port'] = field('Radio port', 4403, lambda v: 1 <= v <= 65535, int)
         config['receiver_id'] = field('Receiver ID (! plus 8 hex digits)', '', lambda v: bool(re.fullmatch(r'![0-9a-fA-F]{8}', v)) and int(v[1:],16) not in (0,0xffffffff)).lower()
     if ask('Customize display labels? [y/N] ').strip().lower() == 'y':

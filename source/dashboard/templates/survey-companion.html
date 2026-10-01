@@ -4,7 +4,7 @@
 <p class="notice">Test build 0.2.0 · clearer setup and survey controls. Software checks have run; the Bluetooth connection still needs verification on your phone and radio. Automatic traceroutes start disabled.</p>
 <section><h2>1. Install the private survey app</h2>
 {% if apk_available %}<p><a href="/survey-companion/meshcrap-survey-test.apk">Download Meshcrap Survey APK</a></p>{% else %}<p>Build the Android project included in this repository and install its APK on your phone. See the repository README for build and optional download-hosting instructions.</p>{% endif %}
-<p>Use Android 8 or later. Tailscale must be connected with access to this collector. The app connects directly to an already-paired radio: disconnect the Meshtastic app from that radio first.</p></section>
+<p>Use Android 8 or later. Your phone must have access to this collector over trusted HTTPS (for example, through your own Tailscale connection). The app connects directly to an already-paired radio: disconnect the Meshtastic app from that radio first.</p></section>
 <section><h2>Back for another outing?</h2><p>Open Meshcrap Survey, leave the saved pairing in place, and connect your radio. Start a survey on the dashboard. You do not need another pairing code.</p><p>Your phone keeps its pairing encrypted through app restarts, phone reboots, and app updates. Pair again only after clearing app data, reinstalling, or replacing/revoking its access.</p><a href="/">Open dashboard →</a></section>
 <section><h2>2. Pair once with your collector</h2>
 <p>Open <a href="https://{{ https_host }}/survey-companion">this private HTTPS setup page</a>, use the Unlock button below with your existing dashboard control key. The pairing code is for survey uploads only; it is not a radio admin key.</p>

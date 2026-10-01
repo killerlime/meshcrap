@@ -138,20 +138,20 @@ public final class SurveyService extends Service implements MeshBle.Listener {
     private static JSONArray unsignedArray(List<Integer> values){JSONArray a=new JSONArray();for(int v:values)a.put(unsigned(v));return a;}
     private final LocationListener locationListener=new LocationListener(){public void onLocationChanged(Location location){if(!(Build.VERSION.SDK_INT>=31?location.isMock():location.isFromMockProvider()))phoneLocation=location;}};
     private JSONObject position(){try{
+        if(phoneLocation!=null&&phoneLocation.hasAccuracy()&&phoneLocation.getAccuracy()>=0&&phoneLocation.getAccuracy()<=100&&SystemClock.elapsedRealtimeNanos()>=phoneLocation.getElapsedRealtimeNanos()&&SystemClock.elapsedRealtimeNanos()-phoneLocation.getElapsedRealtimeNanos()<120_000_000_000L&&SurveyRules.fresh(phoneLocation.getTime()/1000,epoch(),120)&&SurveyRules.validPosition(phoneLocation.getLatitude(),phoneLocation.getLongitude()))
+            return new JSONObject().put("lat",phoneLocation.getLatitude()).put("lon",phoneLocation.getLongitude()).put("time",phoneLocation.getTime()/1000).put("source","phone_gps").put("accuracy_m",phoneLocation.getAccuracy());
         var node=nodes.get(own);if(node!=null&&node.hasPosition()){
             var p=node.getPosition();double lat=p.getLatitudeI()*1e-7,lon=p.getLongitudeI()*1e-7;
             if(SurveyRules.validPosition(lat,lon)&&SurveyRules.fresh(unsigned(p.getTime()),epoch(),300))return new JSONObject().put("lat",lat).put("lon",lon).put("time",unsigned(p.getTime())).put("source","radio_position");
         }
-        if(phoneLocation!=null&&phoneLocation.hasAccuracy()&&phoneLocation.getAccuracy()<=100&&SystemClock.elapsedRealtimeNanos()-phoneLocation.getElapsedRealtimeNanos()<120_000_000_000L&&SurveyRules.validPosition(phoneLocation.getLatitude(),phoneLocation.getLongitude()))
-            return new JSONObject().put("lat",phoneLocation.getLatitude()).put("lon",phoneLocation.getLongitude()).put("time",phoneLocation.getTime()/1000).put("source","phone_gps").put("accuracy_m",phoneLocation.getAccuracy());
     }catch(Exception ignored){}return null;}
     List<Target> targets(){List<Target> result=new ArrayList<>();JSONObject loc=position();if(loc==null)return result;
         for(var n:nodes.values()){
             if(n.getNum()==own||!SurveyRules.validId(unsigned(n.getNum()))||!n.hasPosition()||!SurveyRules.fresh(unsigned(n.getLastHeard()),epoch(),86400))continue;
             var p=n.getPosition();double lat=p.getLatitudeI()*1e-7,lon=p.getLongitudeI()*1e-7;
-            if(!SurveyRules.validPosition(lat,lon)||!SurveyRules.fresh(unsigned(p.getTime()),epoch(),30*86400))continue;
+            if(!SurveyRules.validPosition(lat,lon)||!SurveyRules.fresh(unsigned(p.getTime()),epoch(),86400))continue;
             double miles=SurveyRules.miles(loc.optDouble("lat"),loc.optDouble("lon"),lat,lon);
-            if(miles<=radius)result.add(new Target(n.getNum(),miles,name(n.getNum())+" · "+id(n.getNum())+" · "+String.format(Locale.ROOT,"%.1f mi",miles)));
+            if(miles<=radius)result.add(new Target(n.getNum(),miles,name(n.getNum())+" · "+id(n.getNum())+" · "+String.format(Locale.ROOT,"~%.1f mi · position %dh old",miles,Math.max(0,epoch()-unsigned(p.getTime()))/3600)));
         }result.sort(Comparator.comparingDouble(t->t.distance));return result;
     }
     String trace(int destination,boolean test){
@@ -172,7 +172,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
                 result(a,"transport_error",null);pending=null;pause("Could not save request cadence; nothing was sent.");return message;
             }
             ble.send(MeshProtos.ToRadio.newBuilder().setPacket(packet).build().toByteArray());
-            message="Requested traceroute to "+name(destination)+"; waiting up to five minutes.";
+            message="Requested traceroute to "+name(destination)+"; waiting up to two minutes. Late replies are still saved.";
         }catch(Exception e){result(a,"transport_error",null);pending=null;pause("Radio request could not be submitted; no automatic retry.");}
         return message;
     }
@@ -223,7 +223,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
                         armed=false;message=next>0?"Survey ready. Choose a test destination, then enable automatic requests.":"Website survey ended; no new requests.";notifyState();}
                     collectorResponding=true;area=reply.optString("area_name","");leaseUntil=clock()+Math.min(SurveyRules.LEASE_MS,Math.max(0,reply.optLong("lease_seconds",0))*1000);
                 }catch(Exception e){collectorResponding=false;leaseUntil=0;pause("Collector response was invalid");}finally{syncing=false;}});
-            }catch(Exception e){h.post(()->{if(!disposed){syncing=false;collectorResponding=false;leaseUntil=0;pause("Collector unavailable. Saved results retained; check Tailscale and pairing.");}});}finally{if(connection!=null)connection.disconnect();connection=null;}});
+            }catch(Exception e){h.post(()->{if(!disposed){syncing=false;collectorResponding=false;leaseUntil=0;pause("Collector unavailable. Saved results retained; check your network connection and pairing.");}});}finally{if(connection!=null)connection.disconnect();connection=null;}});
         }catch(Exception e){syncing=false;leaseUntil=0;pause("Unable to prepare saved results for upload");}
     }
     // Presentation-only state. These reads never send radio requests or change cadence.
@@ -231,13 +231,14 @@ public final class SurveyService extends Service implements MeshBle.Listener {
     boolean uiArmed(){return armed;}
     boolean uiCanTest(){return SurveyRules.maySend(ready,isLocal(),pending!=null,clock(),lastSent,leaseUntil,survey)&&channels.containsKey(channel)&&position()!=null;}
     boolean uiCanArm(){return !armed&&verified&&ready&&isLocal()&&survey>0&&clock()<leaseUntil&&position()!=null;}
+    private String locationLabel(){JSONObject p=position();if(p==null)return "Waiting for a recent position";long age=Math.max(0,epoch()-p.optLong("time"));return ("phone_gps".equals(p.optString("source"))?"Phone GPS ±"+Math.round(p.optDouble("accuracy_m"))+" m":"Radio position · accuracy unknown")+" · "+age+"s old";}
     String[] uiDetails(){
-        long wait=Math.max(0,(120000-(clock()-lastSent)+999)/1000);
-        String next=!ready?"Next: wait for the radio configuration. If it stalls, disconnect and try again.":!collectorResponding?"Next: check Tailscale and your collector pairing.":survey==0?"Next: start a coverage survey on the dashboard.":position()==null?"Next: wait for a recent GPS position; move outside if needed.":!channels.containsKey(channel)?"Next: choose an available radio channel.":pending!=null?"Waiting for a traceroute reply. You can leave the app open or in the background.":wait>0?"Next request available in "+wait+" seconds.":!verified?"Next: send one test traceroute and wait for a successful reply.":!armed?"Ready: start the automatic survey when you are ready.":"Survey running. Nearby nodes are tried one at a time.";
+        long wait=Math.max(0,(SurveyRules.SPACING_MS-(clock()-lastSent)+999)/1000);
+        String next=!ready?"Next: wait for the radio configuration. If it stalls, disconnect and try again.":!collectorResponding?"Next: check your private network connection and collector pairing.":survey==0?"Next: start a coverage survey on the dashboard.":position()==null?"Next: wait for a recent GPS position; move outside if needed.":!channels.containsKey(channel)?"Next: choose an available radio channel.":pending!=null?"Waiting for a reply: "+Math.max(0,(SurveyRules.TIMEOUT_MS-(clock()-pending.elapsed)+999)/1000)+" seconds left. Late replies are still saved.":wait>0?"Next request available in "+wait+" seconds.":!verified?"Next: send one test traceroute and wait for a successful reply.":!armed?"Ready: start the automatic survey when you are ready.":"Survey running. Nearby nodes are tried one at a time.";
         return new String[]{"Radio · "+(own==0?"Connecting…":name(own)+" · "+id(own))+(ready?" · Connected":""),
             "Collector · "+(collectorResponding?"Connected":"Waiting for connection"),
             "Survey · "+(survey==0?"Not started":area+" · #"+survey),
-            "Location · "+(position()==null?"Waiting for a recent position":"Available")+" · "+targets().size()+" nearby nodes",
+            "Location · "+locationLabel()+" · "+targets().size()+" nearby candidates (estimated)",
             "Requests · "+(armed?"Automatic survey running":"Automatic requests paused")+(pending==null?"":" · Waiting for "+name(pending.dest)),
             outbox.count()+" records waiting to upload · "+tried.size()+" nodes tried",
             message,next,"Channel · slot "+channel+" · "+channels.getOrDefault(channel,"Waiting for configuration")};

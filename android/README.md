@@ -8,7 +8,7 @@ Connects directly to a paired configured Meshtastic radio over Bluetooth during 
 
 Open your collector's `/survey-companion` page over private HTTPS for the APK and pairing instructions. Start a survey on the website, connect the radio, verify its identity and channel, then send one manually selected test traceroute. Automatic requests require that test to succeed.
 
-One request is outstanding at a time, with at least two minutes between starts and a five-minute timeout. Nearby destinations require recent observations and a valid position. Automatic requests pause when Bluetooth or collector connectivity is lost; collector authorization expires within 30 seconds. Stop releases Bluetooth. The app uses a three-hop request limit. No radio configuration is written.
+One request is outstanding at a time, with at least two minutes between starts and a two-minute timeout. Nearby destinations require recent observations and a valid position. Automatic requests pause when Bluetooth or collector connectivity is lost; collector authorization expires within 30 seconds. Stop releases Bluetooth. The app uses a three-hop request limit. No radio configuration is written.
 
 Results queue in private storage and upload with a revocable survey-only credential. Phone routes and traceroutes remain separate from HQ RF measurements; a phone GPS point is not proof of RF coverage. Unknown relay IDs are retained. Each destination is attempted once per survey; changing channels requires another successful test.
 

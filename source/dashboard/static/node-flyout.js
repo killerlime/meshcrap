@@ -1,8 +1,8 @@
 (() => {
  const el=(tag,text)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;return e;};
  const requestId=()=>{const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');};
- let generation=0,timer=null;
- window.stopFlyoutRequests=()=>{generation++;clearTimeout(timer);};
+ let generation=0,timer=null,detailMap=null;
+ window.stopFlyoutRequests=()=>{generation++;clearTimeout(timer);if(detailMap){detailMap.remove();detailMap=null;}};
  async function api(path,body,route='node-control'){
   const r=await fetch('/api/'+route+'/'+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,cache:'no-store',signal:AbortSignal.timeout(12000)});
   const d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||'Request failed');return d.data||d;
@@ -21,8 +21,27 @@
    }else card.append(el('p','No '+(key==='position'?'position':'environmental telemetry')+' report stored for this node.'));
    info.after(card);
   }
+  const location=d.details?.position,position=location?.values||{};
+  const latitude=position.latitudeI!=null?Number(position.latitudeI)/1e7:(position.latitude==null?NaN:Number(position.latitude));
+  const longitude=position.longitudeI!=null?Number(position.longitudeI)/1e7:(position.longitude==null?NaN:Number(position.longitude));
+  const mapCard=section('Around this node · 10-mile radius');info.after(mapCard);
+  if(!window.L||!Number.isFinite(latitude)||!Number.isFinite(longitude)||Math.abs(latitude)>90||Math.abs(longitude)>180||(latitude===0&&longitude===0)){
+   mapCard.append(el('p','No valid reported location is available for this node.'));
+  }else{
+   const canvas=el('div');canvas.style.cssText='height:280px;width:100%;border-radius:10px;overflow:hidden';canvas.setAttribute('aria-label','Map showing a ten-mile radius around the last reported node location');mapCard.append(canvas);
+   mapCard.append(el('p','Centered on the last reported position. The circle shows distance, not proven radio coverage.'));
+   const stamp=position.time?Number(position.time)*1000:NaN;
+   mapCard.append(el('p',Number.isFinite(stamp)?'Position reported '+new Date(stamp).toLocaleString():'Position time unknown; this may be an old location.'));
+   requestAnimationFrame(()=>{if(gen!==generation||!canvas.isConnected)return;
+    detailMap=L.map(canvas,{scrollWheelZoom:false}).setView([latitude,longitude],10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(detailMap);
+    const radius=L.circle([latitude,longitude],{radius:16093.44,color:'#45d68c',weight:2,fillOpacity:.08}).addTo(detailMap);
+    L.circleMarker([latitude,longitude],{radius:7,color:'#fff',fillColor:'#45d68c',fillOpacity:1}).addTo(detailMap).bindTooltip(el('span',n.long_name||n.short_name||node));
+    detailMap.fitBounds(radius.getBounds(),{padding:[12,12]});detailMap.invalidateSize();
+   });
+  }
   const actions=section('Request from this node'),status=el('p','Checking control session…');status.setAttribute('role','status');
-  const note=el('p','RF requests use Receiver; Secondary radio node info is read directly through Dell7400. Replies depend on radio reachability and sensor support. Waits stop after 30 seconds; no automatic resend.');note.className='muted';actions.append(note);
+  const note=el('p','RF requests use Receiver; Secondary radio node info is read directly through the configured secondary connection. Replies depend on radio reachability and sensor support. Waits stop after 30 seconds; no automatic resend.');note.className='muted';actions.append(note);
   const unlock=el('form'),key=el('input');key.type='password';key.placeholder='Dashboard control key';key.autocomplete='off';key.setAttribute('aria-label','Flyout control key');const unlockButton=el('button','Unlock controls');unlock.append(key,unlockButton);unlock.hidden=true;actions.append(unlock);
   const settings=el('div');settings.style.cssText='display:flex;gap:12px;flex-wrap:wrap';const channel=el('select'),hops=el('input');hops.type='number';hops.min=0;hops.max=7;hops.value=3;
   for(const [title,input] of [['Request channel',channel],['Request hop limit',hops]]){const l=el('label',title+' ');input.setAttribute('aria-label',title);l.append(input);settings.append(l);}actions.append(settings);

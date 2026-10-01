@@ -244,3 +244,10 @@ CoCoRaHS offers daily precipitation and additional report categories plus a data
 Start with a small official export and existing weather payloads, validate units and interval semantics, then compare against the original reports. Test trace precipitation, a dry day, a missing day, a multi-day total, corrected data, DST transitions and differing observation schedules. Keep host reachability failures distinct from absence of measurements: a station without a responding web page might still upload useful data through its normal service.
 
 No collection changes tonight. Model details, CoCoRaHS station ID, export access and desired retention are questions for a later session.
+
+
+## Implementation status
+
+The first RF-16/RF-17 building block is `source/dashboard/environment_evidence.py`, covered by `tests/environment_evidence.py`. It normalizes supplied ADS-B snapshots and precipitation reports offline, excludes stale or remotely derived positions from its position summary, preserves trace/zero/missing precipitation, rejects non-exact station matches, and handles counter resets. It deliberately does not claim local RF provenance for a network-capable decoder or invent rainfall accumulation intervals.
+
+This module is not yet connected to live polling, storage, graphs1090 RRD exports or the dashboard. Regional weather/ducting models and correlation reports remain pending implementation and validation. API access does not establish redistribution permission. Source contracts: [FlightAware JSON format](https://github.com/flightaware/dump1090/blob/master/README-json.md), [CoCoRaHS API reference](https://api2.cocorahs.org/Help).

@@ -10,6 +10,8 @@ This is a portable extraction of a working personal installation. It starts with
 
 ## Work in progress — contributions welcome
 
+**Experimental software, provided as-is.** Coverage and analysis are observational, not guarantees. Do not rely on Meshcrap for emergency communications or safety-critical decisions. Read the [project notice and operational limits](docs/PROJECT-NOTICE.md) and the applicable [licenses](#licensing).
+
 Meshcrap is a community project in active development. Expect rough edges and help make it better: report bugs, test your device or VM host, improve the interface and documentation, or send a pull request. Future measurement-quality ideas are in the [RF roadmap](docs/RF-ROADMAP.md); these are planning items, not enabled features. See [CONTRIBUTING.md](CONTRIBUTING.md) for a safe way to get started and the checks to run. VM formats are experimental; consult the build results and [verification limits](deploy/vm/README.md) before relying on them.
 
 ## What is included
@@ -22,7 +24,7 @@ Meshcrap is a community project in active development. Expect rough edges and he
 - Expanded recent-node details and one-time phone pairing with optional 30-day browser trust.
 - Optional authenticated radio controls through the collector's existing connection.
 - Optional Weather Underground display, configured with your own station and key.
-- Android Bluetooth survey companion source. Automatic traceroutes require a successful manual test first, then use one outstanding request, two-minute minimum spacing and a five-minute timeout.
+- Android Bluetooth survey companion source. Automatic traceroutes require a successful manual test first, then use one outstanding request, two-minute minimum spacing and a two-minute timeout.
 
 The Android companion is a **test build**: compilation and software tests are verified; real-phone Bluetooth/radio testing remains necessary. The dashboard does not claim that a phone GPS point proves RF coverage.
 
@@ -37,6 +39,8 @@ Serial/USB radio transport is not implemented in this release. A USB-attached ra
 [Open the interactive demo](https://killerlime.github.io/meshcrap/). Choose a city or coordinates and explore fictional nodes, maps, activity, messages and what-if insights. All data is simulated; this is not a real coverage forecast.
 
 ## Quick start
+
+Prefer to build everything yourself? See the [build-from-source guide](docs/BUILDING.md) for the dashboard, Android APK, demo and experimental VM images, including tests and signing notes. Prebuilt downloads are optional.
 
 ```sh
 git clone https://github.com/killerlime/meshcrap.git
@@ -67,6 +71,7 @@ The collector verifies that the connected radio has the configured node ID befor
 
 | Setting | Meaning |
 |---|---|
+| `app_title` | App title chosen in the setup wizard or JSON. |
 | `radio_host`, `radio_port` | Your receiver's TCP address. An empty host prevents collection. |
 | `receiver_id` | Actual `!` plus eight-hex-digit node ID. The placeholder cannot start collection. |
 | `data_dir` | Persistent data directory, relative to the configuration file or absolute. Keep it outside shared folders. |
@@ -86,6 +91,8 @@ The collector verifies that the connected radio has the configured node ID befor
 Use normal file paths without quotes/newlines. Regions are independently computed; avoid overlapping regions if you want an unambiguous partition. A region is limited to approximately 10,000 cells. Geographical bounds near the poles or across the date line are not supported.
 
 ## Private access and radio controls
+
+See [optional Tailscale/private HTTPS setup](docs/REMOTE-ACCESS.md) for prerequisites, user-owned connection details and sharing limits.
 
 This is a private-network tool, not a public hosting service. Read-only pages are available to permitted network clients. Changing data requires the dashboard control key; radio operations also require `enable_radio_controls: true`.
 
@@ -166,11 +173,13 @@ The Linux smoke test uses an isolated empty database and checks dashboard, cover
 
 ## Licensing
 
+See also the [security reporting policy](SECURITY.md), [data-use notice](docs/DATA-USE.md), and [project notice](docs/PROJECT-NOTICE.md).
+
 Original project code follows the repository's existing [Unlicense](LICENSE), except where a component supplies its own license. The [Android companion](android/LICENSE) and bundled Meshtastic protocol definitions use GPL-3.0. Vendored Leaflet uses BSD-2-Clause; see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). Dependencies retain their own licenses; distributing combined builds must comply with those licenses.
 
 ## Latest update
 
-The Android companion is version 0.2.0-test with clearer connection, pairing, location and survey status. Install updates over the existing app to retain its encrypted pairing. The setup page can remember a personal browser for 30 days for routine survey controls; changing or revoking a pairing still requires a fresh admin unlock. Generating a replacement pairing invalidates the previous one.
+The Android companion is version 0.3.0-test with clearer connection, pairing, location and survey status. Install updates over the existing app to retain its encrypted pairing. The setup page can remember a personal browser for 30 days for routine survey controls; changing or revoking a pairing still requires a fresh admin unlock. Generating a replacement pairing invalidates the previous one.
 
 PKI probing has been removed; historical observations remain readable. The Funny Pages section has also been removed. Receiver role comparisons are observational scenarios, not predictions of delivery or a substitute for a controlled field test. Personal region boundaries, themed artwork, hardware overrides, network addresses and feed credentials are intentionally excluded; configure your own installation.
 
@@ -184,11 +193,13 @@ The dashboard uses Waitress with one process and four request threads. Reinstall
 
 Chart.js 4.5.1, Leaflet 1.9.4 and the interface fonts are bundled with licenses and checksums. Only map tiles and explicitly configured integrations need external services. Health checks share a result for at most five seconds per process; the original check timestamp remains visible on hover. Mobile controls, weather and detailed health refresh only while displayed, immediately refreshing when reopened. The radio collector, packet retention and survey request cadence are unchanged.
 
-## iPhone and VM options
+## iPhone, VM and portable live ISO options
 
 On iPhone, open your private HTTPS dashboard in Safari and use Share → Add to Home Screen. The dashboard's Install on iPhone link walks through it. This version provides dashboard and controls; Bluetooth surveys remain Android-only. No Mac or App Store account is needed.
 
 VM builds are available through the **Build VM appliances** GitHub Actions workflow. See [VM setup and formats](deploy/vm/README.md) for VHDX, QCOW2, VMDK and OVA instructions, hardware requirements and verification limits.
+
+An additional [portable live ISO recipe](deploy/live/README.md) is available for experimental RAM-only sessions on x86-64 PCs. It is not yet boot-verified; collected data is temporary unless explicitly exported.
 
 ## Thanks, MSPmesh
 

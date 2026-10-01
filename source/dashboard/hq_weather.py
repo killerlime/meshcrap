@@ -62,7 +62,7 @@ def latest():
             row=db.execute('SELECT * FROM observations WHERE station=? ORDER BY observed DESC LIMIT 1',(STATION,)).fetchone()
             status=db.execute('SELECT * FROM fetch_status WHERE id=1').fetchone()
     except sqlite3.Error:return dict(available=False,source='Weather Underground',station_id=STATION,error='Weather storage unavailable')
-    result=dict(available=bool(row),source='AcuRite Atlas via Weather Underground',station_id=STATION,node_id=NODE,
+    result=dict(available=bool(row),source='Weather Underground station',station_id=STATION,node_id=NODE,
                 poll_seconds=INTERVAL,error=status['error'] if status else None)
     if row:
         age=max(0,int(time.time())-row['observed'])

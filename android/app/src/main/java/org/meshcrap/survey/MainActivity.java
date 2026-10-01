@@ -17,7 +17,9 @@ public final class MainActivity extends Activity {
     private final ArrayList<BluetoothDevice> radios=new ArrayList<>();
     private TextView nextStep,radioState,collectorState,surveyState,locationState,activityState,queueState,pairingState,deviceHint;
     private Button connectButton,channelButton,radiusButton,testButton,autoButton,pauseButton,stopButton,pairingToggle;
-    private LinearLayout pairingBox;
+    private LinearLayout pairingBox,connectionCard;
+    private Button connectionToggle,primaryAction;
+    private boolean connectionExpanded=true;
     private boolean savedPairing;
     private final Runnable refresh=new Runnable(){public void run(){renderState();h.postDelayed(this,1000);}};
     private LinearLayout body,root;
@@ -29,13 +31,15 @@ public final class MainActivity extends Activity {
         root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(18),dp(20),dp(18),dp(28));body=root;scroll.addView(root);setContentView(scroll);
         root.setOnApplyWindowInsetsListener((v,insets)->{root.setPadding(dp(18)+insets.getSystemWindowInsetLeft(),dp(20)+insets.getSystemWindowInsetTop(),dp(18)+insets.getSystemWindowInsetRight(),dp(28)+insets.getSystemWindowInsetBottom());return insets;});
         text("Meshcrap Survey",30).setTextColor(GREEN);text("A field companion for your mesh",16);
-        nextStep=text("First, connect your radio below.",18);nextStep.setTextColor(GREEN);
+        nextStep=text("Let’s get ready for your outing.",18);nextStep.setTextColor(GREEN);
         card("Your outing");
         radioState=text("Radio · Not connected",18);collectorState=text("Collector · Waiting for a radio",16);
         surveyState=text("Survey · Start one on the dashboard",16);locationState=text("Location · Waiting",16);
         activityState=text("Requests · Paused",16);queueState=text("",14);
         status=text(SurveyService.summary,14);status.setTextIsSelectable(true);
-        card("1  Connect your radio");
+        primaryAction=button("Connect radio",()->{SurveyService s=SurveyService.instance;if(s==null){connectionExpanded=true;renderConnection();connectionCard.requestFocus();connectionCard.getParent().requestChildFocus(connectionCard,connectionCard);connect();}else if(s.uiArmed()){s.pause("Paused by you");renderState();}else if(s.uiCanArm())enableSurvey();else if(s.uiCanTest())testTrace();});
+        connectionToggle=button("Hide connection setup",()->{connectionExpanded=!connectionExpanded;renderConnection();});
+        card("Connect your radio");connectionCard=body;
         text("Disconnect Meshtastic from this radio first. Meshcrap Survey needs its Bluetooth connection while you are out.",15);
         try{new JSONObject(PrivateStore.read(this)).getString("token");savedPairing=true;}catch(Exception ignored){}
         pairingState=text(savedPairing?"Collector pairing saved on this phone":"Pair this phone with your collector",16);
@@ -44,23 +48,24 @@ public final class MainActivity extends Activity {
         TextView label=new TextView(this);label.setText("Pairing code from the dashboard’s Set up mobile app page");label.setTextColor(MUTED);label.setTextSize(14);pairingBox.addView(label);
         pairing=new EditText(this);pairing.setId(View.generateViewId());label.setLabelFor(pairing.getId());pairing.setHint("Paste pairing code here");pairing.setTextColor(INK);pairing.setHintTextColor(MUTED);pairing.setMinLines(2);pairing.setMaxLines(4);pairing.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);pairing.setSaveEnabled(false);pairing.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);pairingBox.addView(pairing);
         pairingBox.setVisibility(savedPairing?View.GONE:View.VISIBLE);
-        button("Find paired radios / allow permissions",()->permissions());
+        button("Find my radio",()->permissions());
+        button("Open Bluetooth settings",()->startActivity(new Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)));
         devices=new Spinner(this);devices.setMinimumHeight(dp(52));devices.setContentDescription("Paired radio to use for this survey");body.addView(devices);
         deviceHint=text("",14);listRadios();
         connectButton=button("Connect radio",()->connect());
-        card("2  Check your survey");
-        text("On the dashboard, choose a coverage area and start a coverage survey. Keep Tailscale connected on this phone.",15);
+        card("Survey settings");
+        text("On the dashboard, choose a coverage area and start a coverage survey. Keep your private network connection active on this phone.",15);
         channelButton=button("Choose channel",()->chooseChannel());
         radiusButton=button("Nearby radius · 10 miles",()->chooseRadius());
-        text("Nearby nodes need recent reception and a known position. A recent radio position or accurate phone GPS is needed too.",14);
-        card("3  Test, then explore");
+        text("Nearby is an estimate from stored node positions, not proof a node is still there or reachable. Your location must be recent before requests can start.",14);
+        card("Explore nearby nodes");
         text("Send one test first. After a successful reply, you can enable automatic requests to nearby nodes.",15);
         testButton=button("Send one test traceroute",()->testTrace());
         autoButton=button("Start automatic survey",()->enableSurvey());
         pauseButton=button("Pause new requests",()->{if(SurveyService.instance!=null)SurveyService.instance.pause("Paused by you");renderState();});
-        text("One request at a time, at least 2 minutes apart. Replies can take up to 5 minutes. Pausing lets the current request finish.",14);
+        text("One request at a time, at least 2 minutes apart. Replies can take up to 2 minutes. Pausing lets the current request finish.",14);
         stopButton=button("Disconnect and release Bluetooth",()->new AlertDialog.Builder(this).setTitle("Disconnect radio?").setMessage("Stop this connection and release Bluetooth for Meshtastic. Any pending request ends; saved results stay on this phone.").setPositiveButton("Disconnect",(d,n)->stopService(new Intent(this,SurveyService.class))).setNegativeButton("Keep connected",null).show());
-        body=root;text("Results stay on this phone until the collector accepts them. GPS tracks show where you travelled; they do not prove radio coverage. Test build 0.2 · Bluetooth still needs verification on your phone.",13);
+        body=root;text("Results stay on this phone until the collector accepts them. GPS tracks show where you travelled; they do not prove radio coverage. Test build 0.3 · Bluetooth still needs verification on your phone.",13);
         renderState();
     }
     private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
@@ -68,8 +73,12 @@ public final class MainActivity extends Activity {
     private TextView text(String value,int size){TextView v=new TextView(this);v.setText(value);v.setTextSize(size);v.setTextColor(size>=16?INK:MUTED);v.setPadding(0,dp(6),0,dp(6));body.addView(v);return v;}
     private Button button(String label,Runnable r){Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setMinHeight(dp(52));b.setTextSize(16);b.setOnClickListener(v->r.run());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(5),0,0);body.addView(b,lp);return b;}
     private void togglePairing(){boolean show=pairingBox.getVisibility()!=View.VISIBLE;pairingBox.setVisibility(show?View.VISIBLE:View.GONE);if(show)pairing.requestFocus();else pairing.setText("");}
+    private void renderConnection(){if(connectionCard==null)return;connectionCard.setVisibility(connectionExpanded?View.VISIBLE:View.GONE);connectionToggle.setText(connectionExpanded?"Hide connection setup":"Show connection setup");}
     private void renderState(){
         SurveyService s=SurveyService.instance;boolean active=s!=null;
+        primaryAction.setText(!active?"Connect radio":s.uiArmed()?"Pause survey":s.uiCanArm()?"Start automatic survey":s.uiPending()?"Waiting for a reply…":s.uiCanTest()?"Choose a test node":"Getting ready…");
+        primaryAction.setEnabled(!active||s.uiArmed()||s.uiCanArm()||s.uiCanTest());
+        renderConnection();
         connectButton.setEnabled(!active);devices.setEnabled(!active);pairingToggle.setEnabled(!active);
         channelButton.setEnabled(active&&!s.uiPending());radiusButton.setEnabled(active);stopButton.setEnabled(active);
         testButton.setEnabled(active&&s.uiCanTest());autoButton.setEnabled(active&&s.uiCanArm());pauseButton.setEnabled(active&&s.uiArmed());
@@ -79,7 +88,7 @@ public final class MainActivity extends Activity {
     private void chooseChannel(){SurveyService s=SurveyService.instance;if(s==null)return;List<Integer> ids=new ArrayList<>(s.channels.keySet());Collections.sort(ids);String[] labels=new String[ids.size()];for(int i=0;i<ids.size();i++)labels[i]="Slot "+ids.get(i)+" · "+s.channels.get(ids.get(i));if(ids.isEmpty()){message("Waiting for the radio’s channels. Try again when connected.");return;}new AlertDialog.Builder(this).setTitle("Survey channel").setItems(labels,(d,n)->{s.chooseChannel(ids.get(n));renderState();}).setNegativeButton("Cancel",null).show();}
     private void chooseRadius(){SurveyService s=SurveyService.instance;if(s==null)return;double[] miles={1,5,10,25};new AlertDialog.Builder(this).setTitle("Look for nodes within…").setItems(new String[]{"1 mile","5 miles","10 miles","25 miles"},(d,n)->{s.radius=miles[n];renderState();}).setNegativeButton("Cancel",null).show();}
     private void testTrace(){SurveyService s=SurveyService.instance;if(s==null)return;List<SurveyService.Target> targets=s.targets();if(targets.isEmpty()){message("No eligible nodes nearby. Check your location, try a wider radius, or wait for fresh node data.");return;}String[] labels=new String[targets.size()];for(int i=0;i<targets.size();i++)labels[i]=targets.get(i).label;new AlertDialog.Builder(this).setTitle("Send one test to…").setItems(labels,(d,n)->{message(s.trace(targets.get(n).number,true));renderState();}).setNegativeButton("Cancel",null).show();}
-    private void enableSurvey(){SurveyService s=SurveyService.instance;if(s==null)return;new AlertDialog.Builder(this).setTitle("Start automatic survey?").setMessage("One request at a time, at least 2 minutes apart, with up to 5 minutes for a reply. Each eligible node is tried once per outing. Pause or disconnect at any time.").setPositiveButton("Start survey",(d,n)->{message(s.arm());renderState();}).setNegativeButton("Cancel",null).show();}
+    private void enableSurvey(){SurveyService s=SurveyService.instance;if(s==null)return;new AlertDialog.Builder(this).setTitle("Start automatic survey?").setMessage("One request at a time, at least 2 minutes apart, with up to 2 minutes for a reply. Each eligible node is tried once per outing. Pause or disconnect at any time.").setPositiveButton("Start survey",(d,n)->{message(s.arm());renderState();}).setNegativeButton("Cancel",null).show();}
     private void message(String value){new AlertDialog.Builder(this).setMessage(value).setPositiveButton("OK",null).show();}
     private boolean has(String permission){return checkSelfPermission(permission)==PackageManager.PERMISSION_GRANTED;}
     private void permissions(){ArrayList<String> p=new ArrayList<>();
@@ -94,7 +103,8 @@ public final class MainActivity extends Activity {
         BluetoothManager manager=getSystemService(BluetoothManager.class);BluetoothAdapter adapter=manager==null?null:manager.getAdapter();if(adapter==null){deviceHint.setText("Bluetooth is unavailable on this device.");return;}if(!adapter.isEnabled()){deviceHint.setText("Turn on Bluetooth in Android settings, then tap Find paired radios.");return;}
         radios.clear();radios.addAll(adapter.getBondedDevices());radios.sort(Comparator.comparing(d->String.valueOf(d.getName())));
         List<String> labels=new ArrayList<>();for(BluetoothDevice d:radios)labels.add((d.getName()==null?"Paired device":d.getName())+" · "+d.getAddress());
-        devices.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,labels));deviceHint.setText(radios.isEmpty()?"No paired devices found. Pair your radio in Android settings, then tap Find paired radios.":"Select your local radio. Other paired Bluetooth devices may also appear.");
+        devices.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,labels));
+        String last=getPreferences(0).getString("lastRadio","");for(int i=0;i<radios.size();i++)if(radios.get(i).getAddress().equals(last))devices.setSelection(i);deviceHint.setText(radios.isEmpty()?"No paired devices found. Pair your radio in Android settings, then tap Find paired radios.":"Select your local radio. Other paired Bluetooth devices may also appear.");
     }
     @android.annotation.SuppressLint("MissingPermission") private void connect(){
         if(Build.VERSION.SDK_INT>=31&&!has(Manifest.permission.BLUETOOTH_CONNECT)){permissions();return;}
@@ -106,7 +116,8 @@ public final class MainActivity extends Activity {
             if(!"https".equals(uri.getScheme())||uri.getHost()==null||uri.getUserInfo()!=null||uri.getPort()!=-1||!"/api/survey-phone/sync".equals(uri.getPath())||uri.getQuery()!=null||uri.getFragment()!=null||setup.getString("token").length()<32||!setup.getString("node_prefix").matches("[A-Za-z][A-Za-z0-9]{0,7}"))throw new IllegalArgumentException();
             PrivateStore.save(this,value);savedPairing=true;pairingState.setText("Collector pairing saved on this phone");pairingToggle.setText("Change collector pairing");pairing.setText("");pairingBox.setVisibility(View.GONE);
             Intent intent=new Intent(this,SurveyService.class).putExtra("mac",radios.get(devices.getSelectedItemPosition()).getAddress());
-            startForegroundService(intent);
+            getPreferences(0).edit().putString("lastRadio",radios.get(devices.getSelectedItemPosition()).getAddress()).apply();
+            startForegroundService(intent);connectionExpanded=false;renderConnection();
         }catch(Exception e){message("Paste a valid pairing code from the collector’s private HTTPS setup page. Pairing could not be saved or opened.");}
     }
     protected void onResume(){super.onResume();h.post(refresh);}

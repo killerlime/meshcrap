@@ -10,7 +10,7 @@
  content="width=device-width,initial-scale=1"
 >
 
-<title>Meshcrap RF Console</title>
+<title>@@APP_TITLE_HTML@@</title>
 <link rel="manifest" href="/static/app-assets/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/static/app-assets/icon-180.png">
 <meta name="theme-color" content="#111713">
@@ -989,9 +989,9 @@ tbody tr:hover .node-distance {
 </style>
 
 
-<link rel="stylesheet" href="/static/appearance.css?v=hq-1">
+
 <script src="/static/lna-switches.js?v=hq-1"></script>
-<script src="/static/appearance.js?v=hq-1"></script>
+
 <script src="/static/recovery-client.js?v=hq-1"></script>
 <script src="/static/csv-export.js?v=hq-1"></script>
 <link rel="stylesheet" href="/static/console-ui.css?v=hq-1"><style>
@@ -1026,21 +1026,13 @@ tbody tr:hover .node-distance {
 
 <header><a href="/install" style="float:right">Install on iPhone</a>
 
-<h1>Meshcrap RF Console</h1>
+<h1>@@APP_TITLE_HTML@@</h1>
 
 <div class="subtitle">
 Receiver reception analysis &amp; site monitoring
 </div>
 
-<div class="appearance-picker">
-<label for="appearanceSelect">Appearance</label>
-<select id="appearanceSelect" aria-describedby="appearanceHint">
-<option value="mesh">Mesh Green · Original</option>
-<option value="neon">Neon Lounge</option>
-<option value="midnight">Midnight Blue</option>
-</select>
-<span id="appearanceHint">Saved in this browser · appearance only</span>
-</div>
+
 </header>
 
 <main>
@@ -1166,7 +1158,7 @@ Receiver reception analysis &amp; site monitoring
 <div id="nodeSummary" class="console-summary" aria-label="Filtered node summary"></div><p class="muted">Observed in the selected time window; cached node records are excluded. Activity means a recorded update, not proof a node is online. Signal measures the final received radio link, which may be a relay.</p>
 <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
 <label>Find node <input id="nodeSearch" type="search" placeholder="Name, shortname or node ID" oninput="renderNodeTable()" style="min-width:240px;padding:8px 10px;border:1px solid #35463c;border-radius:6px;background:#101b15;color:#e7f3eb"></label>
-<label><input id="nodeJkOnly" type="checkbox" onchange="if(this.checked)document.getElementById('nodeExcludeJk').checked=false;renderNodeTable()"> Local nodes only</label><label><input id="nodeExcludeJk" type="checkbox" onchange="if(this.checked)document.getElementById('nodeJkOnly').checked=false;renderNodeTable()"> Exclude Local nodes</label>
+<label><input id="nodeJkOnly" type="checkbox" onchange="if(this.checked)document.getElementById('nodeExcludeLocal').checked=false;renderNodeTable()"> Local nodes only</label><label><input id="nodeExcludeLocal" type="checkbox" onchange="if(this.checked)document.getElementById('nodeJkOnly').checked=false;renderNodeTable()"> Exclude Local nodes</label>
 <button id="exportNodesCsv" type="button" onclick="exportNodesCsv()" disabled>Export CSV</button>
 <span id="nodeCount" class="muted" aria-live="polite"></span>
 </div>
@@ -1249,7 +1241,7 @@ Loading mesh reach history...
 <div><div class="muted">Temperature</div><div class="big" data-weather-temp>—</div><div class="muted" data-weather-temp-c>— °C</div></div>
 <div><div class="muted">Humidity</div><div class="big" data-weather-humidity>—</div><div class="muted">Relative humidity</div></div>
 <div><div class="muted">Pressure</div><div class="big" data-weather-pressure>—</div><div class="muted" data-weather-pressure-hpa>— hPa</div></div>
-</div><div class="muted" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><span>AcuRite Atlas · <a href="https://www.wunderground.com/dashboard/pws/@@WEATHER_STATION@@" target="_blank" rel="noopener noreferrer">@@WEATHER_STATION@@ ↗</a> via Weather Underground</span><time>Awaiting observation</time></div>
+</div><div class="muted" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><span>Weather station · <a href="https://www.wunderground.com/dashboard/pws/@@WEATHER_STATION@@" target="_blank" rel="noopener noreferrer">@@WEATHER_STATION@@ ↗</a> via Weather Underground</span><time>Awaiting observation</time></div>
 <div class="muted" style="font-size:11px;margin-top:8px">Checks every 5 minutes · Pressure as reported by the weather station feed.</div></section>
 <style>#hqWeather[data-stale="true"] [data-weather-status]{color:#f2bb66}#hqWeather .big{font-size:clamp(24px,4vw,36px)}</style>
 <div class="live-grid"><div class="card"><h2>Recently Heard</h2><div class="recent-box" id="recentHeard" tabindex="0" role="region" aria-label="Recently heard nodes"></div></div><div class="card"><h2>System</h2><div id="systemDetail" class="siteinfo">Loading...</div>
@@ -1903,8 +1895,8 @@ function renderNodeTable() {
     const remoteNodes = nodeRows.filter(n => !n.is_local && n.node_id !== '@@RECEIVER_ID@@');
     const query = (document.getElementById('nodeSearch').value || '').trim().toLowerCase();
     const meshcrapOnly = document.getElementById('nodeJkOnly').checked;
-    const excludeJk = document.getElementById('nodeExcludeJk').checked;
-    const matches = remoteNodes.filter(n => (!meshcrapOnly || n.is_meshcrap) && (!excludeJk || !n.is_meshcrap) &&
+    const excludeLocal = document.getElementById('nodeExcludeLocal').checked;
+    const matches = remoteNodes.filter(n => (!meshcrapOnly || n.is_meshcrap) && (!excludeLocal || !n.is_meshcrap) &&
         [n.node,n.short_name,n.node_id].some(v => String(v || '').toLowerCase().includes(query)));
     document.getElementById('nodeCount').textContent = `${matches.length} of ${remoteNodes.length} nodes`;
     const total = key => matches.reduce((sum,n)=>sum+(Number(n[key])||0),0);
@@ -3873,7 +3865,7 @@ async function surveyAction(action) {
 
 
 setInterval(
-    ()=>{if(dashboardPanelVisible("map"))loadSurvey();},
+    ()=>{if(dashboardPanelVisible("survey"))loadSurvey();},
     5000
 );
 
@@ -4147,6 +4139,7 @@ async function refreshDashboard() {
     try {
         const tasks = [loadSummary()];
         if (dashboardPanelVisible('system')) tasks.push(loadEvents());
+        if (dashboardPanelVisible('survey')) tasks.push(loadSurvey());
         if (dashboardPanelVisible('map')) tasks.push(loadMap(),loadCoverage());
         const results = await Promise.allSettled(tasks);
         const failed = results.some(r => r.status === 'rejected');
@@ -4159,10 +4152,10 @@ async function refreshDashboard() {
 }
 document.addEventListener('DOMContentLoaded',()=>requestAnimationFrame(()=>{
     refreshDashboard();
-    if (dashboardPanelVisible('map')) loadSurvey();
+    if (dashboardPanelVisible('survey')) loadSurvey();
     const refreshOpenedPanel = ()=>requestAnimationFrame(()=>{
         if (dashboardPanelVisible('nodes')) renderNodeTable();
-        if (dashboardPanelVisible('map')) loadSurvey();
+        if (dashboardPanelVisible('survey')) loadSurvey();
         if (dashboardPanelVisible('filter')) window.loadRfHealthHourly?.();
         refreshDashboard();
     });

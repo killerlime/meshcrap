@@ -2,7 +2,7 @@ package org.meshcrap.survey;
 
 /** Pure survey rules, independently testable without Android or a radio. */
 public final class SurveyRules {
-    public static final long SPACING_MS=120_000, TIMEOUT_MS=300_000, LEASE_MS=30_000;
+    public static final long SPACING_MS=120_000, TIMEOUT_MS=120_000, LEASE_MS=30_000;
     private SurveyRules() {}
     public static boolean validId(long id) { return id>0 && id<0xffffffffL; }
     public static boolean validPosition(double lat,double lon) {
