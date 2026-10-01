@@ -34,6 +34,8 @@
   controls.modem.addEventListener('change',()=>{const p=globalThis.RadioHardware[controls.hardware.value];if(p.sensitivity!==undefined)applyHardware(false);update();});
   function update(){if(!form.checkValidity()){error.textContent='Check the builder input limits.';output.replaceChildren();return;}const c={};for(const [key,input] of Object.entries(controls))c[key]=input.type==='number'?input.valueAsNumber:input.value;
     try{const r=model.build(c);error.textContent='';output.replaceChildren();
+      document.dispatchEvent(new CustomEvent('mesh:builder',{detail:{distance:c.distance,frequency:c.frequency}}));
+      output.append(el('strong',r.margin>=0&&r.returnMargin>=0?'Both directions exceed the assumed receiver thresholds.':r.margin<0&&r.returnMargin<0?'Neither direction exceeds the assumed receiver thresholds.':'One-way risk: only one direction exceeds its assumed receiver threshold.'));
       const profile=globalThis.RadioHardware[c.hardware];
       if(profile.band&&(c.frequency<profile.band[0]||c.frequency>profile.band[1]))output.append(el('strong','Outside this profile’s documented band. RF results below are mathematical only.'));
       if(profile.power!==null&&c.power>profile.power)output.append(el('p','TX input exceeds the profile’s published nominal capability.'));

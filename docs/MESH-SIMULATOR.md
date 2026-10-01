@@ -9,6 +9,8 @@ Open **Insights → Open the mesh simulator**. This is a browser-only software m
 - Offered airtime: transmissions requested in one shared RF neighborhood, not measured utilization, simulated collision probability or a routing engine.
 - Bidirectional link budget: connector power, frequency-dependent coax loss, antenna gain, connectors, filter and other passive losses, remote-end power/sensitivity, distance and assumed excess loss.
 - Coordinates: great-circle distance only. No terrain service or location upload.
+- Path clearance: antenna heights, editable effective-Earth-radius factor, and optional user-supplied fraction/elevation samples. Shows the direct ray, lower 60% Fresnel boundary and curved ground on 101 samples. Blank terrain is explicitly hypothetical. This does not add a guessed diffraction loss to the link budget.
+- One-way warnings: each direction must independently exceed its supplied receiver threshold.
 - Receive cascade: passive loss / LNA / passive loss / receiver, using Friis noise factors at 290 K. Separate from the passive link-budget model; no overload prediction.
 
 Hardware selection populates published values where available. Heltec V3 sensitivity is sourced at SF12/125 kHz and adjusted approximately for other presets; the UI labels that extrapolation. Other profiles do not invent missing sensitivity curves. Published maximum output is a simulation input, never an operating recommendation. Station G3's vendor page warns of historical content and has conflicting band/power figures; the profile records that uncertainty.
@@ -22,6 +24,8 @@ Reviewed October 1, 2026. Original implementation; no vendor code, images or pro
 - [Semtech AN1200.13](https://meshtastic.org/assets/files/LoRa_Design_Guide-b3f1bb6c4d86b62a065c50d5961bc6b2.pdf): classic packet-airtime equations. Payload means PHY bytes, not chat characters.
 - [Meshtastic preset table](https://meshtastic.org/docs/overview/radio-settings/): SF, bandwidth and coding-rate combinations. The margin comparison uses approximate 2.5 dB/SF and thermal-noise bandwidth scaling; coding receives no invented gain bonus.
 - [ITU-R P.525](https://www.itu.int/rec/R-REC-P.525/en): free-space baseline. Terrain, weather, interference and antenna mismatch are not inferred from coordinates.
+- [ITU radio-relay handbook](https://www.itu.int/dms_pub/itu-r/opb/hdb/R-HDB-24-1996-PDF-E.pdf): effective-Earth and Fresnel geometry. The default k=4/3 is an assumed reference, not current atmospheric evidence.
+- [Analog Devices receiver noise analysis](https://www.analog.com/en/resources/technical-articles/system-noisefigure-analysis-for-modern-radio-receivers.html): cascade noise principles. The builder models matched stages and thermal noise; interference and overload need separate evidence.
 - [Times Microwave LMR-400](https://timesmicrowave.com/wp-content/uploads/2022/06/lmr-400-datasheet.pdf) and [LMR-240](https://timesmicrowave.com/wp-content/uploads/2022/06/lmr-240-datasheet.pdf): standard cable attenuation formulas in dB/100 ft, converted to metres. Not interchangeable with UF, clones, damaged cable or other variants.
 - Hardware profile source URLs and caveats are kept with each record in `radio-hardware.js` and displayed in the builder.
 

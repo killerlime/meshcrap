@@ -57,6 +57,23 @@
     const factor=lb+(f-1)*lb+(la-1)*lb/g+(fr-1)*lb*la/g;
     return {noiseFigure:10*Math.log10(factor),gain:gain-lossBefore-lossAfter};
   }
-  const api={presets,airtime,simulate,build,distance,receiveChain};
+  function pathProfile(km,frequency,startHeight,endHeight,k=4/3,terrain=[[0,0],[1,0]]) {
+    number(km,.001,500,'profile distance');number(frequency,100,2500,'frequency');
+    number(startHeight,0,1000,'antenna height');number(endHeight,0,1000,'antenna height');number(k,.5,5,'effective Earth factor');
+    if(!Array.isArray(terrain)||terrain.length<2||terrain.length>501)throw new RangeError('terrain');
+    terrain.forEach((p,i)=>{if(!Array.isArray(p)||p.length!==2)throw new RangeError('terrain');number(p[0],0,1,'path fraction');number(p[1],-500,9000,'terrain elevation');if(i&&p[0]<=terrain[i-1][0])throw new RangeError('terrain order');});
+    if(terrain[0][0]!==0||terrain.at(-1)[0]!==1)throw new RangeError('terrain endpoints');
+    const distance=km*1000,lambda=299792458/(frequency*1e6),a=terrain[0][1]+startHeight,b=terrain.at(-1)[1]+endHeight;
+    const points=[];let segment=0;
+    for(let i=0;i<=100;i++){
+      const f=i/100;while(segment<terrain.length-2&&terrain[segment+1][0]<f)segment++;
+      const [f0,z0]=terrain[segment],[f1,z1]=terrain[segment+1];
+      const ground=z0+(z1-z0)*(f-f0)/(f1-f0)+distance**2*f*(1-f)/(2*k*6371000);
+      const ray=a+(b-a)*f,radius=Math.sqrt(lambda*distance*f*(1-f));
+      points.push({fraction:f,ground,ray,radius,clearance:ray-ground-.6*radius});
+    }
+    return {points,minimumClearance:Math.min(...points.map(p=>p.clearance)),k};
+  }
+  const api={presets,airtime,simulate,build,distance,receiveChain,pathProfile};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.MeshSimulator=api;
 })(globalThis);
