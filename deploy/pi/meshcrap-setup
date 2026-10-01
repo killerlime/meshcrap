@@ -5,9 +5,25 @@ cd /opt/meshcrap
 echo 'This Pi has these network addresses:'
 hostname -I
 echo 'Choose private-network access in the wizard to use another device as your browser.'
-runuser -u meshcrap -- .venv/bin/python meshcrap.py setup
-test -f config.json || exit 0
-systemctl enable --now meshcrap-dashboard
+config=/var/lib/meshcrap/config.json
+before=$(stat -c '%i:%y' "$config" 2>/dev/null || true)
+runuser -u meshcrap -- .venv/bin/python meshcrap.py --config "$config" setup
+test -f "$config" || exit 0
+after=$(stat -c '%i:%y' "$config")
+if [ "$before" = "$after" ]; then echo 'Setup canceled; services unchanged.'; exit 0; fi
+runuser -u meshcrap -- .venv/bin/python meshcrap.py --config "$config" check
+systemctl enable meshcrap-dashboard
+systemctl restart meshcrap-dashboard
 echo 'Dashboard started. Radio collection remains a separate choice.'
 read -r -p 'Start collection using the radio configured in the wizard? [y/N] ' answer
-if [ "$answer" = y ]; then systemctl enable --now meshcrap-collector; fi
+if [ "$answer" = y ] || [ "$answer" = Y ]; then
+  runuser -u meshcrap -- .venv/bin/python - "$config" <<'PY'
+import sys
+from meshcrap import load_config
+config, _ = load_config(sys.argv[1])
+if not config['radio_host'] or config['receiver_id'] == '!00000000':
+    raise SystemExit('No radio configured. Dashboard is available; collection remains unchanged.')
+PY
+  systemctl enable meshcrap-collector
+  systemctl restart meshcrap-collector
+fi

@@ -1,11 +1,15 @@
-# Raspberry Pi image (build recipe preview)
+# Raspberry Pi image (experimental build candidate)
 
 This replaces the live-ISO packaging plan. It produces `meshcrap-arm64.img.xz`,
 a compressed native SD-card image for **Raspberry Pi Imager → Use custom**.
 Imager can decompress it while writing; `unxz -k meshcrap-arm64.img.xz` produces
 the raw `.img` if another flasher requires it. Select the intended SD card: flashing erases it.
 
-**No built or physically boot-tested Pi image is available yet.** The initial
+**Native ARM64 builds and filesystem checks have passed; physical Pi boot testing
+has not been performed.** Download candidates from successful
+[Pi image validation runs](https://github.com/killerlime/meshcrap/actions/workflows/pi.yml)
+(GitHub sign-in may be required), then verify the included `SHA256SUMS` before flashing.
+Artifacts expire after seven days; rerun the workflow or build from source if needed. The initial
 validation targets are Pi 4 and Pi 5; other ARM64-capable Pis remain unverified.
 This is persistent Raspberry Pi OS Lite, not a RAM-only session. Use a 16 GB or
 larger quality SD card, adequate power and Ethernet for the first test.
@@ -20,6 +24,28 @@ larger quality SD card, adequate power and Ethernet for the first test.
    title, private network access, data storage and your radio connection.
 4. Start collection only after checking that radio configuration. The dashboard
    and collector use a dedicated non-login service account.
+
+Private configuration lives in `/var/lib/meshcrap/config.json`; the default data
+directory is `/var/lib/meshcrap/data`. Installed code and dependencies under
+`/opt/meshcrap` are root-owned. Canceling setup leaves services unchanged; saving
+new settings validates them and restarts the dashboard. Radio collection requires
+an explicit choice and a configured receiver.
+
+## Automated build candidates
+
+The **Raspberry Pi image validation** GitHub Actions workflow builds on a disposable
+native ARM64 runner. It runs the clean-install and efficiency checks inside the
+image, verifies setup and HTTP serving as the non-login application user, then
+mounts the completed image read-only to check its empty private state, locked
+default accounts, fresh machine identity and disabled application services.
+Successful candidates include checksums, the matching application source archive,
+build provenance and `IMAGE-AUDIT.json`. They are retained as workflow artifacts
+for seven days; they are **not physically boot-certified release downloads**.
+
+Run the workflow manually from Actions after it is merged. Build dependencies and
+downloads require internet access. A successful build does not verify Imager
+customization, Wi-Fi, SD-card expansion or actual Pi hardware. Those still require
+the spare-card checks below.
 
 The first version uses the collector's existing network-radio connection. USB,
 Bluetooth and board-mounted SPI radio setup are not automatically configured.
