@@ -29,7 +29,7 @@ def configure(path, defaults, validate, ask=input):
             print('Please enter a valid value.')
 
     config['app_title'] = field('App title', defaults.get('app_title','Meshcrap RF Console'), lambda v: 1 <= len(v) <= 80 and not any(ord(c)<32 for c in v))
-    config['data_dir'] = field('Data folder', './data')
+    config['data_dir'] = field('Data folder', defaults.get('data_dir', './data'))
     config['web_port'] = field('Dashboard port', 8080, lambda v: 1 <= v <= 65535, int)
     if ask('Configure a radio connection now? [y/N] ').strip().lower() == 'y':
         connection=field('Connection: direct radio or Raspberry Pi TCP bridge (direct/pi)', 'direct', lambda v: v in ('direct','pi'))

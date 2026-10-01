@@ -204,3 +204,9 @@ An additional [portable live ISO recipe](deploy/live/README.md) is available for
 ## Thanks, MSPmesh
 
 Thank you to the entire **MSPmesh community** for your help, guidance, support, knowledge, and friendships—and for being good people. This project is better because of you.
+## Docker (preview)
+
+Run the dashboard and optional collector in separate containers with persistent
+storage. Build from source, configure through the wizard, then start locally:
+see [Docker installation](docs/DOCKER.md). The image includes no deployment
+credentials or personal data; external feeds and remote access remain optional.

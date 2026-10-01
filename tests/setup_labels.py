@@ -18,7 +18,7 @@ with tempfile.TemporaryDirectory() as temporary:
     config, data = meshcrap.load_config(path)
     assert config['radio_host'] == 'bridge.example'
     runtime = meshcrap.initialize(config, data)
-    template = (runtime / 'dashboard/templates/index.html').read_text()
+    template = (runtime / 'dashboard/templates/index.html').read_text(encoding='utf-8')
     assert '<img src=x' not in template
     assert '{{7*7}}' not in template
     assert '&lt;img src=x onerror=alert(1)&gt; &#123;&#123;7*7&#125;&#125;' in template

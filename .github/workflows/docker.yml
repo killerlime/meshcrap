@@ -1,0 +1,45 @@
+name: Docker validation
+on:
+  workflow_dispatch:
+  push:
+    paths: ['Dockerfile', '.dockerignore', 'compose.yaml', 'deploy/docker/**', '.github/workflows/docker.yml', 'source/**', 'meshcrap.py', 'setup_wizard.py', 'requirements.txt']
+  pull_request:
+    paths: ['Dockerfile', '.dockerignore', 'compose.yaml', 'deploy/docker/**', '.github/workflows/docker.yml', 'source/**', 'meshcrap.py', 'setup_wizard.py', 'requirements.txt']
+permissions:
+  contents: read
+jobs:
+  container:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check privacy and build
+        run: |
+          python tests/privacy_check.py
+          docker compose config --quiet
+          docker compose build
+      - name: Configure empty installation and start
+        run: |
+          printf '\n\n\nn\nn\nn\n\n' | docker compose run -T --rm dashboard setup
+          docker compose up -d --wait dashboard
+          curl --fail --silent http://localhost:8080/api/summary > /tmp/summary.json
+          python -c 'import json; assert isinstance(json.load(open("/tmp/summary.json")), dict)'
+          docker compose exec -T dashboard test "$(docker compose exec -T dashboard id -u)" = 10001
+          docker compose exec -T dashboard sh -c 'test ! -w /opt/meshcrap'
+          docker compose run --rm dashboard check
+      - name: Verify durable identity and state across recreation
+        run: |
+          docker compose exec -T dashboard sha256sum /data/state/dashboard-security/session-secret > /tmp/identity-before
+          docker compose down
+          docker compose up -d --wait dashboard
+          docker compose exec -T dashboard sha256sum /data/state/dashboard-security/session-secret > /tmp/identity-after
+          cmp /tmp/identity-before /tmp/identity-after
+          docker compose run --rm dashboard check
+          test "$(curl --silent -o /dev/null -w '%{http_code}' -H 'Host: unexpected.example' http://localhost:8080/)" = 400
+          test "$(curl --silent -o /dev/null -w '%{http_code}' -H 'Origin: http://localhost:8080' -H 'Content-Type: application/json' -d '{}' http://localhost:8080/api/events)" = 401
+      - name: Diagnostic logs
+        if: failure()
+        run: docker compose logs --tail 100
+      - name: Stop test services
+        if: always()
+        run: docker compose down -v
