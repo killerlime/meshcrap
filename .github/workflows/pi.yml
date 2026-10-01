@@ -1,0 +1,37 @@
+name: Raspberry Pi image validation
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/pi-image-release']
+    paths: ['deploy/pi/**', '.github/workflows/pi.yml', 'tests/pi_setup.py']
+permissions:
+  contents: read
+concurrency:
+  group: pi-image-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  image:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install official pi-gen build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y coreutils quilt parted qemu-user-binfmt debootstrap zerofree zip dosfstools e2fsprogs libarchive-tools libcap2-bin grep rsync xz-utils file git curl bc gpg pigz xxd arch-test bmap-tools kmod python3
+      - name: Check source and shell syntax
+        run: |
+          python3 tests/privacy_check.py
+          bash -n deploy/pi/build.sh deploy/pi/install.sh deploy/pi/prerun.sh deploy/pi/meshcrap-setup deploy/pi/verify-image.sh
+      - name: Build and inspect native ARM64 image
+        run: sudo bash deploy/pi/build.sh
+      - name: Retain reviewed build candidate and checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshcrap-pi-arm64-candidate
+          path: dist/pi/
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error

@@ -28,7 +28,7 @@ cat > "$builder/config" <<'EOF'
 IMG_NAME='meshcrap'
 PI_GEN_RELEASE='Meshcrap community image (unofficial)'
 RELEASE='trixie'
-DEPLOY_COMPRESSION='xz'
+DEPLOY_COMPRESSION='none'
 COMPRESSION_LEVEL=6
 TARGET_HOSTNAME='meshcrap'
 FIRST_USER_NAME='pi'
@@ -40,10 +40,12 @@ EOF
 # No password, Wi-Fi profile or SSH key is passed into pi-gen.
 (cd "$builder"; ./build.sh)
 shopt -s nullglob
-images=("$builder"/deploy/*meshcrap*.img.xz)
+images=("$builder"/deploy/*meshcrap*.img)
 test "${#images[@]}" = 1 || { echo 'Expected one final Pi image'; exit 1; }
-xz -t "${images[0]}"
-cp "${images[0]}" "$repo/dist/pi/meshcrap-arm64.img.xz"
+bash deploy/pi/verify-image.sh "${images[0]}" "$repo/dist/pi/IMAGE-AUDIT.json"
+xz -T2 -6 -c "${images[0]}" > "$repo/dist/pi/meshcrap-arm64.img.xz"
+xz -t "$repo/dist/pi/meshcrap-arm64.img.xz"
+git archive HEAD | gzip > "$repo/dist/pi/meshcrap-source.tar.gz"
 cp deploy/pi/README.md "$repo/dist/pi/README.md"
 printf 'Application commit: %s\npi-gen commit: %s\nArchitecture: arm64\nOS: Raspberry Pi OS Lite Trixie\nStatus: build only; physical Pi boot verification required\n' "$(git rev-parse HEAD)" "$revision" > "$repo/dist/pi/BUILD.txt"
 (cd "$repo/dist/pi"; sha256sum meshcrap-arm64.img.xz > SHA256SUMS)
