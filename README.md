@@ -12,7 +12,7 @@ This is a portable extraction of a working personal installation. It starts with
 
 **Experimental software, provided as-is.** Coverage and analysis are observational, not guarantees. Do not rely on Meshcrap for emergency communications or safety-critical decisions. Read the [project notice and operational limits](docs/PROJECT-NOTICE.md) and the applicable [licenses](#licensing).
 
-Meshcrap is a community project in active development. Expect rough edges and help make it better: report bugs, test your device or VM host, improve the interface and documentation, or send a pull request. Future measurement-quality ideas are in the [RF roadmap](docs/RF-ROADMAP.md); these are planning items, not enabled features. See [CONTRIBUTING.md](CONTRIBUTING.md) for a safe way to get started and the checks to run. VM formats are experimental; consult the build results and [verification limits](deploy/vm/README.md) before relying on them.
+Meshcrap is a community project in active development. Expect rough edges and help make it better: report bugs, test your device, improve the interface and documentation, or send a pull request. Future measurement-quality ideas are in the [RF roadmap](docs/RF-ROADMAP.md); these are planning items, not enabled features. See [CONTRIBUTING.md](CONTRIBUTING.md) for a safe way to get started and the checks to run. VM appliance images and live ISOs are outside the current release scope.
 
 ## What is included
 
@@ -42,7 +42,9 @@ Serial/USB radio transport is not implemented in this release. A USB-attached ra
 
 ## Quick start
 
-Prefer to build everything yourself? See the [build-from-source guide](docs/BUILDING.md) for the dashboard, Android APK, demo and experimental VM images, including tests and signing notes. Prebuilt downloads are optional.
+For a guided walkthrough, expected results, and common connection problems, see [First use](docs/FIRST-USE.md).
+
+Prefer to build everything yourself? See the [build-from-source guide](docs/BUILDING.md) for the dashboard, Android APK, demo and Raspberry Pi image recipe, including tests and signing notes. Prebuilt downloads are optional.
 
 ```sh
 git clone https://github.com/killerlime/meshcrap.git
@@ -195,11 +197,11 @@ The dashboard uses Waitress with one process and four request threads. Reinstall
 
 Chart.js 4.5.1, Leaflet 1.9.4 and the interface fonts are bundled with licenses and checksums. Only map tiles and explicitly configured integrations need external services. Health checks share a result for at most five seconds per process; the original check timestamp remains visible on hover. Mobile controls, weather and detailed health refresh only while displayed, immediately refreshing when reopened. The radio collector, packet retention and survey request cadence are unchanged.
 
-## iPhone, VM and Raspberry Pi options
+## iPhone and Raspberry Pi options
 
 On iPhone, open your private HTTPS dashboard in Safari and use Share → Add to Home Screen. The dashboard's Install on iPhone link walks through it. This version provides dashboard and controls; Bluetooth surveys remain Android-only. No Mac or App Store account is needed.
 
-VM builds are available through the **Build VM appliances** GitHub Actions workflow. See [VM setup and formats](deploy/vm/README.md) for VHDX, QCOW2, VMDK and OVA instructions, hardware requirements and verification limits.
+VM appliance builds are not part of this release. You can still install the Linux application inside your own supported Linux VM.
 
 A [native Raspberry Pi image recipe](deploy/pi/README.md) targets Raspberry Pi Imager's **Use custom** option with a persistent `.img.xz` (or extracted `.img`). This replaces the live-ISO plan. The Pi image still needs a native ARM64 build and physical boot validation before release.
 

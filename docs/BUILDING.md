@@ -53,14 +53,12 @@ Open `http://127.0.0.1:8765`. Demo data is synthetic. Map tiles and optional loc
 
 The current iPhone option is the dashboard's installable web app over private HTTPS. It is not a native iOS binary; there is no Xcode project or Bluetooth survey support to build for iPhone in this release.
 
-## VM images — experimental
+## Appliance scope
 
-Use a disposable Linux build host with Git, Python 3, curl, gzip, libguestfs tools, QEMU utilities/system emulator and a usable Linux kernel for libguestfs. On Ubuntu, the build workflow installs `libguestfs-tools qemu-utils qemu-system-x86 linux-image-generic`. Consult the [workflow](../.github/workflows/vm.yml) for its exact environment and [VM guide](../deploy/vm/README.md) for platform settings.
+VM appliance images and live ISOs are outside the current release scope. Historical
+build scripts are not a supported release or a verified download. The application
+can still be installed from source in a Linux VM using the normal instructions.
 
-```sh
-sudo bash deploy/vm/build.sh
-```
-
-The builder packages **committed HEAD**, not uncommitted edits. Commit your intended source changes locally before building. It downloads Debian and package dependencies and writes images under `dist/vm`. Do not distribute outputs from an incomplete or failed build. VM builds are still being debugged; a build command here is not a claim of passing native Hyper-V, VMware or VirtualBox tests. Review the actual run results before use.
-
-Successful builds include source/base-image identification and checksums. Record dependency versions too; the current builder is not byte-for-byte reproducible. Review [third-party notices](../THIRD_PARTY_NOTICES.md), bundled licenses and Debian package copyright files before redistributing an appliance. The project's license does not replace dependency licenses or data-provider terms.
+The [Raspberry Pi image recipe](../deploy/pi/README.md) is a separate preview.
+No native Pi image has been built or physically boot-validated for this release.
+Run image builds on a disposable capable ARM64 builder, never a live collector.
