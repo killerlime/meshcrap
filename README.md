@@ -203,7 +203,7 @@ On iPhone, open your private HTTPS dashboard in Safari and use Share → Add to 
 
 VM appliance builds are not part of this release. You can still install the Linux application inside your own supported Linux VM.
 
-A [native Raspberry Pi image recipe](deploy/pi/README.md) targets Raspberry Pi Imager's **Use custom** option with a persistent `.img.xz` (or extracted `.img`). This replaces the live-ISO plan. The Pi image still needs a native ARM64 build and physical boot validation before release.
+A [native Raspberry Pi image candidate](deploy/pi/README.md) targets Raspberry Pi Imager's **Use custom** option with a persistent `.img.xz` (or extracted `.img`). Native ARM64 build, first-use and filesystem checks pass. Physical Pi boot testing remains outstanding; candidates are experimental, not hardware-verified releases. This replaces the live-ISO plan.
 
 ## Thanks, MSPmesh
 

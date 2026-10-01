@@ -59,6 +59,7 @@ VM appliance images and live ISOs are outside the current release scope. Histori
 build scripts are not a supported release or a verified download. The application
 can still be installed from source in a Linux VM using the normal instructions.
 
-The [Raspberry Pi image recipe](../deploy/pi/README.md) is a separate preview.
-No native Pi image has been built or physically boot-validated for this release.
+The [Raspberry Pi image recipe and candidates](../deploy/pi/README.md) are experimental.
+Native ARM64 builds, first-use checks and filesystem audits have passed; physical
+Pi boot, Imager customization and Wi-Fi/SD expansion remain unverified.
 Run image builds on a disposable capable ARM64 builder, never a live collector.
