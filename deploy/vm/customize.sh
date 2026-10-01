@@ -1,8 +1,10 @@
 #!/bin/sh
 set -eu
 export DEBIAN_FRONTEND=noninteractive
-# virt-customize supplies the appliance resolver while running in the guest.
-# Do not replace it with a guessed SLIRP address or the host's loopback resolver.
+# The cloud image's resolved symlink has no target in the offline chroot.
+# Use public DNS only during the disposable build; restored to DHCP below.
+rm -f /etc/resolv.conf
+printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\noptions timeout:3 attempts:2\n' > /etc/resolv.conf
 getent hosts deb.debian.org >/dev/null || { echo 'Build appliance DNS lookup failed'; exit 1; }
 apt-get update -o APT::Update::Error-Mode=any
 apt-get install -y python3-venv python3-pip sudo systemd-resolved qemu-guest-agent
