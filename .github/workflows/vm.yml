@@ -10,6 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y libguestfs-tools qemu-utils qemu-system-x86 linux-image-generic
+      # Use QEMU user networking; passt privilege dropping cannot access root-owned build sockets.
+      - run: sudo apt-get remove -y passt
       - run: sudo bash deploy/vm/build.sh
       - uses: actions/upload-artifact@v4
         with:
