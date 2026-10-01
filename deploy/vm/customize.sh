@@ -5,6 +5,9 @@ export DEBIAN_FRONTEND=noninteractive
 # Use public DNS only during the disposable build; restored to DHCP below.
 rm -f /etc/resolv.conf
 printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\noptions timeout:3 attempts:2\n' > /etc/resolv.conf
+# Cloud NSS can require systemd-resolved's IPC even with a usable resolv.conf.
+# The offline customization chroot has no running system bus.
+sed -i 's/^hosts:.*/hosts: files dns/' /etc/nsswitch.conf
 getent hosts deb.debian.org >/dev/null || { echo 'Build appliance DNS lookup failed'; exit 1; }
 apt-get update -o APT::Update::Error-Mode=any
 apt-get install -y python3-venv python3-pip sudo systemd-resolved qemu-guest-agent

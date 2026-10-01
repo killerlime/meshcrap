@@ -2,6 +2,11 @@ name: Build VM appliances
 on:
   workflow_dispatch:
     inputs:
+      image_kind:
+        description: Select the image family to validate
+        type: choice
+        options: [both, vm, live]
+        default: both
       publish_artifacts:
         description: Upload binaries only after privacy and license review
         type: boolean
@@ -10,6 +15,7 @@ permissions:
   contents: read
 jobs:
   live:
+    if: inputs.image_kind != 'vm'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -32,6 +38,7 @@ jobs:
           retention-days: 14
           compression-level: 0
   build:
+    if: inputs.image_kind != 'live'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
