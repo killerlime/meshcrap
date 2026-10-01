@@ -221,3 +221,26 @@ A future export must be narrowly scoped and read-only, with bounded time windows
 Acceptance: export known test intervals, reconcile numeric results against the existing graph at the same resolution, and reproduce missing periods and consolidation correctly. Longer term, place graphs1090 trends beside the RF/weather timelines without treating an ADS-B signal metric as an absolute calibration for Meshtastic.
 
 For band context, the FAA distinguishes 1090 MHz and 978 MHz ADS-B links; this project must preserve that distinction. [FAA ADS-B capabilities](https://www.faa.gov/air_traffic/technology/equipadsb/capabilities/benefits).
+
+
+## RF-17 — Richer local weather and CoCoRaHS observations
+
+**Deferred integration, read-only.** Investigate the actual weather-station/display model and its existing collector feed before choosing an adapter. AcuRite Atlas can measure wind, rainfall, UV and light intensity as well as temperature/humidity; lightning detection depends on fitted hardware. Hardware capability is not proof that every measurement is exposed over a local API or forwarded to Weather Underground. [AcuRite Atlas product overview](https://www.acurite.com/pages/atlas-landing-page).
+
+Prefer already available station measurements or cached upstream payloads. Inventory timestamps, units, wind speed/gust averaging, direction, rain rate, cumulative rain, pressure reference, light/UV and optional lightning fields. Keep station pressure distinct from sea-level-adjusted pressure. Mark dew point and other computed metrics as derived, not separately measured. Do not intercept traffic, change station upload destinations, add RF reception hardware or increase polling as part of this backlog entry.
+
+CoCoRaHS offers daily precipitation and additional report categories plus a data-export interface. Daily gauge reports, multi-day totals and significant-weather reports need different time semantics. Identify the user's station later using the actual CoCoRaHS identifier; do not assume a Weather Underground identifier maps to it. Use an official export or permitted read-only endpoint, with no account writes and no credentials in source. [CoCoRaHS data export](https://data.cocorahs.org/cocorahs/Export/ExportManager.aspx), [CoCoRaHS reporting guidance](https://media.cocorahs.org/docs/CoCoRaHS_ReportingGuidance.pdf).
+
+### Proposed data handling
+
+- Preserve observation time, collection time, accumulation start/end, local timezone and original report identifier/revision. Never treat a daily total as instantaneous rainfall at submission time.
+- Keep trace, zero, missing and not-observed distinct. Preserve multi-day periods without inventing hourly rainfall. Handle DST and late/corrected reports explicitly.
+- Keep automated tipping-bucket totals, manual gauge totals, snowfall depth, snow water equivalent, hail reports and condition notes as separate evidence. Flag disagreements rather than overwriting one instrument with another.
+- Store only the minimum needed for the private analysis; report text can contain personal information. Publish only generic adapter code and synthetic examples.
+- Annotate the RF/environmental timeline with reported events and their uncertainty. Compare manual/automatic totals over genuinely matching intervals before using them in correlation studies.
+
+### Acceptance and next steps
+
+Start with a small official export and existing weather payloads, validate units and interval semantics, then compare against the original reports. Test trace precipitation, a dry day, a missing day, a multi-day total, corrected data, DST transitions and differing observation schedules. Keep host reachability failures distinct from absence of measurements: a station without a responding web page might still upload useful data through its normal service.
+
+No collection changes tonight. Model details, CoCoRaHS station ID, export access and desired retention are questions for a later session.
