@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 export DEBIAN_FRONTEND=noninteractive
+# The offline guest has no running resolved; use the guestfs SLIRP DNS proxy during customization.
+rm -f /etc/resolv.conf
+printf "nameserver 169.254.2.3\n" > /etc/resolv.conf
 apt-get update
 apt-get install -y python3-venv python3-pip sudo systemd-resolved qemu-guest-agent
 mkdir -p /opt/meshcrap
