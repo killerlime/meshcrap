@@ -1,9 +1,29 @@
 name: Build VM appliances
 on:
   workflow_dispatch:
+    inputs:
+      publish_artifacts:
+        description: Upload binaries only after privacy and license review
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
+  live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y live-build debootstrap squashfs-tools xorriso isolinux syslinux-common qemu-system-x86
+      - run: sudo bash deploy/live/build.sh
+      - run: sudo bash deploy/live/verify.sh
+      - uses: actions/upload-artifact@v4
+        if: inputs.publish_artifacts
+        with:
+          name: meshcrap-live-amd64
+          path: dist/live/
+          retention-days: 14
+          compression-level: 0
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -14,6 +34,7 @@ jobs:
       - run: sudo apt-get remove -y passt
       - run: sudo bash deploy/vm/build.sh
       - uses: actions/upload-artifact@v4
+        if: inputs.publish_artifacts
         with:
           name: meshcrap-vm-amd64
           path: dist/vm/

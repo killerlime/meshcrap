@@ -66,7 +66,13 @@ public final class MainActivity extends Activity {
         text("One request at a time, at least 2 minutes apart. Replies can take up to 2 minutes. Pausing lets the current request finish.",14);
         stopButton=button("Disconnect and release Bluetooth",()->new AlertDialog.Builder(this).setTitle("Disconnect radio?").setMessage("Stop this connection and release Bluetooth for Meshtastic. Any pending request ends; saved results stay on this phone.").setPositiveButton("Disconnect",(d,n)->stopService(new Intent(this,SurveyService.class))).setNegativeButton("Keep connected",null).show());
         body=root;text("Results stay on this phone until the collector accepts them. GPS tracks show where you travelled; they do not prove radio coverage. Test build 0.3 · Bluetooth still needs verification on your phone.",13);
+        button("Licenses and source",()->showLicenses());
         renderState();
+    }
+    private void showLicenses(){
+        try{StringBuilder value=new StringBuilder();for(String file:new String[]{"NOTICE.txt","Protobuf-LICENSE.txt","GPL-3.0.txt"}){try(java.io.InputStream in=getAssets().open("licenses/"+file)){java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream();byte[] buffer=new byte[4096];int count;while((count=in.read(buffer))!=-1)out.write(buffer,0,count);value.append(new String(out.toByteArray(),java.nio.charset.StandardCharsets.UTF_8)).append("\n\n");}}
+            ScrollView scroll=new ScrollView(this);TextView text=new TextView(this);text.setText(value.toString());text.setTextSize(14);text.setPadding(dp(16),dp(12),dp(16),dp(12));text.setTextIsSelectable(true);scroll.addView(text);new AlertDialog.Builder(this).setTitle("Licenses and source").setView(scroll).setPositiveButton("Close",null).show();
+        }catch(java.io.IOException e){message("License files could not be opened. See the repository's Android LICENSE and third-party notices.");}
     }
     private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
     private void card(String title){body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(16),dp(12),dp(16),dp(16));android.graphics.drawable.GradientDrawable bg=new android.graphics.drawable.GradientDrawable();bg.setColor(0xff1a2820);bg.setCornerRadius(dp(16));bg.setStroke(dp(1),0xff344e3d);body.setBackground(bg);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(14),0,0);root.addView(body,lp);TextView heading=text(title,21);heading.setTextColor(GREEN);if(Build.VERSION.SDK_INT>=28)heading.setAccessibilityHeading(true);}

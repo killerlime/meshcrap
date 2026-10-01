@@ -24,6 +24,20 @@ ca-certificates
 EOF
 git -c safe.directory="$repo" -C "$repo" archive HEAD | tar -x -C config/includes.chroot/opt/meshcrap
 install -m 755 "$repo/deploy/live/start.sh" config/includes.chroot/usr/local/bin/meshcrap-live-start
+install -m 755 "$repo/deploy/live/self-test.sh" config/includes.chroot/usr/local/bin/meshcrap-live-self-test
+mkdir -p config/includes.chroot/etc/systemd/system/multi-user.target.wants
+cat > config/includes.chroot/etc/systemd/system/meshcrap-live-self-test.service <<'EOF'
+[Unit]
+Description=Opt-in live image verification
+ConditionKernelCommandLine=meshcrap.selftest
+After=local-fs.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/meshcrap-live-self-test
+StandardOutput=tty
+TTYPath=/dev/ttyS0
+EOF
+ln -s ../meshcrap-live-self-test.service config/includes.chroot/etc/systemd/system/multi-user.target.wants/meshcrap-live-self-test.service
 cat > config/includes.chroot/etc/skel/Desktop/meshcrap.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
