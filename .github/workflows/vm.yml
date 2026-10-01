@@ -9,8 +9,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y libguestfs-tools qemu-utils qemu-system-x86
-      - run: bash deploy/vm/build.sh
+      - run: sudo apt-get update && sudo apt-get install -y libguestfs-tools qemu-utils qemu-system-x86 linux-image-generic
+      - run: sudo bash deploy/vm/build.sh
       - uses: actions/upload-artifact@v4
         with:
           name: meshcrap-vm-amd64
