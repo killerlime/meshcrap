@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  if(new URLSearchParams(location.search).get('embedded')==='1')document.querySelector('main > a')?.remove();
   const $=id=>document.getElementById(id),model=globalThis.MeshSimulator,form=$('controls');
   for(const id of ['before','after'])for(const name of Object.keys(model.presets)){
     const option=document.createElement('option');option.textContent=name;option.value=name;

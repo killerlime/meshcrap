@@ -15,9 +15,20 @@
   const jumps=el('nav',null,'insight-jumps');jumps.setAttribute('aria-label','Insights sections');
   for(const [id,title] of [['mesh','Mesh briefing'],['voices','The regulars'],['coverage','Coverage quest'],['lna','LNA lab'],['diary','Receiver diary']]){const a=el('a',title);a.href='#insight-'+id;jumps.append(a);}
   panel.append(head,toolbar,jumps);
-  const lab=el('section',null,'card insight-section');lab.append(el('h3','Mesh what-if lab'),el('p','Explore how modem presets, frequencies and coordinated changes affect airtime and compatibility. Synthetic scenarios only; your radios stay untouched.'));
-  const labLink=el('a','Open the mesh simulator');labLink.href='/static/mesh-simulator.html';lab.append(labLink);panel.append(lab);
+  // A separate, lazy-loaded workspace preserves scenario inputs between tab visits.
+  const whatifTab=el('button','What-if');whatifTab.type='button';whatifTab.id='dashboard-tab-whatif';whatifTab.setAttribute('role','tab');whatifTab.setAttribute('aria-controls','dashboard-panel-whatif');whatifTab.setAttribute('aria-selected','false');whatifTab.tabIndex=-1;
+  const whatifPanel=el('section',null,'dashboard-panel');whatifPanel.id='dashboard-panel-whatif';whatifPanel.hidden=true;whatifPanel.tabIndex=0;whatifPanel.setAttribute('role','tabpanel');whatifPanel.setAttribute('aria-labelledby',whatifTab.id);
+  const whatifHeading=el('h2','What-if lab'),standalone=el('a','Open simulator full page');standalone.href='/static/mesh-simulator.html';whatifPanel.append(whatifHeading,standalone);
+  nav.append(whatifTab);main.append(whatifPanel);let simulatorFrame=null;
+  whatifTab.addEventListener('click',()=>{
+   main.querySelectorAll('.dashboard-panel').forEach(p=>p.hidden=p!==whatifPanel);
+   nav.querySelectorAll('[role=tab]').forEach(b=>{b.setAttribute('aria-selected',String(b===whatifTab));b.tabIndex=b===whatifTab?0:-1;});
+   if(!simulatorFrame){simulatorFrame=el('iframe');simulatorFrame.title='What-if simulator and virtual node builder';simulatorFrame.src='/static/mesh-simulator.html?embedded=1';simulatorFrame.setAttribute('sandbox','allow-scripts');simulatorFrame.style.cssText='display:block;width:100%;height:80vh;min-height:520px;border:0;margin-top:12px;border-radius:12px';whatifPanel.append(simulatorFrame);}
+  });
+  nav.addEventListener('click',e=>{const other=e.target.closest('[role=tab]');if(other&&other!==whatifTab){whatifPanel.hidden=true;whatifTab.setAttribute('aria-selected','false');whatifTab.tabIndex=-1;}});
+  setTimeout(()=>{tab.after(whatifTab);try{if(sessionStorage.getItem('console-active-tab')==='whatif')whatifTab.click();}catch{}},0);
   const blocks={};
+  const tropoScript=el('script');tropoScript.src='/static/tropo-view.js';document.body.append(tropoScript);
   function block(id,title,sub){const section=el('section',null,'card insight-section');section.id='insight-'+id;section.append(el('h3',title),el('p',sub,'insight-sub'));const content=el('div');section.append(content);panel.append(section);blocks[id]=content;return content;}
   block('mesh','The mesh briefing','Your selected window versus the equally long window immediately before it.');
   block('voices','Meet the regulars','Originating nodes heard by Receiver. A relayed packet’s signal belongs to the last radio hop, so direct-link comparisons stand on their own.');

@@ -1,6 +1,6 @@
 # Mesh what-if lab
 
-Open **Insights → Open the mesh simulator**. This is a browser-only software model, with no radio API, polling, credentials, location lookup or storage. Inputs stay in the page. It can be opened as a standalone static page.
+Open the **What-if** tab. This is a browser-only software model, with no radio API, polling, credentials, location lookup or storage. Inputs stay in the page between tab visits and reset on reload. It can also be opened as a standalone static page.
 
 ## Available models
 

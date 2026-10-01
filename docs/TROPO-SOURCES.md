@@ -4,6 +4,34 @@ Reviewed 2026-10-01. Integration is experimental and optional. This document
 distinguishes usable source interfaces from adapters that are actually enabled.
 No background atmospheric polling is enabled by this release work.
 
+## Visual dashboard integration
+
+The **Tropo** tab uses Tropocast's official **Share map → Embed code** interface.
+It loads the global GDPS interactive forecast only when selected and removes the
+iframe when another dashboard tab is selected. Animation is off initially. The
+provider's scale, valid time, timeline and attribution remain visible; a direct
+source link is supplied if embedding fails. No images are copied or redistributed.
+An optional deployment-local `dashboard/static/tropo-map-config.json` accepts
+`latitude` and `longitude` for a coarse regional centre. This file is gitignored;
+do not put private locations into published code. Without it, the provider default
+view is used. Provider rendering may disregard the requested starting view; users
+can pan and zoom. This external map sends normal browser requests and the selected
+regional centre to the provider, never local radio measurements or node lists.
+
+Direct Device API preview requests returned HTTP 403 during verification. The
+official browser embed is a separate supported interface and does not require
+an API key. Numeric time series and automated RF correlations remain unimplemented.
+
+## Terrain reference candidate
+
+[HeyWhatsThat's Technical FAQ](https://www.heywhatsthat.com/techfaq.html) documents
+the Profiler API, returning a PNG terrain cross-section with configurable point
+and antenna elevations. It explicitly does not offer the underlying elevation data.
+The stated grant covers low-volume noncommercial use with copyright attribution;
+the author asks users to contact them beyond experimentation. No production
+adapter is enabled, and no coordinates have been submitted. Terrain images are
+useful references, not atmospheric observations or calibrated 915 MHz coverage.
+
 ## Prepared forecasts from the amateur-radio community
 
 **Tropocast (SQ3A)** is the strongest documented API candidate found so far.
