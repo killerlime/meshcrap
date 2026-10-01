@@ -97,7 +97,7 @@ class Security:
         try:address=ipaddress.ip_address(request.remote_addr)
         except ValueError:return jsonify(error='Unrecognized network'),403
         if not any(address in network for network in self.networks):return jsonify(error='Use your home network or private HTTPS address'),403
-        if request.path == '/api/survey-phone/sync':
+        if request.path in ('/api/survey-phone/sync','/api/survey-phone/control'):
             phone=current_app.extensions.get('survey_phone')
             return phone.authorize() if phone else (jsonify(error='Phone service unavailable'),503)
         if request.method in ('POST','PUT','PATCH','DELETE'):

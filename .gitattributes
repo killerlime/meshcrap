@@ -1,3 +1,4 @@
 source/dashboard/static/vendor/** -text
 *.sh text eol=lf
 deploy/vm/meshcrap-setup text eol=lf
+deploy/pi/meshcrap-setup text eol=lf

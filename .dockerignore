@@ -1,0 +1,26 @@
+# An allowlist: local configuration, Git history and build products never enter context.
+**
+!Dockerfile
+!requirements.txt
+!meshcrap.py
+!setup_wizard.py
+!schema.sql
+!config.example.json
+!LICENSE
+!THIRD_PARTY_NOTICES.md
+!licenses/
+!licenses/**
+!source/
+!source/**
+!deploy/
+!deploy/docker/
+!deploy/docker/entrypoint.py
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.db
+**/*.sqlite*
+**/.env*
+**/config.json
+**/*.key
+**/*.pem

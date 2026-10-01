@@ -1,0 +1,38 @@
+x-runtime: &runtime
+  image: meshcrap:local
+  build: .
+  init: true
+  user: "10001:10001"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  volumes:
+    - meshcrap-data:/data
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  dashboard:
+    <<: *runtime
+    ports: ["127.0.0.1:8080:8080"]
+    command: [serve]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, python, /opt/meshcrap/container_entrypoint.py, health]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+  collector:
+    <<: *runtime
+    profiles: [radio]
+    command: [collect]
+    restart: unless-stopped
+
+volumes:
+  meshcrap-data:

@@ -1,6 +1,11 @@
 name: Build VM appliances
 on:
   workflow_dispatch:
+    inputs:
+      publish_artifacts:
+        description: Upload binaries only after privacy and license review
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -14,6 +19,7 @@ jobs:
       - run: sudo apt-get remove -y passt
       - run: sudo bash deploy/vm/build.sh
       - uses: actions/upload-artifact@v4
+        if: inputs.publish_artifacts
         with:
           name: meshcrap-vm-amd64
           path: dist/vm/

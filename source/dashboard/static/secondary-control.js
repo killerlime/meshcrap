@@ -30,7 +30,7 @@
   }
   function setBusy(value){busy=value;document.querySelectorAll('button').forEach(b=>b.disabled=value);}
   async function refresh(){
-    setBusy(true);status('Reading Secondary radio settings through Dell7400…');
+    setBusy(true);status('Reading Secondary radio settings through the configured secondary connection…');
     try{
       state=await request('action',{action:'state'});$('unlock').hidden=true;$('controls').hidden=false;
       const preset=state.groups.find(g=>g.kind==='config'&&g.name==='lora')?.fields.find(f=>f.name==='modem_preset')?.value;

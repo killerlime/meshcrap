@@ -868,6 +868,16 @@ def _survey_metrics(conn, survey):
         return None
 
     s = dict(survey)
+    if s.get('area_id') == 'roaming':
+        phone = app.extensions['survey_phone'].report(s['survey_id'])
+        distance = sum(_survey_haversine(a[0], a[1], b[0], b[1])
+                       for route in phone['routes'] for segment in route['segments']
+                       for a, b in zip(segment, segment[1:]))
+        return dict(s, active=s['ended_at'] is None, area_name='Roaming survey',
+                    routes=phone['routes'], phone=phone, traceroute_status=phone['status'],
+                    gps_samples=sum(r['samples'] for r in phone['routes']), distance_miles=distance,
+                    probe_nodes=[r['node'] for r in phone['routes']],
+                    contribution_note='Roaming survey: route and traceroutes across all areas. GPS tracks do not prove RF coverage. Latest 5,000 phone records displayed; full history retained.')
 
     end_row = s["end_row_id"]
 
@@ -1145,8 +1155,8 @@ def coverage_survey():
         ).strip().lower()
 
         if action == "start":
-            area_id = data.get('area_id', 'home')
-            if area_id not in AREAS:
+            area_id = data.get('area_id', 'roaming')
+            if area_id != 'roaming' and area_id not in AREAS:
                 return jsonify(ok=False, error='Unknown coverage area'), 400
 
 
@@ -2809,6 +2819,12 @@ register_weather(app)
 
 from role_compare import register_role_compare
 register_role_compare(app, DB, startup_windows, startup_filter)
+
+from heywhatsthat import register_heywhatsthat
+register_heywhatsthat(app, DB)
+
+from receiver_diagnostics import register_receiver_diagnostics
+register_receiver_diagnostics(app, DB)
 
 if __name__ == "__main__":
     if @@ENABLE_WEATHER@@: start_weather()

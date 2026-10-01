@@ -34,6 +34,11 @@ local.properties
 .gradle/
 build/
 dist/
+tropo-map-config.json
 
 config.json.backup-*
 .meshcrap-setup-*
+
+heywhatsthat-config.json
+heywhatsthat-usage.sqlite3*
+receiver-log-access.json

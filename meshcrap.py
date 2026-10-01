@@ -28,6 +28,9 @@ def load_config(path):
     if unknown:
         raise ValueError('Unknown configuration keys: '+', '.join(sorted(unknown)))
     config = defaults | config
+    title=config['app_title']
+    if not isinstance(title,str) or not title.strip() or len(title)>80 or any(ord(c)<32 for c in title):
+        raise ValueError('app_title must contain 1–80 printable characters')
     for key in ('radio_port','web_port'):
         if type(config[key]) is not int or not 1 <= config[key] <= 65535:
             raise ValueError(key+' must be a TCP port')
@@ -100,7 +103,7 @@ def load_config(path):
 def render(config,data):
     runtime = data/'.runtime'
     tokens={key.upper():repr(value) if isinstance(value,(bool,int,float,list,dict)) else str(value) for key,value in config.items()}
-    tokens.update(DATA_DIR=data.as_posix(),RECEIVER_NUM=str(int(config['receiver_id'][1:],16)),
+    tokens.update(APP_TITLE_HTML=html.escape(config['app_title']).replace('{','&#123;').replace('}','&#125;'),DATA_DIR=data.as_posix(),RECEIVER_NUM=str(int(config['receiver_id'][1:],16)),
         NODE_PREFIX_LOWER=config['node_prefix'].lower(),AREAS=repr(config['regions']),
         AREA_IDS=json.dumps(list(config['regions'])),
         AREA_OPTIONS=''.join('<option value="'+k+'">'+html.escape(v['name'])+'</option>' for k,v in config['regions'].items()),

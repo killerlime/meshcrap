@@ -1,10 +1,15 @@
 #!/bin/sh
 set -eu
 export DEBIAN_FRONTEND=noninteractive
-# The offline guest has no running resolved; use the guestfs SLIRP DNS proxy during customization.
+# The cloud image's resolved symlink has no target in the offline chroot.
+# Use public DNS only during the disposable build; restored to DHCP below.
 rm -f /etc/resolv.conf
-printf "nameserver 169.254.2.3\n" > /etc/resolv.conf
-apt-get update
+printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\noptions timeout:3 attempts:2\n' > /etc/resolv.conf
+# Cloud NSS can require systemd-resolved's IPC even with a usable resolv.conf.
+# The offline customization chroot has no running system bus.
+sed -i 's/^hosts:.*/hosts: files dns/' /etc/nsswitch.conf
+getent hosts deb.debian.org >/dev/null || { echo 'Build appliance DNS lookup failed'; exit 1; }
+apt-get update -o APT::Update::Error-Mode=any
 apt-get install -y python3-venv python3-pip sudo systemd-resolved qemu-guest-agent
 mkdir -p /opt/meshcrap
 tar xzf /tmp/meshcrap-source.tar.gz -C /opt/meshcrap

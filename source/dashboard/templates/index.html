@@ -10,7 +10,7 @@
  content="width=device-width,initial-scale=1"
 >
 
-<title>Meshcrap RF Console</title>
+<title>@@APP_TITLE_HTML@@</title>
 <link rel="manifest" href="/static/app-assets/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/static/app-assets/icon-180.png">
 <meta name="theme-color" content="#111713">
@@ -989,9 +989,9 @@ tbody tr:hover .node-distance {
 </style>
 
 
-<link rel="stylesheet" href="/static/appearance.css?v=hq-1">
+
 <script src="/static/lna-switches.js?v=hq-1"></script>
-<script src="/static/appearance.js?v=hq-1"></script>
+
 <script src="/static/recovery-client.js?v=hq-1"></script>
 <script src="/static/csv-export.js?v=hq-1"></script>
 <link rel="stylesheet" href="/static/console-ui.css?v=hq-1"><style>
@@ -1026,21 +1026,13 @@ tbody tr:hover .node-distance {
 
 <header><a href="/install" style="float:right">Install on iPhone</a>
 
-<h1>Meshcrap RF Console</h1>
+<h1>@@APP_TITLE_HTML@@</h1>
 
 <div class="subtitle">
 Receiver reception analysis &amp; site monitoring
 </div>
 
-<div class="appearance-picker">
-<label for="appearanceSelect">Appearance</label>
-<select id="appearanceSelect" aria-describedby="appearanceHint">
-<option value="mesh">Mesh Green · Original</option>
-<option value="neon">Neon Lounge</option>
-<option value="midnight">Midnight Blue</option>
-</select>
-<span id="appearanceHint">Saved in this browser · appearance only</span>
-</div>
+
 </header>
 
 <main>
@@ -1166,7 +1158,7 @@ Receiver reception analysis &amp; site monitoring
 <div id="nodeSummary" class="console-summary" aria-label="Filtered node summary"></div><p class="muted">Observed in the selected time window; cached node records are excluded. Activity means a recorded update, not proof a node is online. Signal measures the final received radio link, which may be a relay.</p>
 <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
 <label>Find node <input id="nodeSearch" type="search" placeholder="Name, shortname or node ID" oninput="renderNodeTable()" style="min-width:240px;padding:8px 10px;border:1px solid #35463c;border-radius:6px;background:#101b15;color:#e7f3eb"></label>
-<label><input id="nodeJkOnly" type="checkbox" onchange="if(this.checked)document.getElementById('nodeExcludeJk').checked=false;renderNodeTable()"> Local nodes only</label><label><input id="nodeExcludeJk" type="checkbox" onchange="if(this.checked)document.getElementById('nodeJkOnly').checked=false;renderNodeTable()"> Exclude Local nodes</label>
+<label><input id="nodeJkOnly" type="checkbox" onchange="if(this.checked)document.getElementById('nodeExcludeLocal').checked=false;renderNodeTable()"> Local nodes only</label><label><input id="nodeExcludeLocal" type="checkbox" onchange="if(this.checked)document.getElementById('nodeJkOnly').checked=false;renderNodeTable()"> Exclude Local nodes</label>
 <button id="exportNodesCsv" type="button" onclick="exportNodesCsv()" disabled>Export CSV</button>
 <span id="nodeCount" class="muted" aria-live="polite"></span>
 </div>
@@ -1249,7 +1241,7 @@ Loading mesh reach history...
 <div><div class="muted">Temperature</div><div class="big" data-weather-temp>—</div><div class="muted" data-weather-temp-c>— °C</div></div>
 <div><div class="muted">Humidity</div><div class="big" data-weather-humidity>—</div><div class="muted">Relative humidity</div></div>
 <div><div class="muted">Pressure</div><div class="big" data-weather-pressure>—</div><div class="muted" data-weather-pressure-hpa>— hPa</div></div>
-</div><div class="muted" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><span>AcuRite Atlas · <a href="https://www.wunderground.com/dashboard/pws/@@WEATHER_STATION@@" target="_blank" rel="noopener noreferrer">@@WEATHER_STATION@@ ↗</a> via Weather Underground</span><time>Awaiting observation</time></div>
+</div><div class="muted" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><span>Weather station · <a href="https://www.wunderground.com/dashboard/pws/@@WEATHER_STATION@@" target="_blank" rel="noopener noreferrer">@@WEATHER_STATION@@ ↗</a> via Weather Underground</span><time>Awaiting observation</time></div>
 <div class="muted" style="font-size:11px;margin-top:8px">Checks every 5 minutes · Pressure as reported by the weather station feed.</div></section>
 <style>#hqWeather[data-stale="true"] [data-weather-status]{color:#f2bb66}#hqWeather .big{font-size:clamp(24px,4vw,36px)}</style>
 <div class="live-grid"><div class="card"><h2>Recently Heard</h2><div class="recent-box" id="recentHeard" tabindex="0" role="region" aria-label="Recently heard nodes"></div></div><div class="card"><h2>System</h2><div id="systemDetail" class="siteinfo">Loading...</div>
@@ -1903,8 +1895,8 @@ function renderNodeTable() {
     const remoteNodes = nodeRows.filter(n => !n.is_local && n.node_id !== '@@RECEIVER_ID@@');
     const query = (document.getElementById('nodeSearch').value || '').trim().toLowerCase();
     const meshcrapOnly = document.getElementById('nodeJkOnly').checked;
-    const excludeJk = document.getElementById('nodeExcludeJk').checked;
-    const matches = remoteNodes.filter(n => (!meshcrapOnly || n.is_meshcrap) && (!excludeJk || !n.is_meshcrap) &&
+    const excludeLocal = document.getElementById('nodeExcludeLocal').checked;
+    const matches = remoteNodes.filter(n => (!meshcrapOnly || n.is_meshcrap) && (!excludeLocal || !n.is_meshcrap) &&
         [n.node,n.short_name,n.node_id].some(v => String(v || '').toLowerCase().includes(query)));
     document.getElementById('nodeCount').textContent = `${matches.length} of ${remoteNodes.length} nodes`;
     const total = key => matches.reduce((sum,n)=>sum+(Number(n[key])||0),0);
@@ -3758,7 +3750,7 @@ function renderSurveyRoute(s) {
 }
 function renderSurvey(d) {
     surveyData=d||{};
-    const active=d?.active?.area_id===coverageArea?d.active:null, recent=(d?.recent||[]).filter(r=>(r.area_id||'home')===coverageArea);
+    const active=(d?.active?.area_id==='roaming'||d?.active?.area_id===coverageArea)?d.active:null, recent=(d?.recent||[]).filter(r=>r.area_id==='roaming'||(r.area_id||'home')===coverageArea);
     const selected=document.getElementById('surveyHistory')?.value;
     const s=active || recent.find(r=>String(r.survey_id)===selected) || recent[0];
     const start=document.getElementById('surveyStart'),stop=document.getElementById('surveyStop');
@@ -3781,8 +3773,8 @@ function renderSurvey(d) {
     if(!s)return;
     const cards=[['Survey',s.active?'Recording':'Completed'],['Probe',(s.probe_nodes||[]).join(', ')||'Waiting for a travelling local node'],
         ['GPS samples',s.gps_samples||0],['Observed distance',Number(s.distance_miles||0).toFixed(1)+' mi'],
-        ['Cells visited',s.cells_visited||0],['Proven this outing',s.cells_proven_this_survey||0],
-        ['Newly proven cells',s.new_coverage_cells||0],['Stale cells refreshed',s.stale_cells_refreshed||0]];
+        ['Cells visited',s.area_id==='roaming'?'Not grid-limited':s.cells_visited||0],['Proven this outing',s.area_id==='roaming'?'Not inferred from GPS':s.cells_proven_this_survey||0],
+        ['Newly proven cells',s.area_id==='roaming'?'—':s.new_coverage_cells||0],['Stale cells refreshed',s.area_id==='roaming'?'—':s.stale_cells_refreshed||0]];
     const traceRows=(s.phone?.traces||[]).map(t=>{
         const node=id=>Number(id)===4294967295?'Unknown relay (!ffffffff)':(s.phone?.names?.[id]||'!'+Number(id).toString(16).padStart(8,'0'));
         const path=(ids)=>ids.map(node).join(' → ');
@@ -3791,7 +3783,11 @@ function renderSurvey(d) {
     }).join('');
     live.innerHTML=cards.map(([label,value])=>`<div class="noc-record"><div class="muted">${esc(label)}</div><div class="value">${esc(String(value))}</div></div>`).join('')+
         `<div class="muted" style="grid-column:1/-1">${esc(s.contribution_note||'')}<br>Phone survey: ${esc(s.traceroute_status||'Phone not connected')}. ${Number(s.phone?.successes||0)} successful routes from ${Number(s.phone?.trace_count||0)} recorded requests. Phone GPS is a path record, not proof of radio coverage.</div>`+
+        `<button id="surveyFitRoute" type="button" style="min-height:44px">Fit recorded route</button>`+
         (traceRows?`<details style="grid-column:1/-1;min-width:0"><summary>Phone traceroute results</summary><div style="overflow:auto"><table><thead><tr><th>Route</th><th>Outcome</th><th>Channel</th><th>Time</th><th>Observed path</th></tr></thead><tbody>${traceRows}</tbody></table></div><p class="muted">Latest 100 requests from the most recent 5,000 phone records. Unknown relays remain unknown. Complete records are retained separately.</p></details>`:'');
+    const routePoints=(s.routes||[]).flatMap(route=>(route.segments||[]).flat());
+    const fitRoute=document.getElementById('surveyFitRoute');fitRoute.disabled=!routePoints.length;
+    fitRoute.onclick=()=>{if(meshMap&&routePoints.length)meshMap.fitBounds(L.latLngBounds(routePoints),{padding:[24,24],maxZoom:15});};
 }
 
 async function loadSurvey() {
@@ -3825,7 +3821,7 @@ async function surveyAction(action) {
         action === "start"
         &&
         !confirm(
-            "Start a coverage survey in the selected area?"
+            "Start a roaming survey? Record your route and results across all grids and outside them."
         )
     )
         return;
@@ -3849,7 +3845,7 @@ async function surveyAction(action) {
                     "application/json"
             },
 
-            body: JSON.stringify({action,area_id:coverageArea})
+            body: JSON.stringify({action})
         }
     );
 
@@ -3873,7 +3869,7 @@ async function surveyAction(action) {
 
 
 setInterval(
-    ()=>{if(dashboardPanelVisible("map"))loadSurvey();},
+    ()=>{if(dashboardPanelVisible("survey"))loadSurvey();},
     5000
 );
 
@@ -4147,6 +4143,7 @@ async function refreshDashboard() {
     try {
         const tasks = [loadSummary()];
         if (dashboardPanelVisible('system')) tasks.push(loadEvents());
+        if (dashboardPanelVisible('survey')) tasks.push(loadSurvey());
         if (dashboardPanelVisible('map')) tasks.push(loadMap(),loadCoverage());
         const results = await Promise.allSettled(tasks);
         const failed = results.some(r => r.status === 'rejected');
@@ -4159,10 +4156,10 @@ async function refreshDashboard() {
 }
 document.addEventListener('DOMContentLoaded',()=>requestAnimationFrame(()=>{
     refreshDashboard();
-    if (dashboardPanelVisible('map')) loadSurvey();
+    if (dashboardPanelVisible('survey')) loadSurvey();
     const refreshOpenedPanel = ()=>requestAnimationFrame(()=>{
         if (dashboardPanelVisible('nodes')) renderNodeTable();
-        if (dashboardPanelVisible('map')) loadSurvey();
+        if (dashboardPanelVisible('survey')) loadSurvey();
         if (dashboardPanelVisible('filter')) window.loadRfHealthHourly?.();
         refreshDashboard();
     });
@@ -4364,5 +4361,5 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDas
 .leaflet-interactive[role="button"]:focus-visible{outline:3px solid #fff;outline-offset:3px}
 </style><script src="/static/map-node-hover.js?v=1"></script>
 
-<script src="/static/role-compare.js?v=1"></script></body>
+<script src="/static/role-compare.js?v=1"></script><script src="/static/snow-day.js?v=1"></script><script src="/static/receiver-diagnostics.js?v=1"></script></body>
 </html>

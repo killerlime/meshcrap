@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Packet Slopes</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#102638;color:#eafaff;font:15px system-ui;text-align:center}h1{font-size:24px;margin:8px}p{margin:6px 12px;line-height:1.4}.slope{position:relative;max-width:440px;margin:10px auto}canvas{display:block;width:100%;max-height:46vh;aspect-ratio:4/5;background:#e7f4f6;border-radius:14px;object-fit:contain}button{font:inherit;min-width:64px;min-height:44px;border-radius:10px;border:1px solid #72d2de;background:#194258;color:white;margin:4px;padding:8px 16px;touch-action:none}button:focus-visible,canvas:focus-visible{outline:3px solid #ffd15c;outline-offset:2px}#score{font-variant-numeric:tabular-nums}small{display:block;margin:10px;color:#b4d2dd}.steer{display:flex;justify-content:center;gap:30px}.steer button{min-width:110px;user-select:none}#status{min-height:22px;color:#ffe191}
+</style></head><body>
+<h1>❄ Packet Slopes</h1>
+<p>Ski the mesh! Grab golden packets, build relay chains, dodge interference trees. Pink sparkly pony couriers restore a signal bar!</p>
+<p id="score">0 m · 0 packets · 3 signal bars</p>
+<p id="route" aria-label="Game relay chain">YOU ○ — ○ RIDGE — ○ VALLEY — ○ BASE</p>
+<div class="slope"><canvas width="480" height="600" tabindex="0" aria-label="Mesh ski slope. Left and right arrows steer. Space pauses. Collect three packets to deliver a relay chain. Trees cost one signal bar."></canvas></div>
+<div class="steer"><button id="left" aria-label="Steer left">◀ Left</button><button id="right" aria-label="Steer right">Right ▶</button></div>
+<button id="start">Start skiing</button><button id="pause" disabled>Pause</button>
+<p id="status" role="status">Arrow keys or hold the steering buttons. Space pauses.</p>
+<small>A pretend mesh, real snow-day energy. Original Meshcrap game; no radio activity or real network measurements.</small>
+<script src="/static/packet-slopes.js"></script></body></html>
