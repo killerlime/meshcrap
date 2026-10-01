@@ -1,0 +1,23 @@
+:root {color-scheme:dark}
+.appearance-picker{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted,#aaa)}
+.appearance-picker select{background:var(--surface-2,#171d19);color:var(--text,#eee);border:1px solid var(--border,#394039);padding:8px 12px;border-radius:8px;font:inherit;cursor:pointer}
+.appearance-picker select:focus-visible{outline:2px solid var(--mesh,#67ea94);outline-offset:3px}
+:root[data-appearance="neon"]{--bg:#0b0509;--surface:#160c14;--surface-2:#21101d;--surface-3:#301829;--border:#61334e;--border-soft:#412338;--text:#fff6fb;--muted:#c3a9bc;--mesh:#ff70d5;--mesh-soft:rgba(255,46,200,.12);--mesh-border:rgba(255,112,213,.5);--theme-glow:rgba(255,46,200,.15);--theme-secondary:#45c8ff;--radius:12px}
+:root[data-appearance="midnight"]{--bg:#080f1c;--surface:#101c2d;--surface-2:#16253a;--surface-3:#20334a;--border:#3b536f;--border-soft:#273e58;--text:#edf5ff;--muted:#a4b9d1;--mesh:#7bcaff;--mesh-soft:rgba(123,202,255,.12);--mesh-border:rgba(123,202,255,.4);--theme-glow:rgba(61,141,220,.12);--theme-secondary:#a6a7ff;--radius:12px}
+html[data-appearance="neon"] body,html[data-appearance="midnight"] body{background:radial-gradient(ellipse at 25% 0,var(--theme-glow),transparent 650px),var(--bg)!important;color:var(--text)!important}
+html[data-appearance="neon"] header,html[data-appearance="midnight"] header{background:var(--surface)!important;border-color:var(--border)!important}
+html[data-appearance="neon"] header h1{color:#fff6fb;text-shadow:0 0 3px #ff2ec8,0 0 14px #ff2ec880;letter-spacing:.04em}
+html[data-appearance="neon"] header h1::before{color:var(--theme-secondary);text-shadow:0 0 12px #45c8ff}
+html[data-appearance="neon"] .subtitle{color:var(--theme-secondary)}
+html[data-appearance="neon"] .card{box-shadow:0 5px 24px #0006,0 0 18px #ff2ec808}
+html[data-appearance="neon"] .card h2{letter-spacing:.035em}
+html[data-appearance="neon"] .card h2::before{box-shadow:0 0 9px #ff2ec880}
+html[data-appearance="neon"] :is(.detail-stat,.noc-record,.receiver-live-item,.leaflet-popup-content-wrapper,.leaflet-popup-tip),html[data-appearance="midnight"] :is(.detail-stat,.noc-record,.receiver-live-item,.leaflet-popup-content-wrapper,.leaflet-popup-tip){background:var(--surface)!important;color:var(--text);border-color:var(--border-soft)!important}
+html[data-appearance="neon"] [aria-label="Local receiver"],html[data-appearance="midnight"] [aria-label="Local receiver"]{background:var(--surface-2)!important;border-color:var(--mesh-border)!important;border-left-color:var(--mesh)!important}
+html[data-appearance="neon"] :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select),html[data-appearance="midnight"] :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select){background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important}
+html[data-appearance="neon"] [role="tab"][aria-selected="true"],html[data-appearance="midnight"] [role="tab"][aria-selected="true"]{background:var(--mesh-soft)!important;color:var(--mesh)!important;border-color:var(--mesh-border)!important}
+html[data-appearance="neon"] :is(th,.siteinfo),html[data-appearance="midnight"] :is(th,.siteinfo){color:var(--muted)}
+html[data-appearance="neon"] tr:hover,html[data-appearance="midnight"] tr:hover{background:var(--mesh-soft)}
+/* Semantic signal, warning, map and chart colors retain their original meaning. */
+html[data-appearance="neon"] thead th,html[data-appearance="midnight"] thead th{background:var(--surface-2)!important}
+html[data-appearance="neon"] aside,html[data-appearance="midnight"] aside{background:var(--surface)!important}

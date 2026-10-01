@@ -1,0 +1,5 @@
+Flask>=3.1,<4
+meshtastic>=2.7,<3
+protobuf>=6,<7
+Pypubsub>=4,<5
+tzdata>=2025.1
