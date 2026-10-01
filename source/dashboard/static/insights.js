@@ -28,6 +28,7 @@
   nav.addEventListener('click',e=>{const other=e.target.closest('[role=tab]');if(other&&other!==whatifTab){whatifPanel.hidden=true;whatifTab.setAttribute('aria-selected','false');whatifTab.tabIndex=-1;}});
   setTimeout(()=>{tab.after(whatifTab);try{if(sessionStorage.getItem('console-active-tab')==='whatif')whatifTab.click();}catch{}},0);
   const blocks={};
+  const terrainScript=el('script');terrainScript.src='/static/heywhatsthat.js';document.body.append(terrainScript);
   const tropoScript=el('script');tropoScript.src='/static/tropo-view.js';document.body.append(tropoScript);
   function block(id,title,sub){const section=el('section',null,'card insight-section');section.id='insight-'+id;section.append(el('h3',title),el('p',sub,'insight-sub'));const content=el('div');section.append(content);panel.append(section);blocks[id]=content;return content;}
   block('mesh','The mesh briefing','Your selected window versus the equally long window immediately before it.');

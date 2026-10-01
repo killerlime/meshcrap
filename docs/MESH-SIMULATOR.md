@@ -1,6 +1,6 @@
 # Mesh what-if lab
 
-Open the **What-if** tab. This is a browser-only software model, with no radio API, polling, credentials, location lookup or storage. Inputs stay in the page between tab visits and reset on reload. It can also be opened as a standalone static page.
+Open the **What-if** tab. The simulator itself is a browser-only software model, with no radio API, polling, credentials, location lookup or storage. Inputs stay in the page between tab visits and reset on reload. It can also be opened as a standalone static page.
 
 ## Available models
 
@@ -34,3 +34,7 @@ Reviewed October 1, 2026. Original implementation; no vendor code, images or pro
 Run `node tests/mesh-simulator.cjs`. Fixtures cover known airtimes, identity and mismatch cases, doubling-frequency loss, asymmetric power, passive losses, cable units, coordinate distances and noise cascades. Frontend compilation and privacy checks run separately.
 
 Next: verified per-revision device catalog, antenna pattern interpolation, terrain-backed path profiles, calibrated sensitivity curves, configurable receive-chain stages, and a discrete-event collision/relay model. Current diagrams are educational scenarios, not forecasts of observed mesh performance. No range or regulatory compliance guarantee is produced.
+
+The separate **Real terrain profile** panel is an optional external HeyWhatsThat
+integration with explicit coordinate submission, local usage accounting and a
+cache. See [terrain setup and limitations](TROPO-SOURCES.md#enabling-experimental-terrain-profiles).

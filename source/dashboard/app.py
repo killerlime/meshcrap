@@ -2810,6 +2810,9 @@ register_weather(app)
 from role_compare import register_role_compare
 register_role_compare(app, DB, startup_windows, startup_filter)
 
+from heywhatsthat import register_heywhatsthat
+register_heywhatsthat(app, DB)
+
 if __name__ == "__main__":
     if @@ENABLE_WEATHER@@: start_weather()
     import sys

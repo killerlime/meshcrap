@@ -28,8 +28,8 @@ an API key. Numeric time series and automated RF correlations remain unimplement
 the Profiler API, returning a PNG terrain cross-section with configurable point
 and antenna elevations. It explicitly does not offer the underlying elevation data.
 The stated grant covers low-volume noncommercial use with copyright attribution;
-the author asks users to contact them beyond experimentation. No production
-adapter is enabled, and no coordinates have been submitted. Terrain images are
+the author asks users to contact them beyond experimentation. An optional, on-demand experimental adapter is available in the What-if tab.
+Only explicitly entered endpoints are submitted; no node lookup or polling occurs. Terrain images are
 useful references, not atmospheric observations or calibrated 915 MHz coverage.
 
 ## Prepared forecasts from the amateur-radio community
@@ -130,3 +130,32 @@ surface-only input, and an inversion that is not a trapping candidate.
 Next: verify a bounded source profile end-to-end, compare against a trusted
 reference calculation, then add the regional map and matched-window correlation
 view. Do not present the current offline foundation as a live ducting monitor.
+
+## Enabling experimental terrain profiles
+
+Create `heywhatsthat-config.json` beside the installation's `mesh.db` containing
+`{"enabled": true}`. It is disabled when this private file is absent. On secured
+installations, unlock dashboard controls, open **What-if → Real terrain profile**,
+enter endpoints and antenna heights above ground, and choose **Generate**. This
+explicit action sends the entered coordinates and heights to HeyWhatsThat over
+HTTPS. Review the provider terms and contact the author before regular production
+use. The source identifier is `meshcrap-experiment`; tell the author that identifier
+when discussing permission. Public installations should obtain their own agreement
+before enabling broad use. Nothing is sent on page load or input changes.
+
+The local experiment guardrail is 20 new requests per UTC day and at least 30
+seconds between new requests. These are application limits, **not provider quotas**.
+Identical profiles use a bounded 32-entry, 30-day cache. Failed attempts count and
+are not automatically retried. Requests time out after 20 seconds; redirects are
+rejected; only bounded PNG responses are accepted. No arbitrary upstream URL is
+accepted. The endpoint remains behind existing dashboard controls.
+
+`/api/heywhatsthat/usage` reports 1/7/30 UTC calendar-day attempts, successful
+profiles and cache hits. The private `heywhatsthat-usage.sqlite3` file contains
+aggregate daily counters and cached images keyed by a digest; it does not store
+raw coordinates or node identities. Images can themselves expose terrain context,
+so keep this file private. Both settings and usage files are gitignored. Set
+`enabled` to false to stop new requests without deleting usage history.
+
+Images are terrain references only, not numerical elevations. They do not alter
+the simulator's calculations or establish current propagation or RF coverage.

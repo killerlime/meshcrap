@@ -15,7 +15,7 @@
       window.lcdIdle = mode !== 'active';
       saver.dataset.mode = mode;
       if (window.lcdIdle) { if (!saver.open) saver.showModal(); }
-      else if (saver.open) saver.close();
+      else if (saver.open) {saver.close();window.dispatchEvent(new Event('lcd:wake'));}
       if (mode === 'saver') { moveLogo(); movedAt = Date.now(); }
     }
     if (mode === 'saver' && Date.now() - movedAt >= 15000) { moveLogo(); movedAt = Date.now(); }
