@@ -15,6 +15,8 @@
   const jumps=el('nav',null,'insight-jumps');jumps.setAttribute('aria-label','Insights sections');
   for(const [id,title] of [['mesh','Mesh briefing'],['voices','The regulars'],['coverage','Coverage quest'],['lna','LNA lab'],['diary','Receiver diary']]){const a=el('a',title);a.href='#insight-'+id;jumps.append(a);}
   panel.append(head,toolbar,jumps);
+  const lab=el('section',null,'card insight-section');lab.append(el('h3','Mesh what-if lab'),el('p','Explore how modem presets, frequencies and coordinated changes affect airtime and compatibility. Synthetic scenarios only; your radios stay untouched.'));
+  const labLink=el('a','Open the mesh simulator');labLink.href='/static/mesh-simulator.html';lab.append(labLink);panel.append(lab);
   const blocks={};
   function block(id,title,sub){const section=el('section',null,'card insight-section');section.id='insight-'+id;section.append(el('h3',title),el('p',sub,'insight-sub'));const content=el('div');section.append(content);panel.append(section);blocks[id]=content;return content;}
   block('mesh','The mesh briefing','Your selected window versus the equally long window immediately before it.');
