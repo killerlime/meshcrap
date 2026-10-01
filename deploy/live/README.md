@@ -1,4 +1,8 @@
-# Portable live ISO — experimental
+# Portable live ISO — retired
+
+This recipe is retained only as historical source. ISO builds are no longer part
+of the workflow; use the [Raspberry Pi image recipe](../pi/README.md) for new
+native Pi installations, or the separate VM/Docker options for other machines.
 
 This additional x86-64 PC option is designed to boot a Debian desktop from USB or a VM virtual CD and copy the live filesystem into RAM. It does not replace the installed app, Android build or VM disk images. It is not a Raspberry Pi boot image.
 

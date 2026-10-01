@@ -193,13 +193,13 @@ The dashboard uses Waitress with one process and four request threads. Reinstall
 
 Chart.js 4.5.1, Leaflet 1.9.4 and the interface fonts are bundled with licenses and checksums. Only map tiles and explicitly configured integrations need external services. Health checks share a result for at most five seconds per process; the original check timestamp remains visible on hover. Mobile controls, weather and detailed health refresh only while displayed, immediately refreshing when reopened. The radio collector, packet retention and survey request cadence are unchanged.
 
-## iPhone, VM and portable live ISO options
+## iPhone, VM and Raspberry Pi options
 
 On iPhone, open your private HTTPS dashboard in Safari and use Share → Add to Home Screen. The dashboard's Install on iPhone link walks through it. This version provides dashboard and controls; Bluetooth surveys remain Android-only. No Mac or App Store account is needed.
 
 VM builds are available through the **Build VM appliances** GitHub Actions workflow. See [VM setup and formats](deploy/vm/README.md) for VHDX, QCOW2, VMDK and OVA instructions, hardware requirements and verification limits.
 
-An additional [portable live ISO recipe](deploy/live/README.md) is available for experimental RAM-only sessions on x86-64 PCs. It is not yet boot-verified; collected data is temporary unless explicitly exported.
+A [native Raspberry Pi image recipe](deploy/pi/README.md) targets Raspberry Pi Imager's **Use custom** option with a persistent `.img.xz` (or extracted `.img`). This replaces the live-ISO plan. The Pi image still needs a native ARM64 build and physical boot validation before release.
 
 ## Thanks, MSPmesh
 

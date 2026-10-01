@@ -19,7 +19,7 @@ The current application trusts HTTPS forwarding only from a local proxy with the
 
 Access to a tailnet is not automatically authorization for every service. Review your own Tailscale access policy and any device shares; grant intended users only the dashboard access they need. Dashboard write controls still require the app's control credentials. Serving the site does not enable Tailscale SSH or grant radio-administration privileges.
 
-For live ISO sessions, authenticate your own Tailscale installation only if you choose to add it. This initial ISO recipe does not include or auto-enroll Tailscale. Never distribute an image containing `/var/lib/tailscale`, saved auth/API keys, account state, device identities or certificates from a real deployment. Ephemeral RAM sessions may require fresh enrollment; manage and remove stale devices in your own account.
+For Raspberry Pi and VM images, authenticate your own Tailscale installation only if you choose to add it. Image recipes do not include or auto-enroll Tailscale. Never distribute an image containing `/var/lib/tailscale`, saved auth/API keys, account state, device identities or certificates from a real deployment.
 
 HTTPS certificate issuance can reveal the certificate hostname in public certificate-transparency records. Choose a hostname that does not disclose information you want private. See the provider's current documentation for prerequisites, account limits and exact behavior:
 

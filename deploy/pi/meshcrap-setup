@@ -1,0 +1,13 @@
+#!/bin/bash
+set -euo pipefail
+if [ "$(id -u)" != 0 ]; then echo 'Run sudo meshcrap-setup.'; exit 1; fi
+cd /opt/meshcrap
+echo 'This Pi has these network addresses:'
+hostname -I
+echo 'Choose private-network access in the wizard to use another device as your browser.'
+runuser -u meshcrap -- .venv/bin/python meshcrap.py setup
+test -f config.json || exit 0
+systemctl enable --now meshcrap-dashboard
+echo 'Dashboard started. Radio collection remains a separate choice.'
+read -r -p 'Start collection using the radio configured in the wizard? [y/N] ' answer
+if [ "$answer" = y ]; then systemctl enable --now meshcrap-collector; fi
