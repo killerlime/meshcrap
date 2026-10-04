@@ -100,3 +100,9 @@ The queue holds 100,000 records and reserves space for results by stopping passi
 The notification uses green/check = connected and healthy, yellow/arrows = connecting, red/warning = offline or attention needed. Offline text explicitly says records are saved locally. Android renders small status-bar icons monochrome; notification color presentation depends on the device. No sound or repeated alerts are requested. Device background restrictions can still stop recording; verify operation with the screen off on your phone.
 
 An older collector-started session can continue under a server-issued, radio-scoped authorization for up to 24 hours. Late delivery is accepted based on observation time. These records retain their original session even if it was ended remotely while the phone was offline. New phone-owned outings do not need this authorization or a network start command.
+
+## Live data flow — 0.6.1-test
+
+The outing card shows Radio ↔ Phone → Collector. Green pulses follow actual incoming radio packets and acknowledged collector uploads; blue pulses follow completed Bluetooth traceroute writes, which do not establish successful RF delivery. Pulses display recent activity for four seconds, not packet travel speed or throughput. The phone shows its queued-record count and a logarithmic buffer fill indicator. Offline links stay still while the phone retains the queue; idle connections do not simulate traffic. Upload attempts without acknowledgment are labelled “Sending” rather than successful transfer.
+
+Animation is display-only: no polling requests, RF traffic or new dependencies. It stops off-screen or when the activity is paused, respects Android's animator setting, and has a saved motion toggle. Text and accessibility descriptions explain direction/status without relying on motion or color. Large system fonts switch the diagram to a vertical layout. Physical-device visual/background validation remains required.

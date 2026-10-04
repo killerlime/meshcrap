@@ -22,6 +22,7 @@ public final class MainActivity extends Activity {
     private boolean connectionExpanded=true;
     private boolean savedPairing;
     private StableScrollView pageScroll;
+    private DataFlowView dataFlow;
     private TextView logText;private ScrollView logScroll;private long logRevision=-1;
     private final Runnable refresh=new Runnable(){public void run(){renderState();h.postDelayed(this,1000);}};
     private LinearLayout body,root;
@@ -38,6 +39,11 @@ public final class MainActivity extends Activity {
         radioState=text("Radio · Not connected",18);collectorState=text("Collector · Waiting for a radio",16);
         surveyState=text("Survey · Start here when connected",16);locationState=text("Location · Waiting",16);
         activityState=text("Requests · Paused",16);queueState=text("",14);
+        text("Data flow",18);dataFlow=new DataFlowView(this);body.addView(dataFlow,new LinearLayout.LayoutParams(-1,-2));
+        text("Green → packets received / uploads accepted. Blue ← requests written to the radio, not proof of RF delivery. The phone holds records until acknowledged.",13);
+        Switch flowMotion=new Switch(this);flowMotion.setText("Animate data flow");flowMotion.setTextColor(INK);flowMotion.setTextSize(14);flowMotion.setMinHeight(dp(48));
+        boolean animate=getPreferences(0).getBoolean("flowMotion",true);flowMotion.setChecked(animate);dataFlow.motion(animate);body.addView(flowMotion);
+        flowMotion.setOnCheckedChangeListener((b,checked)->{dataFlow.motion(checked);getPreferences(0).edit().putBoolean("flowMotion",checked).apply();});
 
         primaryAction=button("Connect radio",()->{SurveyService s=SurveyService.instance;if(s==null){connectionExpanded=true;renderConnection();connectionCard.requestFocus();connectionCard.getParent().requestChildFocus(connectionCard,connectionCard);connect();}else if(s.uiCanStartSession()){s.controlSurvey(true);renderState();}else if(s.uiArmed()){s.pause("Paused by you");renderState();}else if(s.uiCanArm())enableSurvey();else if(s.uiCanTest())testTrace();});
         connectionToggle=button("Hide connection setup",()->{connectionExpanded=!connectionExpanded;renderConnection();});
@@ -62,7 +68,7 @@ public final class MainActivity extends Activity {
         text("Your route follows you across all areas. Choose the channel and search radius below.",15);
         channelButton=button("Choose channel",()->chooseChannel());
         radiusButton=button("Nearby radius · 25 miles",()->chooseRadius());
-        button("How survey measurements work",()->new AlertDialog.Builder(this).setTitle("What this survey tells you").setMessage("Green map points show replies received, possibly through relays. Blue points show packets heard by your travelling radio. A GPS route alone does not prove coverage.\n\nThe radius selects candidate nodes; it does not change transmit power. Candidate GPS positions may be up to 12 hours old; last heard does not restrict eligibility. Unknown or coarse locations allow manual tests only.\n\nOlder or approximate travelling GPS is retained, but precise map evidence needs a fix within 2 minutes and 100 metres reported accuracy.\n\nOne request runs at a time, at least 30 seconds apart. Failed tests can get up to 3 total attempts, then an 8-hour cooldown. A reply starts the cooldown immediately. Keep your collector network connection active.").setPositiveButton("Got it",null).show());
+        button("How survey measurements work",()->new AlertDialog.Builder(this).setTitle("What this survey tells you").setMessage("Green map points show replies received, possibly through relays. Blue points show packets heard by your travelling radio. A GPS route alone does not prove coverage.\n\nThe radius selects candidate nodes; it does not change transmit power. Candidate GPS positions may be up to 12 hours old; last heard does not restrict eligibility. Unknown or coarse locations allow manual tests only.\n\nOlder or approximate travelling GPS is retained, but precise map evidence needs a fix within 2 minutes and 100 metres reported accuracy.\n\nOne request runs at a time, at least 30 seconds apart. Failed tests can get up to 3 total attempts, then an 8-hour cooldown. A reply starts the cooldown immediately. Offline outings save on this phone and upload when your collector connection returns.").setPositiveButton("Got it",null).show());
         text("Optional manual testing",18);
         testButton=button("Send an optional test traceroute",()->testTrace());
         autoButton=button("Start automatic survey",()->enableSurvey());
@@ -77,7 +83,7 @@ public final class MainActivity extends Activity {
         Button detailsToggle=button("Show connection details",()->{});
         status=text(SurveyService.summary,14);status.setTextIsSelectable(true);status.setVisibility(View.GONE);
         detailsToggle.setOnClickListener(v->{boolean show=status.getVisibility()!=View.VISIBLE;status.setVisibility(show?View.VISIBLE:View.GONE);detailsToggle.setText(show?"Hide connection details":"Show connection details");});
-        body=root;text("Results stay on this phone until the collector accepts them. GPS tracks show where you travelled; they do not prove radio coverage. Test build 0.5.2 · Bluetooth still needs verification on your phone.",13);
+        body=root;text("Results stay on this phone until the collector accepts them. GPS tracks show where you travelled; they do not prove radio coverage. Test build 0.6.1 · Bluetooth still needs verification on your phone.",13);
         button("Licenses and source",()->showLicenses());
         renderState();
     }
@@ -96,6 +102,7 @@ public final class MainActivity extends Activity {
     private void renderState(){
         pageScroll.preserveNextLayout();
         SurveyService s=SurveyService.instance;boolean active=s!=null;
+        if(active)s.renderFlow(dataFlow);else dataFlow.update(false,false,false,-1,0,0,0);
         endSessionButton.setEnabled(active&&s.uiCanEndSession());
         updateText(primaryAction,!active?"Connect radio":s.uiCanStartSession()?"Start survey":s.uiArmed()?"Pause survey":s.uiCanArm()?"Start automatic survey":s.uiPending()?"Waiting for a reply…":s.uiCanTest()?"Choose a test node":"Getting ready…");
         primaryAction.setEnabled(!active||s.uiCanStartSession()||s.uiArmed()||s.uiCanArm()||s.uiCanTest());
@@ -174,6 +181,6 @@ public final class MainActivity extends Activity {
             getPreferences(0).edit().putString("lastRadio",address).apply();startForegroundService(intent);connectionExpanded=false;renderConnection();
         }catch(Exception e){message("Collector pairing is saved, but the radio connection could not start. Check Bluetooth and app permissions, then try Connect radio again.");}
     }
-    protected void onResume(){super.onResume();h.post(refresh);}
-    protected void onPause(){h.removeCallbacks(refresh);super.onPause();}
+    protected void onResume(){super.onResume();dataFlow.foreground(true);h.post(refresh);}
+    protected void onPause(){dataFlow.foreground(false);h.removeCallbacks(refresh);super.onPause();}
 }

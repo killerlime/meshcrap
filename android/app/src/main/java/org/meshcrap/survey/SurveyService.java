@@ -24,6 +24,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
     final Map<Integer,String> channels=new HashMap<>();
     double radius=25;
     private boolean receptionRecords=false;
+    private long flowReceived=0,flowSent=0,flowAccepted=0;
     private String localOuting="";private long localStarted=0;
     private String offlinePermit="";private long offlineIssued=0,offlineUntil=0;private int offlineSource=0,syncFailures=0;
     private final Handler h=new Handler(Looper.getMainLooper());
@@ -150,7 +151,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
         if(!channels.containsKey(channel))return "Choose an available radio channel first.";
         armed=true;message="Nearby nodes will be tried one at a time";log("Automatic survey enabled on slot "+channel+". Minimum interval: 30 seconds.");notifyState();return message;
     }
-    public void written(byte[] raw){try{var sent=MeshProtos.ToRadio.parseFrom(raw);if(sent.hasPacket()&&sent.getPacket().getDecoded().getPortnum()==Portnums.PortNum.TRACEROUTE_APP)log("Bluetooth write completed for traceroute #"+unsigned(sent.getPacket().getId())+". RF reply not yet confirmed.");}catch(Exception ignored){}}
+    public void written(byte[] raw){try{var sent=MeshProtos.ToRadio.parseFrom(raw);if(sent.hasPacket()&&sent.getPacket().getDecoded().getPortnum()==Portnums.PortNum.TRACEROUTE_APP){flowSent=clock();log("Bluetooth write completed for traceroute #"+unsigned(sent.getPacket().getId())+". RF reply not yet confirmed.");}}catch(Exception ignored){}}
     public void ready(){radioFailure=false;log("Bluetooth connected. Reading radio configuration.");ble.send(MeshProtos.ToRadio.newBuilder().setWantConfigId(nonce).build().toByteArray());message="Reading node and channel configuration…";}
     public void failed(String reason){radioFailure=true;ready=false;pause(reason);if(pending!=null){result(pending,"transport_error",null);pending=null;}}
     public void received(byte[] raw){try{
@@ -172,6 +173,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
     private void packet(MeshProtos.MeshPacket p)throws Exception {
         if(p.getViaMqtt())return; // Internet-delivered packets cannot verify an RF test.
         int n=p.getFrom();long now=epoch();
+        if(n!=own&&SurveyRules.validId(unsigned(n))&&p.getId()!=0)flowReceived=clock();
         // Passive metadata only: no message contents, keys or node database dumps.
         long rx=unsigned(p.getRxTime());
         if(receptionRecords&&survey>0&&ready&&authorized()&&n!=own&&SurveyRules.validId(unsigned(n))&&p.getId()!=0&&rx>0&&rx<=now&&now-rx<=120&&p.getRxRssi()>=-200&&p.getRxRssi()<0&&Float.isFinite(p.getRxSnr())&&Math.abs(p.getRxSnr())<=100&&p.getChannel()>=0&&p.getChannel()<=7&&outbox.count()<Outbox.LIMIT-100){
@@ -333,7 +335,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
                 }
                 JSONObject reply=new JSONObject(new String(bytes,StandardCharsets.UTF_8));
                 h.post(()->{if(disposed)return;try{
-                    outbox.acknowledge(reply.getJSONArray("accepted"),events);if(reply.getJSONArray("accepted").length()>0)log("Collector acknowledged "+reply.getJSONArray("accepted").length()+" saved records; "+outbox.count()+" remain queued.");else if(!collectorResponding)log("Collector connection verified. Saved pairing accepted.");long next=!localOuting.isEmpty()?survey:reply.optBoolean("local_outings",false)?0:reply.optLong("survey_id",0);
+                    outbox.acknowledge(reply.getJSONArray("accepted"),events);if(reply.getJSONArray("accepted").length()>0)flowAccepted=clock();if(reply.getJSONArray("accepted").length()>0)log("Collector acknowledged "+reply.getJSONArray("accepted").length()+" saved records; "+outbox.count()+" remain queued.");else if(!collectorResponding)log("Collector connection verified. Saved pairing accepted.");long next=!localOuting.isEmpty()?survey:reply.optBoolean("local_outings",false)?0:reply.optLong("survey_id",0);
                     if(next!=survey){survey=next;tried.clear();
                         for(String n:getSharedPreferences("cadence",0).getStringSet(triedKey(),Collections.emptySet()))tried.add(Integer.parseInt(n));
                         armed=false;message=next>0?"Survey ready. Check the channel and location, then start automatic requests.":"Website survey ended; no new requests.";notifyState();}
@@ -372,6 +374,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
             }catch(Exception e){h.post(()->{if(disposed)return;controlState.failed();lastSync=0;message="Could not confirm survey change. Check Tailscale and collector status before trying again. No command was automatically retried.";log(message);});}finally{if(conn!=null)conn.disconnect();connection=null;}});
         }catch(Exception e){controlState.failed();message="Could not prepare survey action. Try again.";}
     }
+    void renderFlow(DataFlowView view){view.update(ready,collectorResponding,syncing&&outbox.count()>0,outbox.count(),flowReceived,flowSent,flowAccepted);}
     // Presentation-only state. These reads never send radio requests or change cadence.
     boolean uiPending(){return pending!=null;}
     boolean uiArmed(){return armed;}
