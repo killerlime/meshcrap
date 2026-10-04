@@ -1,6 +1,8 @@
 # An allowlist: local configuration, Git history and build products never enter context.
 **
 !Dockerfile
+!tools/
+!tools/license_inventory.py
 !requirements.txt
 !meshcrap.py
 !setup_wizard.py

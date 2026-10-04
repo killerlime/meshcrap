@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['demo/**', 'tools/build_demo.py', 'source/dashboard/static/vendor/**', '.github/workflows/demo.yml']
+    paths: ['demo/**', 'tools/build_demo.py', 'source/dashboard/static/vendor/**', '.github/workflows/demo.yml', 'THIRD_PARTY_NOTICES.md', 'LICENSE']
 permissions:
   contents: read
   pages: write
