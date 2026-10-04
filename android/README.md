@@ -8,9 +8,9 @@ Connects directly to a paired configured Meshtastic radio over Bluetooth during 
 
 Open your collector's `/survey-companion` page over private HTTPS for the APK and pairing instructions. Connect the radio, verify its identity and channel, then tap **Start survey** in Android. No area selection is required; recording follows you outside all configured grids. A manual test traceroute is optional; GPS eligibility does not prove reachability.
 
-One request is outstanding at a time, with at least 30 seconds between starts and a 30-second timeout. Nearby destinations require recent observations and a valid position. Automatic requests pause when Bluetooth or collector connectivity is lost; collector authorization expires within 30 seconds. Stop releases Bluetooth. The app uses a three-hop request limit. No radio configuration is written.
+One request is outstanding at a time, with at least 30 seconds between starts and a 30-second timeout. Nearby destinations require a valid position within the configured age limit. Automatic requests pause when Bluetooth or collector connectivity is lost; collector authorization expires within 30 seconds. Stop releases Bluetooth. The app uses a three-hop request limit. No radio configuration is written.
 
-Results queue in private storage and upload with a revocable survey-only credential (uploads and survey start/end; no radio administration). Phone routes and traceroutes remain separate from HQ RF measurements; a phone GPS point is not proof of RF coverage. Unknown relay IDs are retained. Destinations can be retested after moving half a mile (at least 60 seconds since the previous test), or after five minutes; changing channels pauses requests until you explicitly resume.
+Results queue in private storage and upload with a revocable survey-only credential (uploads and survey start/end; no radio administration). Phone routes and traceroutes remain separate from HQ RF measurements; a phone GPS point is not proof of RF coverage. Unknown relay IDs are retained. Destinations can be retested after eight hours, including manual tests; changing channels pauses requests until you explicitly resume.
 
 This is a debug-signed first test build. Build, unit tests and Android lint pass. Real-phone Bluetooth and radio-response testing remains necessary. Do not assume a successful software build establishes hardware compatibility.
 
@@ -31,9 +31,9 @@ Requests start at least 30 seconds apart and time out after 30 seconds. Late res
 
 ## Location quality
 
-The travelling fix may be up to one hour old. Phone fixes must report accuracy within half a mile (804.672 metres). The app also checks the last-known GPS fix when connecting, applying the same limits; cached timestamps are never rewritten to look current. Older/approximate fixes are explicitly labelled. The fallback is the travelling radio's internal GPS, never its manual/installed position. The actual GPS solution timestamp is preferred when present. A radio fix still has unknown horizontal accuracy in the displayed record.
+The travelling fix may be up to 24 hours old. Phone fixes must report accuracy within half a mile (804.672 metres). The app also checks the last-known GPS fix when connecting, applying the same limits; cached timestamps are never rewritten to look current. Older/approximate fixes are explicitly labelled. The fallback is the travelling radio's internal GPS, never its manual/installed position. The actual GPS solution timestamp is preferred when present. A radio fix still has unknown horizontal accuracy in the displayed record.
 
-Candidates must have been heard in the last 15 minutes. Their GPS or unknown-source coordinates must be at most five minutes old; explicitly manual/fixed advertisements may be up to 24 hours old and are labelled accordingly. Future timestamps are rejected for selection. Automatic selection requires a known source and at least 20 advertised precision bits; missing/coarse precision remains available only for manual tests. Precision describes coordinate resolution, not guaranteed real-world GPS accuracy. No request is sent to refresh a candidate's coordinates.
+Last-heard time does not filter or order candidates. Their GPS or unknown-source coordinates must be at most 12 hours old; explicitly manual/fixed advertisements may be up to 24 hours old and are labelled accordingly. Future timestamps are rejected for selection. Automatic selection requires a known source and at least 20 advertised precision bits; missing/coarse precision remains available only for manual tests. Precision describes coordinate resolution, not guaranteed real-world GPS accuracy. No request is sent to refresh a candidate's coordinates.
 
 Each trace retains the travelling fix and the destination's advertised coordinates, source, timestamp, last-heard time and precision at request time. MQTT-delivered packets do not qualify as RF test replies or candidates. A relayed reply does not prove a direct link or coverage along the full phone route.
 
@@ -71,7 +71,7 @@ Version 0.4.3-test relaxes only the travelling-position limits. Candidate-node f
 
 ## Field measurements and calmer UI: 0.5.0-test
 
-The default discovery radius is 25 miles, with 5/10/25/50/100-mile choices saved on the phone. This changes candidate selection, not RF power. Automatic repeats use the rules above; only accurate, recent phone GPS qualifies for movement-triggered retesting. One outstanding request and the existing 30-second global spacing remain enforced.
+The default discovery radius is 25 miles, with 5/10/25/50/100-mile choices saved on the phone. This changes candidate selection, not RF power. Automatic repeats use the rules above; the eight-hour cooldown is persisted per destination across outings, channels and travelling radios on this phone. One outstanding request and the existing 30-second global spacing remain enforced.
 
 New collectors advertise support for passive RF reception metadata. The companion uploads sender/packet/channel, reception time and last-hop RSSI/SNR, plus the available travelling position. No message contents or keys are uploaded. Internet-delivered packets and the radio's own packets are excluded. Older collectors keep the previous position/traceroute protocol. Old trips cannot acquire missing passive observations retroactively.
 
@@ -80,3 +80,7 @@ Trip totals include all retained records, with duplicate fixes and results combi
 Status refreshes preserve the visible section and leave unchanged text alone. The activity log no longer requests focus or automatically scrolls; use **Show latest activity** intentionally. Saved pairing setup and detailed connection diagnostics are collapsible. The main action guides connection, starting and pausing.
 
 Validation includes synthetic complete-history, duplicate/late-result, GPS-quality and ingestion tests, Java cadence tests, APK build and lint. Scroll, keyboard, accessibility focus and Bluetooth behavior still require a real-phone check.
+
+## Eligibility update: 0.5.1-test
+
+Travelling fixes: up to 24 hours. Candidate GPS fixes: up to 12 hours (fixed/manual positions retain their 24-hour limit). Last heard is informational only. An eight-hour per-destination cooldown applies to automatic and manual attempts across sessions, radios and channels on the same phone. Previously stored attempt times migrate on update. Separate phones do not share cooldowns. The collector accepts these older observation timestamps without relabelling them as precise coverage evidence.

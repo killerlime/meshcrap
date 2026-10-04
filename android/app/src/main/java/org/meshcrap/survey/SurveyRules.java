@@ -3,13 +3,23 @@ package org.meshcrap.survey;
 /** Pure survey rules, independently testable without Android or a radio. */
 public final class SurveyRules {
     public static final long SPACING_MS=30_000, TIMEOUT_MS=30_000, LEASE_MS=30_000;
-    public static final long POSITION_MAX_AGE_SECONDS=3600;
+    public static final long POSITION_MAX_AGE_SECONDS=86400;
     public static final double POSITION_MAX_ACCURACY_METRES=804.672;
     private SurveyRules() {}
-    public static boolean repeatEligible(long previous,long now,double movedMiles,boolean precise) {
-        if(previous<=0)return true;
-        if(now<previous||now-previous<60)return false;
-        return now-previous>=300 || (precise&&Double.isFinite(movedMiles)&&movedMiles>=0.5);
+    public static boolean repeatEligible(long previous,long now) {
+        return previous<=0 || (now>=previous && now-previous>=28800);
+    }
+    public static java.util.Map<String,Long> migrateProbeTimes(java.util.Map<String,?> values) {
+        java.util.Map<String,Long> migrated=new java.util.HashMap<>();
+        for(var entry:values.entrySet()) {
+            if(!(entry.getValue() instanceof Long))continue;
+            String key=entry.getKey();
+            if(key.matches("sample_-?[0-9]+_[0-9]+_[0-9]+_-?[0-9]+_time")) {
+                String[] parts=key.split("_");key="probe_"+parts[4]+"_time";
+            } else if(!key.matches("probe_-?[0-9]+_time"))continue;
+            migrated.merge(key,(Long)entry.getValue(),Math::max);
+        }
+        return migrated;
     }
     public static boolean validId(long id) { return id>0 && id<0xffffffffL; }
     public static boolean validPosition(double lat,double lon) {
@@ -34,9 +44,8 @@ public final class SurveyRules {
         return lastEpoch>0 && (nowEpoch<lastEpoch || nowEpoch-lastEpoch<SPACING_MS/1000);
     }
     public static boolean candidateFresh(long positionTime,long heardTime,long now,int source) {
-        long age=source==1?86400:300; // Manual/installed coordinates are not live GPS.
-        return positionTime>0 && positionTime<=now && now-positionTime<=age
-            && heardTime>0 && heardTime<=now && now-heardTime<=900;
+        long age=source==1?86400:43200; // Manual/installed coordinates are not live GPS.
+        return positionTime>0 && positionTime<=now && now-positionTime<=age;
     }
     public static boolean automaticCandidate(int source,int precisionBits) {
         // Missing precision is unknown, not an assurance of full accuracy.

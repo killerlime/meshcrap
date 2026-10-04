@@ -94,7 +94,7 @@ class SurveyPhone:
                     if p is not None:
                         clean['position']=validate_position(p,now)
                         reference=event.get('requested_at',stamp)
-                        if type(reference) is not int or not -120<=reference-clean['position']['time']<=3600:raise ValueError('Position was not fresh at observation')
+                        if type(reference) is not int or not -120<=reference-clean['position']['time']<=86400:raise ValueError('Position was not fresh at observation')
                     if kind=='position':
                         if p is None:raise ValueError('Missing position')
                         if survey['ended_at'] and stamp>epoch(survey['ended_at'])+30:raise ValueError('Position outside survey')
@@ -122,9 +122,8 @@ class SurveyPhone:
                             position=validate_position(dict(target,source='radio_position'),now)
                             position['source']=integer(target.get('source'),0,3)
                             position['precision_bits']=integer(target.get('precision_bits'),0,32)
-                            position['last_heard']=integer(target.get('last_heard'),1,int(now+120))
-                            if not 0<=at-position['time']<=(86400 if position['source']==1 else 300):raise ValueError('Stale destination position')
-                            if not 0<=at-position['last_heard']<=900:raise ValueError('Destination not recently heard')
+                            position['last_heard']=integer(target.get('last_heard',0),0,int(now+120))
+                            if not 0<=at-position['time']<=(86400 if position['source']==1 else 43200):raise ValueError('Stale destination position')
                             clean['destination_position']=position
                         details=event.get('details',{})
                         if not isinstance(details,dict):raise ValueError('Invalid response details')

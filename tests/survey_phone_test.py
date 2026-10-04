@@ -84,17 +84,17 @@ class PhoneSurveyTests(unittest.TestCase):
     def test_ended_session_offline_replay_and_stale_position(self):
         survey=self.start();event=self.event(survey);self.post('control',self.command('stop',survey))
         self.assertEqual(self.sync([event]).status_code,200)
-        event=self.event(survey);event['position']['time']=self.now-3601
+        event=self.event(survey);event['position']['time']=self.now-86401
         self.assertEqual(self.sync([event]).status_code,400)
         event=self.event(survey);event['time']=self.now+40;event['position']['time']=self.now+40
         self.assertEqual(self.sync([event]).status_code,400)
-    def test_one_hour_half_mile_position_boundary(self):
+    def test_twenty_four_hour_half_mile_position_boundary(self):
         survey=self.start();event=self.event(survey)
-        event['position'].update(time=self.now-3600,accuracy_m=804.672)
+        event['position'].update(time=self.now-86400,accuracy_m=804.672)
         self.assertEqual(self.sync([event]).status_code,200)
         event=self.event(survey);event['position']['accuracy_m']=804.673
         self.assertEqual(self.sync([event]).status_code,400)
-        event=self.event(survey);event['position']['time']=self.now-3601
+        event=self.event(survey);event['position']['time']=self.now-86401
         self.assertEqual(self.sync([event]).status_code,400)
     def test_roaming_report_avoids_area_grid(self):
         survey=self.start();self.sync([self.event(survey)])
@@ -107,6 +107,13 @@ class PhoneSurveyTests(unittest.TestCase):
             report=namespace['_survey_metrics'](db,row)
         self.assertEqual(report['area_id'],'roaming');self.assertEqual(report['gps_samples'],1)
         self.assertEqual(report['routes'][0]['segments'][0][0],[1.5,2.5]);self.assertNotIn('cells_proven_this_survey',report)
+    def test_twelve_hour_destination_and_no_last_heard_requirement(self):
+        survey=self.start();event=self.event(survey)
+        event.update(kind='trace',destination=591751049,packet_id=42,requested_at=self.now,channel=0,status='requested',destination_position=dict(lat=3.5,lon=4.5,time=self.now-43200,last_heard=0,source=2,precision_bits=24))
+        self.assertEqual(self.sync([event]).status_code,200)
+        event['id']=str(uuid.uuid4());event['destination_position']['time']-=1
+        self.assertEqual(self.sync([event]).status_code,400)
+
     def test_trace_destination_snapshot_survives_late_reply(self):
         survey=self.start();event=self.event(survey)
         event.update(kind='trace',destination=591751049,packet_id=42,requested_at=self.now,channel=0,status='timeout',destination_position=dict(lat=3.5,lon=4.5,time=self.now-60,last_heard=self.now-10,source=2,precision_bits=24))
