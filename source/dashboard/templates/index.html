@@ -2692,8 +2692,7 @@ async function loadSummary() {
     });
 
     if (dashboardPanelVisible("nodes")) renderNodeTable();
-    await loadNoc();
-    await loadRfEnvironment(); // rf-env
+    if (dashboardPanelVisible('overview')) await loadNoc();
 }
 
 
@@ -4157,7 +4156,8 @@ async function refreshDashboard() {
     dashboardRefreshing = true;
     const notice = document.getElementById('recoveryNotice');
     try {
-        const tasks = [loadSummary()];
+        const tasks = [];
+        if (dashboardPanelVisible('overview') || dashboardPanelVisible('nodes')) tasks.push(loadSummary());
         if (dashboardPanelVisible('system')) tasks.push(loadEvents());
         if (dashboardPanelVisible('survey')) tasks.push(loadSurvey());
         if (dashboardPanelVisible('map')) tasks.push(loadMap(),loadCoverage());

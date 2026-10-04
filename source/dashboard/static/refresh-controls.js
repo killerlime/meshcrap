@@ -63,6 +63,8 @@
   const held=list.find(j=>j.guard&&!j.guard()),waiting=interacting()||!!held;
   const state=!navigator.onLine?'Offline':g.paused?(g.running?'Paused · finishing current update':'Paused'):g.failed?'Needs attention':g.running?'Refreshing…':interacting()?'Waiting while you use this area':held?(held.waiting||'Waiting'): `Auto · every ${seconds<60?seconds+' sec':seconds/60+' min'}`;
   const level=!navigator.onLine||g.failed?'red':g.paused||interacting()?'yellow':held?'gray':'green';
+  const paintKey=JSON.stringify([state,level,g.last,g.paused,!!g.running]);
+  if(g.paintKey===paintKey)return;g.paintKey=paintKey;
   g.bar.dataset.state=level;g.status.textContent=state;g.status.title=g.last?'Last refresh cycle: '+new Date(g.last).toLocaleString():'Automatic updates wait for an idle moment. Refresh now works while paused.';
   g.toggle.textContent=g.paused?'▶ Play':'Ⅱ Pause';g.toggle.setAttribute('aria-label',(g.paused?'Play ':'Pause ')+g.label+' updates');g.toggle.setAttribute('aria-pressed',String(g.paused));g.now.disabled=!!g.running;
  }
