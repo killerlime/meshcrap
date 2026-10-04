@@ -10,7 +10,7 @@ Open your collector's `/survey-companion` page over private HTTPS for the APK an
 
 One request is outstanding at a time, with at least 30 seconds between starts and a 30-second timeout. Nearby destinations require a valid position within the configured age limit. Automatic requests pause when Bluetooth or collector connectivity is lost; collector authorization expires within 30 seconds. Stop releases Bluetooth. The app uses a three-hop request limit. No radio configuration is written.
 
-Results queue in private storage and upload with a revocable survey-only credential (uploads and survey start/end; no radio administration). Phone routes and traceroutes remain separate from HQ RF measurements; a phone GPS point is not proof of RF coverage. Unknown relay IDs are retained. Destinations can be retested after eight hours, including manual tests; changing channels pauses requests until you explicitly resume.
+Results queue in private storage and upload with a revocable survey-only credential (uploads and survey start/end; no radio administration). Phone routes and traceroutes remain separate from HQ RF measurements; a phone GPS point is not proof of RF coverage. Unknown relay IDs are retained. Timeouts/routing failures permit up to three total attempts, including manual tests; success or the third failure starts an eight-hour cooldown; changing channels pauses requests until you explicitly resume.
 
 This is a debug-signed first test build. Build, unit tests and Android lint pass. Real-phone Bluetooth and radio-response testing remains necessary. Do not assume a successful software build establishes hardware compatibility.
 
@@ -83,4 +83,10 @@ Validation includes synthetic complete-history, duplicate/late-result, GPS-quali
 
 ## Eligibility update: 0.5.1-test
 
-Travelling fixes: up to 24 hours. Candidate GPS fixes: up to 12 hours (fixed/manual positions retain their 24-hour limit). Last heard is informational only. An eight-hour per-destination cooldown applies to automatic and manual attempts across sessions, radios and channels on the same phone. Previously stored attempt times migrate on update. Separate phones do not share cooldowns. The collector accepts these older observation timestamps without relabelling them as precise coverage evidence.
+Travelling fixes: up to 24 hours. Candidate GPS fixes: up to 12 hours (fixed/manual positions retain their 24-hour limit). Last heard is informational only. An eight-hour per-destination cooldown applies across sessions, radios and channels on the same phone; 0.5.2 allows up to three attempts for timeout/routing failures before that cooldown. Previously stored attempt times migrate on update. Separate phones do not share cooldowns. The collector accepts these older observation timestamps without relabelling them as precise coverage evidence.
+
+## Retry and review update: 0.5.2-test
+
+Three total attempts (initial plus two retries), one outstanding request at a time. Confirmed timeout/routing failures permit another attempt after 30 seconds, subject to eligibility and the global cadence. Success, late success or the third failure starts eight hours of cooldown. Persisted reservations keep interrupted/uncertain sends on cooldown across restarts. Pause stops automatic retries; manual attempts share the same budget. The scheduler continues considering other eligible nodes while a retry waits.
+
+Nearby calculations are cached for at most one second; radius changes invalidate immediately. Uploads remain capped at ten records per batch; a backlog uses five-second syncs instead of fifteen seconds. This changes HTTPS upload throughput, not radio cadence.

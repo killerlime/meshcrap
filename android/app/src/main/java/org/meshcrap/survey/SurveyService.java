@@ -40,7 +40,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
     private volatile HttpURLConnection connection;
     static final class Target {final int number;final double distance;final String label;final boolean automatic;Target(int n,double d,String label,boolean automatic){number=n;distance=d;this.label=label;this.automatic=automatic;}}
     private static final class Attempt {
-        int packet,dest,source,channel;long survey,at,elapsed;boolean test,done;JSONObject position,destinationPosition;
+        int packet,dest,source,channel;long survey,at,elapsed,cycle;boolean test,done;JSONObject position,destinationPosition;
     }
     private long clock(){return SystemClock.elapsedRealtime();}
     private static long epoch(){return System.currentTimeMillis()/1000;}
@@ -94,7 +94,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
     private void notifyState(){getSystemService(NotificationManager.class).notify(1,notification());}
     void pause(String reason){controlState.pause();armed=false;if(!reason.equals(message))log(reason);message=reason;notifyState();}
     void chooseChannel(int n){if(pending!=null){message="Wait for the outstanding traceroute before changing channel";return;}if(channels.containsKey(n)){channel=n;getSharedPreferences("survey-settings",0).edit().putInt("channel_"+own,n).apply();pause("Channel changed. Check the selected channel, then start the survey when ready.");}}
-    void chooseRadius(int miles){radius=miles;getSharedPreferences("survey-settings",0).edit().putInt("radius",miles).apply();}
+    void chooseRadius(int miles){targetCacheUntil=0;radius=miles;getSharedPreferences("survey-settings",0).edit().putInt("radius",miles).apply();}
     String arm(){
         if(controlState.blocksRequests())return "Waiting for collector confirmation of the survey change.";
         if(!ready||!isLocal()||survey==0||clock()>=leaseUntil)return "Connect a local node and start a survey with a live collector connection.";
@@ -139,7 +139,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
             var data=p.getDecoded();
             if(data.getPortnum()==Portnums.PortNum.POSITION_APP)node.setPosition(MeshProtos.Position.parseFrom(data.getPayload()));
             if(data.getPortnum()==Portnums.PortNum.NODEINFO_APP)node.setUser(MeshProtos.User.parseFrom(data.getPayload()));
-            nodes.put(n,node.build());
+            nodes.put(n,node.build());targetCacheUntil=0;
             Attempt a=attempts.get(data.getRequestId());
             if(a!=null&&p.getFrom()==a.dest&&p.getTo()==a.source&&p.getChannel()==a.channel&&data.getPortnum()==Portnums.PortNum.TRACEROUTE_APP){
                 boolean late=a.done;
@@ -160,7 +160,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
         }
     }
     private static JSONArray unsignedArray(List<Integer> values){JSONArray a=new JSONArray();for(int v:values)a.put(unsigned(v));return a;}
-    private final LocationListener locationListener=new LocationListener(){public void onLocationChanged(Location location){if(!(Build.VERSION.SDK_INT>=31?location.isMock():location.isFromMockProvider()))phoneLocation=location;}};
+    private final LocationListener locationListener=new LocationListener(){public void onLocationChanged(Location location){if(!(Build.VERSION.SDK_INT>=31?location.isMock():location.isFromMockProvider())){phoneLocation=location;targetCacheUntil=0;}}};
     private JSONObject position(){try{
         if(phoneLocation!=null&&phoneLocation.hasAccuracy()&&SurveyRules.travellingAccuracyValid(phoneLocation.getAccuracy())&&SystemClock.elapsedRealtimeNanos()>=phoneLocation.getElapsedRealtimeNanos()&&SystemClock.elapsedRealtimeNanos()-phoneLocation.getElapsedRealtimeNanos()<=SurveyRules.POSITION_MAX_AGE_SECONDS*1_000_000_000L&&SurveyRules.travellingPositionFresh(phoneLocation.getTime()/1000,epoch())&&SurveyRules.validPosition(phoneLocation.getLatitude(),phoneLocation.getLongitude()))
             return new JSONObject().put("lat",phoneLocation.getLatitude()).put("lon",phoneLocation.getLongitude()).put("time",phoneLocation.getTime()/1000).put("source","phone_gps").put("accuracy_m",phoneLocation.getAccuracy());
@@ -170,7 +170,8 @@ public final class SurveyService extends Service implements MeshBle.Listener {
         }
     }catch(Exception ignored){}return null;}
     private static long positionTime(MeshProtos.Position p){return unsigned(p.getTimestamp()!=0?p.getTimestamp():p.getTime());}
-    List<Target> targets(){List<Target> result=new ArrayList<>();JSONObject loc=position();if(loc==null)return result;
+    private List<Target> targetCache=Collections.emptyList();private long targetCacheUntil=0;
+    List<Target> targets(){if(clock()<targetCacheUntil)return targetCache;List<Target> result=new ArrayList<>();JSONObject loc=position();if(loc==null)return result;
         for(var n:nodes.values()){
             if(n.getViaMqtt()||n.getNum()==own||!SurveyRules.validId(unsigned(n.getNum()))||!n.hasPosition())continue;
             var p=n.getPosition();double lat=p.getLatitudeI()*1e-7,lon=p.getLongitudeI()*1e-7;
@@ -181,14 +182,33 @@ public final class SurveyService extends Service implements MeshBle.Listener {
             String source=p.getLocationSourceValue()==1?"fixed/manual (advertised)":p.getLocationSourceValue()==2?"radio GPS":p.getLocationSourceValue()==3?"external GPS":"unknown source";
             String precision=p.getPrecisionBits()==0?"precision unknown":p.getPrecisionBits()+"-bit advertised precision";
             if(miles<=radius)result.add(new Target(n.getNum(),miles,name(n.getNum())+" · "+id(n.getNum())+" · "+String.format(Locale.ROOT,"~%.1f mi · position %ds old · heard %ds ago",miles,Math.max(0,epoch()-positionTime(p)),Math.max(0,epoch()-unsigned(n.getLastHeard())))+" · "+source+" · "+precision+(automatic?"":" · manual test only"),automatic));
-        }result.sort(Comparator.comparingDouble(t->t.distance));return result;
+        }result.sort(Comparator.comparingDouble(t->t.distance));targetCache=result;targetCacheUntil=clock()+1000;return result;
     }
     private String samplingKey(int dest){return "probe_"+dest;}
     private long sampledAt(int dest){return getSharedPreferences("cadence",0).getLong(samplingKey(dest)+"_time",0);}
-    private boolean eligibleAgain(int dest){return SurveyRules.repeatEligible(sampledAt(dest),epoch());}
+    private boolean eligibleAgain(int dest){
+        long last=sampledAt(dest);return RetryPolicy.eligible(last,getSharedPreferences("cadence",0).getLong(samplingKey(dest)+"_next",last==0?0:last+RetryPolicy.COOLDOWN),epoch());
+    }
+    private boolean reserveAttempt(Attempt a,Set<String> triedNodes){
+        var prefs=getSharedPreferences("cadence",0);String key=samplingKey(a.dest);
+        boolean retry=prefs.getBoolean(key+"_retry",false);
+        int count=retry?prefs.getInt(key+"_count",0)+1:1;
+        a.cycle=retry?prefs.getLong(key+"_cycle",a.at):a.at;
+        return prefs.edit().putLong(key+"_time",a.at).putLong(key+"_next",a.at+RetryPolicy.COOLDOWN)
+            .putLong(key+"_cycle",a.cycle).putInt(key+"_count",count).putBoolean(key+"_retry",false)
+            .putBoolean(key+"_success",false).putLong("last_sent",a.at).putStringSet("tried_"+own+"_"+survey,triedNodes).commit();
+    }
+    private void finishAttempt(Attempt a,String outcome){
+        var prefs=getSharedPreferences("cadence",0);String key=samplingKey(a.dest);
+        if(a.cycle==0||prefs.getLong(key+"_cycle",0)!=a.cycle)return;
+        boolean success=prefs.getBoolean(key+"_success",false)||outcome.equals("success")||outcome.equals("late_success");
+        boolean retry=RetryPolicy.retryable(outcome,prefs.getInt(key+"_count",3),success);
+        if(!prefs.edit().putBoolean(key+"_success",success).putBoolean(key+"_retry",retry)
+            .putLong(key+"_next",epoch()+(retry?RetryPolicy.RETRY_DELAY:RetryPolicy.COOLDOWN)).commit())pause("Could not save retry state; reconnect before continuing.");
+    }
     String trace(int destination,boolean test){
         if(controlState.blocksRequests())return "Waiting for collector confirmation of the survey change.";
-        if(!eligibleAgain(destination))return "This node was already tested within 8 hours. Wait before testing it again.";
+        if(!eligibleAgain(destination))return "This node is waiting for its retry interval or eight-hour cooldown.";
         if(!SurveyRules.maySend(ready,isLocal(),pending!=null,clock(),lastSent,leaseUntil,survey)||!channels.containsKey(channel))return "Not ready: check the active survey, collector connection, channel, outstanding request and 30-second spacing.";
 
         if(targets().stream().noneMatch(t->t.number==destination&&(test||t.automatic)))return "This destination is no longer a nearby candidate with position data within the allowed age.";
@@ -205,7 +225,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
             log("Saved request #"+unsigned(a.packet)+" to "+name(destination)+" on slot "+channel+"; submitting to Bluetooth.");
             a.done=false;attempts.put(a.packet,a);pending=a;lastSent=clock();tried.add(destination);
             Set<String> persisted=new HashSet<>();for(int n:tried)persisted.add(Integer.toString(n));
-            if(!getSharedPreferences("cadence",0).edit().putLong(samplingKey(destination)+"_time",epoch()).putLong("last_sent",epoch()).putStringSet("tried_"+own+"_"+survey,persisted).commit()){
+            if(!reserveAttempt(a,persisted)){
                 result(a,"transport_error",null);pending=null;pause("Could not save request cadence; nothing was sent.");return message;
             }
             ble.send(MeshProtos.ToRadio.newBuilder().setPacket(packet).build().toByteArray());
@@ -219,7 +239,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
         if(details!=null)object.put("details",details);
         if(a.destinationPosition!=null)object.put("destination_position",a.destinationPosition);
         if(!outbox.add(object)){pause("Result storage is full; upload results before continuing.");return false;}
-        if(!status.equals("requested")){a.done=true;message=name(a.dest)+": "+status.replace('_',' ');log("Request #"+unsigned(a.packet)+" · "+message);}
+        if(!status.equals("requested")){finishAttempt(a,status);a.done=true;message=name(a.dest)+": "+status.replace('_',' ');log("Request #"+unsigned(a.packet)+" · "+message);}
         return true;
     }catch(Exception e){pause("Could not save a survey result. Requests paused.");return false;}}
     private final Runnable tick=new Runnable(){public void run(){if(disposed)return;
@@ -232,7 +252,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
             if(!outbox.add(new JSONObject().put("id",UUID.randomUUID().toString()).put("kind","position").put("survey_id",survey).put("source",unsigned(own)).put("time",epoch()).put("position",loc)))pause("Location storage is full. Upload saved results before continuing.");
             else log("Saved travelling position for survey #"+survey+"; awaiting collector acknowledgment.");
         }catch(Exception e){pause("Could not save survey location");}}
-        if(!syncing&&!controlState.busy()&&now-lastSync>=15000){lastSync=now;sync();}
+        if(!syncing&&!controlState.busy()&&now-lastSync>=(outbox.count()>10?5000:15000)){lastSync=now;sync();}
         if(armed&&pending==null&&now-lastSent>=SurveyRules.SPACING_MS){
             Target candidate=null;for(Target target:targets())if(target.automatic&&eligibleAgain(target.number)&&(candidate==null||sampledAt(target.number)<sampledAt(candidate.number)))candidate=target;
             if(candidate!=null){lastAutomaticWait="";trace(candidate.number,false);}
