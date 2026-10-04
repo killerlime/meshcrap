@@ -1,5 +1,6 @@
 """Private Android survey uploads, isolated from HQ radio measurements."""
-import hashlib,json,math,secrets,sqlite3,time,uuid
+import hashlib,json,math,secrets,sqlite3,time,uuid,threading
+from collections import OrderedDict
 from pathlib import Path
 from contextlib import contextmanager,closing
 from datetime import datetime,timezone
@@ -29,11 +30,14 @@ def validate_position(p,now):
 
 class SurveyPhone:
     def __init__(self,app,root):
+        self.report_cache=OrderedDict();self.report_lock=threading.Lock()
         self.root=Path(root);self.path=self.root/'survey-phone.sqlite3';self.mesh=self.root/'mesh.db'
         with self.db() as db:
             db.executescript('''CREATE TABLE IF NOT EXISTS clients(id INTEGER PRIMARY KEY,token_hash TEXT UNIQUE NOT NULL,created REAL NOT NULL,revoked INTEGER NOT NULL DEFAULT 0,last_seen REAL,status TEXT);
               CREATE TABLE IF NOT EXISTS events(id TEXT PRIMARY KEY,client INTEGER NOT NULL,survey INTEGER NOT NULL,source INTEGER NOT NULL,kind TEXT NOT NULL,received REAL NOT NULL,body TEXT NOT NULL);
-              CREATE INDEX IF NOT EXISTS events_survey ON events(survey,received);''')
+              CREATE INDEX IF NOT EXISTS events_survey ON events(survey,received);
+              CREATE TABLE IF NOT EXISTS offline_permits(token TEXT PRIMARY KEY,client INTEGER NOT NULL,survey INTEGER NOT NULL,source INTEGER NOT NULL,issued INTEGER NOT NULL,expires INTEGER NOT NULL);
+              CREATE INDEX IF NOT EXISTS offline_permits_scope ON offline_permits(client,survey,source,expires);''')
         self.path.chmod(0o600);app.extensions['survey_phone']=self
     @contextmanager
     def db(self):
@@ -72,15 +76,24 @@ class SurveyPhone:
             source=integer(data.get('source'),0,0xfffffffe)
             events=data.get('events',[])
             if not isinstance(events,list) or len(events)>10:raise ValueError('Maximum ten records per upload')
-            with self.meshdb() as mesh:
+            with self.meshdb() as mesh, self.db() as permits:
                 known={r[0] for r in mesh.execute("SELECT node_num FROM nodes WHERE lower(trim(coalesce(short_name,''))) LIKE '@@NODE_PREFIX_LOWER@@%' OR lower(trim(coalesce(long_name,''))) LIKE '@@NODE_PREFIX_LOWER@@ %'")}
                 active=mesh.execute('SELECT * FROM coverage_surveys WHERE ended_at IS NULL ORDER BY survey_id DESC LIMIT 1').fetchone()
-                normalized=[]
+                normalized=[];local_outings={}
                 for event in events:
                     if not isinstance(event,dict):raise ValueError('Invalid record')
                     event_id=str(uuid.UUID(event.get('id','')))
-                    survey_id=integer(event.get('survey_id'),1,2147483647)
-                    survey=mesh.execute('SELECT * FROM coverage_surveys WHERE survey_id=?',(survey_id,)).fetchone()
+                    outing=event.get('outing')
+                    if outing is not None:
+                        if not isinstance(outing,dict):raise ValueError('Invalid phone outing')
+                        outing_id=str(uuid.UUID(outing.get('id','')))
+                        started=integer(outing.get('started_at'),1,int(now+120))
+                        local_outings[event_id]=(outing_id,started)
+                        survey_id=0
+                        survey=dict(started_at=datetime.fromtimestamp(started,timezone.utc).isoformat(),ended_at=None)
+                    else:
+                        survey_id=integer(event.get('survey_id'),1,2147483647)
+                        survey=mesh.execute('SELECT * FROM coverage_surveys WHERE survey_id=?',(survey_id,)).fetchone()
                     if survey is None:raise ValueError('Unknown survey')
                     node=integer(event.get('source'),1,0xfffffffe)
                     if node not in known:raise ValueError('Source is not a known local-prefix node')
@@ -88,19 +101,44 @@ class SurveyPhone:
                     if stamp<epoch(survey['started_at'])-120:raise ValueError('Record predates survey')
                     kind=event.get('kind')
                     clean=dict(id=event_id,kind=kind,survey_id=survey_id,source=node,time=stamp)
+                    if outing is not None:clean['outing']=dict(id=outing_id,started_at=started)
+                    # Upload may occur days later. Validate observation time, not delivery time.
+                    # An offline phone cannot learn that someone ended its outing remotely.
+                    # Keep its granted observations on the original outing, never a replacement.
+                    offline=False
+                    permit=event.get('offline_permit')
+                    if permit is not None:
+                        if not isinstance(permit,str) or len(permit)>128:raise ValueError('Invalid offline permit')
+                        grant=permits.execute('SELECT * FROM offline_permits WHERE token=?',(permit,)).fetchone()
+                        reference=event.get('requested_at',stamp)
+                        if not grant or grant['survey']!=survey_id or grant['source']!=node or type(reference) is not int or not grant['issued']-120<=reference<=grant['expires']:raise ValueError('Offline observation outside authorization')
+                        offline=True
+                        clean['offline_authorized']=True
                     p=event.get('position')
                     if p is not None:
                         clean['position']=validate_position(p,now)
                         reference=event.get('requested_at',stamp)
-                        if type(reference) is not int or not -120<=reference-clean['position']['time']<=3600:raise ValueError('Position was not fresh at observation')
-                    if kind=='position':
+                        if type(reference) is not int or not -120<=reference-clean['position']['time']<=86400:raise ValueError('Position was not fresh at observation')
+                    if kind in ('outing_start','outing_end'):
+                        if outing is None:raise ValueError('Phone outing required')
+                    elif kind=='position':
                         if p is None:raise ValueError('Missing position')
-                        if survey['ended_at'] and stamp>epoch(survey['ended_at'])+30:raise ValueError('Position outside survey')
+                        if not offline and survey['ended_at'] and stamp>epoch(survey['ended_at'])+30:raise ValueError('Position outside survey')
+                    elif kind=='reception':
+                        if not offline and survey['ended_at'] and stamp>epoch(survey['ended_at'])+30:raise ValueError('Reception outside survey')
+                        sender=integer(event.get('sender'),1,0xfffffffe)
+                        if sender==node:raise ValueError('Local transmission is not received RF')
+                        rx=integer(event.get('rx_time'),1,stamp)
+                        if stamp-rx>120 or event.get('via_mqtt') is not False:raise ValueError('Not a current radio reception')
+                        rssi=integer(event.get('rssi'),-200,-1)
+                        snr=event.get('snr')
+                        if type(snr) not in (int,float) or not math.isfinite(snr) or not -100<=snr<=100:raise ValueError('Invalid SNR')
+                        clean.update(sender=sender,packet_id=integer(event.get('packet_id'),1,0xffffffff),channel=integer(event.get('channel'),0,7),rx_time=rx,rssi=rssi,snr=snr,via_mqtt=False)
                     elif kind=='trace':
                         dest=integer(event.get('destination'),1,0xfffffffe)
                         if dest==node:raise ValueError('Destination equals source')
                         at=integer(event.get('requested_at'),1,int(now+120))
-                        if at<epoch(survey['started_at'])-120 or stamp<at-120 or (survey['ended_at'] and at>epoch(survey['ended_at'])+30):raise ValueError('Request outside survey')
+                        if at<epoch(survey['started_at'])-120 or stamp<at-120 or (not offline and survey['ended_at'] and at>epoch(survey['ended_at'])+30):raise ValueError('Request outside survey')
                         status=event.get('status')
                         if status not in ('requested','success','late_success','timeout','routing_error','transport_error','stopped'):raise ValueError('Unknown result status')
                         clean.update(destination=dest,requested_at=at,packet_id=integer(event.get('packet_id'),1,0xffffffff),channel=integer(event.get('channel'),0,7),status=status,test=event.get('test') is True)
@@ -110,9 +148,8 @@ class SurveyPhone:
                             position=validate_position(dict(target,source='radio_position'),now)
                             position['source']=integer(target.get('source'),0,3)
                             position['precision_bits']=integer(target.get('precision_bits'),0,32)
-                            position['last_heard']=integer(target.get('last_heard'),1,int(now+120))
-                            if not 0<=at-position['time']<=(86400 if position['source']==1 else 300):raise ValueError('Stale destination position')
-                            if not 0<=at-position['last_heard']<=900:raise ValueError('Destination not recently heard')
+                            position['last_heard']=integer(target.get('last_heard',0),0,int(now+120))
+                            if not 0<=at-position['time']<=(86400 if position['source']==1 else 43200):raise ValueError('Stale destination position')
                             clean['destination_position']=position
                         details=event.get('details',{})
                         if not isinstance(details,dict):raise ValueError('Invalid response details')
@@ -130,17 +167,46 @@ class SurveyPhone:
                     normalized.append(clean)
             if source and source not in known:raise ValueError('Connected source is not a known local-prefix node')
             status=dict(source=source,ready=data.get('ready') is True,armed=data.get('armed') is True,channel=integer(data.get('channel',0),0,7),nearby=integer(data.get('nearby',0),0,10000))
+            offline_permit='';offline_until=0
             with self.db() as db:
+                # Attach for one atomic commit of trip IDs and event acknowledgments.
+                # Imported phone outings never occupy or end the collector's active survey.
+                db.execute('ATTACH DATABASE ? AS meshdata',(str(self.mesh),))
+                db.execute('BEGIN IMMEDIATE')
+                db.execute('CREATE TABLE IF NOT EXISTS meshdata.phone_outings(id TEXT PRIMARY KEY,survey INTEGER NOT NULL,source INTEGER NOT NULL,started INTEGER NOT NULL,ended INTEGER)')
                 for event in normalized:
+                    if event['id'] in local_outings:
+                        outing_id,started=local_outings[event['id']]
+                        old_outing=db.execute('SELECT * FROM meshdata.phone_outings WHERE id=?',(outing_id,)).fetchone()
+                        if old_outing:
+                            if old_outing['source']!=event['source'] or old_outing['started']!=started:raise ValueError('Conflicting phone outing')
+                            event['survey_id']=old_outing['survey']
+                            if old_outing['ended'] and event.get('requested_at',event['time'])>old_outing['ended']:raise ValueError('Observation after phone outing ended')
+                        else:
+                            start_iso=datetime.fromtimestamp(started,timezone.utc).isoformat()
+                            event['survey_id']=db.execute("INSERT INTO meshdata.coverage_surveys(started_at,ended_at,start_row_id,end_row_id,area_id,notes) VALUES(?,?,0,0,'roaming','Phone outing — upload in progress')",(start_iso,start_iso)).lastrowid
+                            db.execute('INSERT INTO meshdata.phone_outings VALUES(?,?,?,?,NULL)',(outing_id,event['survey_id'],event['source'],started))
+                        end_iso=datetime.fromtimestamp(event['time'],timezone.utc).isoformat()
+                        if event['kind']=='outing_end':
+                            db.execute('UPDATE meshdata.phone_outings SET ended=? WHERE id=?',(event['time'],outing_id))
+                            db.execute("UPDATE meshdata.coverage_surveys SET ended_at=?,notes='Phone outing — ended on phone' WHERE survey_id=?",(end_iso,event['survey_id']))
+                        elif not old_outing or not old_outing['ended']:
+                            db.execute('UPDATE meshdata.coverage_surveys SET ended_at=max(ended_at,?) WHERE survey_id=?',(end_iso,event['survey_id']))
                     encoded=json.dumps(event,sort_keys=True,separators=(',',':'))
                     old=db.execute('SELECT client,body FROM events WHERE id=?',(event['id'],)).fetchone()
                     # Re-pairing rotates credentials but retains this phone's idempotent outbox.
                     if old and old['body']!=encoded:raise ValueError('Conflicting record identifier')
                     db.execute('INSERT OR IGNORE INTO events VALUES(?,?,?,?,?,?,?)',(event['id'],client['id'],event['survey_id'],event['source'],event['kind'],now,encoded))
                 db.execute('UPDATE clients SET last_seen=?,status=? WHERE id=?',(now,json.dumps(status),client['id']))
+                if active and source in known and status['ready']:
+                    grant=db.execute('SELECT * FROM offline_permits WHERE client=? AND survey=? AND source=? AND expires>? ORDER BY expires DESC LIMIT 1',(client['id'],active['survey_id'],source,int(now)+43200)).fetchone()
+                    if grant:offline_permit=grant['token'];offline_until=grant['expires']
+                    else:
+                        offline_permit=secrets.token_urlsafe(32);offline_until=int(now)+86400
+                        db.execute('INSERT INTO offline_permits VALUES(?,?,?,?,?,?)',(offline_permit,client['id'],active['survey_id'],source,int(now),offline_until))
             from coverage_areas import AREAS
             return jsonify(ok=True,accepted=[e['id'] for e in normalized],survey_id=active['survey_id'] if active else 0,
-                           phone_controls=True,
+                           phone_controls=True, reception_records=True,local_outings=True,offline_permit=offline_permit,offline_until=offline_until,
                            area_name=('Roaming survey' if active['area_id']=='roaming' else AREAS[active['area_id']]['name']) if active else '',lease_seconds=30 if source in known and status['ready'] else 0)
         except (ValueError,TypeError,KeyError,AttributeError,OverflowError) as e:return jsonify(error=str(e)),400
     def control(self):
@@ -178,43 +244,34 @@ class SurveyPhone:
             return jsonify(result)
         except (ValueError,TypeError,AttributeError):return jsonify(error='Invalid survey command'),400
     def report(self,survey_id):
+        from survey_evidence import summarize
         with self.db() as db:
-            # Bound the response; all original records remain in the separate phone database.
-            rows=db.execute('SELECT body FROM events WHERE survey=? ORDER BY received DESC,rowid DESC LIMIT 5000',(survey_id,)).fetchall()
-            client=db.execute('SELECT last_seen,status FROM clients WHERE revoked=0 ORDER BY id DESC LIMIT 1').fetchone()
-        traces={};positions={}
-        for r in rows:
-            e=json.loads(r['body'])
-            if e['kind']=='trace':
-                key=(e['source'],e['packet_id'])
-                priority={'requested':0,'stopped':1,'transport_error':1,'routing_error':1,'timeout':1,'success':2,'late_success':2}
-                if key not in traces or priority[e['status']]>priority[traces[key]['status']]:traces[key]=e
-            elif e['kind']=='position':positions.setdefault(e['source'],[]).append(e['position'])
-        paths=[]
-        import math
-        def distance(a,b):
-            p1,p2=math.radians(a['lat']),math.radians(b['lat'])
-            x=math.sin((p2-p1)/2)**2+math.cos(p1)*math.cos(p2)*math.sin(math.radians(b['lon']-a['lon'])/2)**2
-            return 3958.7613*2*math.asin(math.sqrt(min(1,max(0,x))))
-        for node,points in positions.items():
-            points.sort(key=lambda p:p['time']);segments=[];segment=[];previous=None
-            for p in points:
-                if previous and (p['time']-previous['time']>300 or distance(previous,p)>5):
-                    if segment:segments.append(segment)
-                    segment=[]
-                segment.append([p['lat'],p['lon']]);previous=p
-            if segment:segments.append(segment)
-            paths.append(dict(node_num=node,node=f'Phone survey !{node:08x}',segments=segments,samples=len(points),simplified=False))
+            db.execute('BEGIN')
+            total,last=db.execute('SELECT count(*),max(rowid) FROM events WHERE survey=?',(survey_id,)).fetchone()
+            key=(survey_id,total,last)
+            with self.report_lock:
+                report=self.report_cache.get(key)
+                if report is None:
+                    rows=db.execute("SELECT body FROM events WHERE survey=? ORDER BY json_extract(body,'$.time'),rowid",(survey_id,))
+                    report=summarize(rows,total)
+                    self.report_cache[key]=report
+                    while len(self.report_cache)>12:self.report_cache.popitem(last=False)
+                else:self.report_cache.move_to_end(key)
+            client=db.execute('SELECT last_seen FROM clients WHERE revoked=0 ORDER BY id DESC LIMIT 1').fetchone()
         with self.meshdb() as mesh:
             names={r['node_num']:r['name'] for r in mesh.execute("SELECT node_num,coalesce(nullif(long_name,''),nullif(short_name,''),node_id) AS name FROM nodes") if r['name']}
-        return dict(names=names,status='Phone connected' if client and client['last_seen'] and time.time()-client['last_seen']<45 else 'Phone not connected',
-                    traces=list(traces.values())[:100],trace_count=len(traces),successes=sum(e['status'] in ('success','late_success') for e in traces.values()),routes=paths)
+            survey=mesh.execute('SELECT notes FROM coverage_surveys WHERE survey_id=?',(survey_id,)).fetchone()
+        status='Phone connected' if client and client['last_seen'] and time.time()-client['last_seen']<45 else 'Phone not connected'
+        if survey and survey['notes']=='Phone outing — upload in progress':status+=' · Phone outing still open; displayed end is the latest uploaded observation'
+        elif survey and survey['notes']=='Phone outing — ended on phone':status+=' · Outing ended on phone'
+        return dict(report,names=names,status=status)
+
 
 def register_survey_phone(app,root='@@DATA_DIR@@'):
     phone=SurveyPhone(app,root)
     @app.get('/survey-companion')
     def setup():return render_template('survey-companion.html',https_host=app.extensions['dashboard_security'].https_host,
-        apk_available=(Path(root)/'dashboard/survey-downloads/meshcrap-survey-test.apk').is_file())
+        apk_available=(Path(root)/'dashboard/survey-downloads/meshcrap-survey-test.apk').is_file()),200,{'Cache-Control':'no-store'}
     @app.get('/survey-companion/<name>')
     def artifact(name):
         if name not in ('meshcrap-survey-test.apk','meshcrap-survey-source.zip'):return jsonify(error='Unknown file'),404

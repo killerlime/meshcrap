@@ -36,6 +36,56 @@ class PhoneSurveyTests(unittest.TestCase):
         # Rate limiting is independently checked; simulate a later network retry.
         with self.phone.db() as db:db.execute('UPDATE clients SET last_seen=NULL')
         return self.post('sync',dict(source=305419896,ready=True,events=events))
+    def test_offline_outing_creates_separate_trip_and_replays_once(self):
+        active=self.start();event=self.event(0)
+        event['outing']=dict(id=str(uuid.uuid4()),started_at=self.now-3600)
+        first=self.sync([event]);self.assertEqual(first.status_code,200,first.json)
+        self.assertEqual(self.sync([event]).status_code,200)
+        with sqlite3.connect(self.data/'mesh.db') as db:
+            local=db.execute('SELECT survey FROM phone_outings').fetchone()[0]
+            self.assertNotEqual(local,active)
+            self.assertEqual(db.execute('SELECT survey_id FROM coverage_surveys WHERE ended_at IS NULL').fetchone()[0],active)
+        self.assertEqual(self.phone.report(local)['metrics']['position_records'],1)
+        self.assertIn('still open',self.phone.report(local)['status'])
+        end=dict(event,id=str(uuid.uuid4()),kind='outing_end');end.pop('position')
+        self.assertEqual(self.sync([end]).status_code,200)
+        self.assertEqual(self.sync([end]).status_code,200)
+        self.assertIn('ended on phone',self.phone.report(local)['status'])
+        bad=dict(event,id=str(uuid.uuid4()),time=self.now+1)
+        self.assertEqual(self.sync([bad]).status_code,400)
+
+    def test_offline_batch_rolls_back_trip_and_records_on_conflict(self):
+        event=self.event(0);event['outing']=dict(id=str(uuid.uuid4()),started_at=self.now-100)
+        bad=dict(event,id=str(uuid.uuid4()),outing=dict(event['outing'],started_at=self.now-99))
+        self.assertEqual(self.sync([event,bad]).status_code,400)
+        with self.phone.db() as db:self.assertEqual(db.execute('SELECT count(*) FROM events').fetchone()[0],0)
+        with sqlite3.connect(self.data/'mesh.db') as db:self.assertEqual(db.execute('SELECT count(*) FROM coverage_surveys').fetchone()[0],0)
+
+    def test_offline_permit_accepts_delayed_records_after_remote_end(self):
+        survey=self.start();response=self.sync([]);grant=response.json['offline_permit']
+        self.assertTrue(grant)
+        self.assertEqual(self.post('control',self.command('stop',survey)).status_code,200)
+        event=self.event(survey);event.update(time=self.now+60,offline_permit=grant)
+        self.assertEqual(self.sync([event]).status_code,200)
+        self.assertEqual(self.sync([event]).status_code,200)
+        bad=dict(event,id=str(uuid.uuid4()),offline_permit='x'*43)
+        self.assertEqual(self.sync([bad]).status_code,400)
+        bad=dict(event,id=str(uuid.uuid4()),survey_id=self.start())
+        self.assertEqual(self.sync([bad]).status_code,400)
+        with self.phone.db() as db:db.execute('UPDATE clients SET revoked=1')
+        self.assertEqual(self.sync([event]).status_code,401)
+    def test_passive_receptions_allowlist_and_cache_invalidation(self):
+        survey=self.start();event=self.event(survey)
+        event.update(kind='reception',sender=42,packet_id=7,channel=0,rx_time=self.now,rssi=-110,snr=-5.5,via_mqtt=False,text='never retain message contents')
+        self.assertEqual(self.phone.report(survey)['metrics']['received_packets'],0)
+        result=self.sync([event]);self.assertEqual(result.status_code,200);self.assertTrue(result.json['reception_records'])
+        self.assertEqual(self.phone.report(survey)['metrics']['received_packets'],1)
+        with self.phone.db() as db:
+            self.assertNotIn('text',json.loads(db.execute('SELECT body FROM events').fetchone()[0]))
+        for fields in [dict(via_mqtt=True),dict(sender=305419896),dict(rx_time=self.now-121),dict(snr=float('inf'))]:
+            bad=dict(event,id=str(uuid.uuid4()),**fields)
+            self.assertEqual(self.sync([bad]).status_code,400)
+
     def test_start_replay_and_no_area_requirement(self):
         command=self.command();first=self.post('control',command);second=self.post('control',command)
         self.assertEqual(first.json,second.json)
@@ -72,17 +122,17 @@ class PhoneSurveyTests(unittest.TestCase):
     def test_ended_session_offline_replay_and_stale_position(self):
         survey=self.start();event=self.event(survey);self.post('control',self.command('stop',survey))
         self.assertEqual(self.sync([event]).status_code,200)
-        event=self.event(survey);event['position']['time']=self.now-3601
+        event=self.event(survey);event['position']['time']=self.now-86401
         self.assertEqual(self.sync([event]).status_code,400)
         event=self.event(survey);event['time']=self.now+40;event['position']['time']=self.now+40
         self.assertEqual(self.sync([event]).status_code,400)
-    def test_one_hour_half_mile_position_boundary(self):
+    def test_twenty_four_hour_half_mile_position_boundary(self):
         survey=self.start();event=self.event(survey)
-        event['position'].update(time=self.now-3600,accuracy_m=804.672)
+        event['position'].update(time=self.now-86400,accuracy_m=804.672)
         self.assertEqual(self.sync([event]).status_code,200)
         event=self.event(survey);event['position']['accuracy_m']=804.673
         self.assertEqual(self.sync([event]).status_code,400)
-        event=self.event(survey);event['position']['time']=self.now-3601
+        event=self.event(survey);event['position']['time']=self.now-86401
         self.assertEqual(self.sync([event]).status_code,400)
     def test_roaming_report_avoids_area_grid(self):
         survey=self.start();self.sync([self.event(survey)])
@@ -95,6 +145,13 @@ class PhoneSurveyTests(unittest.TestCase):
             report=namespace['_survey_metrics'](db,row)
         self.assertEqual(report['area_id'],'roaming');self.assertEqual(report['gps_samples'],1)
         self.assertEqual(report['routes'][0]['segments'][0][0],[1.5,2.5]);self.assertNotIn('cells_proven_this_survey',report)
+    def test_twelve_hour_destination_and_no_last_heard_requirement(self):
+        survey=self.start();event=self.event(survey)
+        event.update(kind='trace',destination=591751049,packet_id=42,requested_at=self.now,channel=0,status='requested',destination_position=dict(lat=3.5,lon=4.5,time=self.now-43200,last_heard=0,source=2,precision_bits=24))
+        self.assertEqual(self.sync([event]).status_code,200)
+        event['id']=str(uuid.uuid4());event['destination_position']['time']-=1
+        self.assertEqual(self.sync([event]).status_code,400)
+
     def test_trace_destination_snapshot_survives_late_reply(self):
         survey=self.start();event=self.event(survey)
         event.update(kind='trace',destination=591751049,packet_id=42,requested_at=self.now,channel=0,status='timeout',destination_position=dict(lat=3.5,lon=4.5,time=self.now-60,last_heard=self.now-10,source=2,precision_bits=24))

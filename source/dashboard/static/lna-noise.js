@@ -7,8 +7,9 @@
   if(busy||document.hidden||!box?.getClientRects().length)return;busy=true;pending=false;
   const hours=window.getDashboardHours?.()||24;
   try{
-   const r=await fetch(`/api/lna-noise?hours=${hours}`,{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('Noise-floor data unavailable');const d=await r.json();
+   const r=await fetch(`/api/lna-noise?hours=${hours}`,{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('Noise-floor data unavailable');const d=await r.json();await RFRefresh.ready();
    if(hours!==(window.getDashboardHours?.()||24))return;
+   window.dispatchEvent(new CustomEvent('rf:lna-noise',{detail:{...d,hours}}));
    const range=hours<24?`${hours} hour${hours===1?'':'s'}`:`${hours/24} day${hours===24?'':'s'}`;
    title.textContent=`Receiver receiver noise floor · last ${range}`;
    canvas.setAttribute('aria-label',`Receiver noise floor over the last ${range} with recorded LNA switch markers`);
@@ -34,6 +35,6 @@
   box.append(el('p','More-negative values mean a lower receiver noise estimate. An LNA can raise both signal and noise: judge this alongside same-node SNR, reception rate and bad-packet share. This is a smoothed radio estimate, not a calibrated measurement of antenna noise or LNA noise figure.'));
   const wrap=el('div');wrap.style.cssText='height:280px;min-width:0';canvas=el('canvas');canvas.setAttribute('role','img');canvas.setAttribute('aria-label','Receiver noise floor over the last 24 hours with recorded LNA switch markers');wrap.append(canvas);box.append(wrap);
   box.append(el('p','Comparison uses equal-weight hourly medians across the existing matched healthy ON/OFF hours. Each hour needs at least 3 readings spanning 30 minutes. The first 15 minutes after radio startup are excluded; transition hours are excluded. The existing 15-minute sampling interval is unchanged.'));
-  refresh();setInterval(refresh,60000);document.addEventListener('visibilitychange',refresh);document.getElementById('dashboardTabs')?.addEventListener('click',()=>setTimeout(refresh,50));
+  refresh();RFRefresh.every('filter',refresh,60000);document.getElementById('dashboardTabs')?.addEventListener('click',()=>setTimeout(refresh,50));
  });
 })();

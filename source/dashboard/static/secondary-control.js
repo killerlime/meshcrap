@@ -90,8 +90,8 @@
   function review(title,text,body){pending=body;confirmInput.value='';confirmLabel.hidden=!(body.action==='operation'&&state.actions.find(a=>a.id===body.operation)?.confirm);$('confirmTitle').textContent=title;$('review').textContent=text;$('confirm').showModal();}
   $('operation').onchange=operationChanged;
   $('radioAction').onsubmit=event=>{event.preventDefault();const spec=state.actions.find(a=>a.id===$('operation').value);const destination=$('operationNode').value;review(spec.label+'?',$('operationNode').selectedOptions[0].textContent+'\n'+$('operationNote').textContent+(spec.confirm?'\n\nConfirm by typing '+destination:''),{action:'operation',operation:spec.id,destination,channel:Number($('operationChannel').value),hops:Number($('operationHops').value),request_id:uuid()});};
-  $('refreshOperations').onclick=refreshOperations;
-  setInterval(()=>{if(hasPending&&!document.hidden&&(!window.frameElement||window.frameElement.getClientRects().length))refreshOperations();},3000);
+  $('refreshOperations').hidden=true;$('refreshOperations').onclick=refreshOperations;
+  RFRefresh.every('secondary',refreshOperations,3000,{host:'#operationResults',before:true,guard:()=>hasPending,waiting:'Idle · no pending operations'});
   $('unlock').onsubmit=async event=>{event.preventDefault();setBusy(true);try{await request('unlock',{key:$('key').value,remember:$('rememberDevice').checked});$('key').value='';await refresh();}catch(error){status(error.message);}finally{setBusy(false);}};
   $('group').onchange=renderGroup;
   $('settings').onsubmit=event=>{event.preventDefault();const changes=collectValues(readers);if(!Object.keys(changes).length){status('No changes to apply.');return;}const group=groups[Number($('group').value)];const lines=readers.map(r=>r()).filter(Boolean).map(c=>c.label+': '+(c.secret?'[new hidden value]':JSON.stringify(c.value)));
@@ -100,7 +100,14 @@
   $('message').oninput=()=>$('messageSize').textContent=new TextEncoder().encode($('message').value).length+' / 228 bytes';
   $('cancel').onclick=()=>{$('confirm').close();pending=null;};
   $('apply').onclick=async()=>{if(busy||!pending)return;if(!confirmLabel.hidden&&confirmInput.value!==pending.destination){confirmInput.setCustomValidity('Enter the exact destination node ID');confirmInput.reportValidity();return;}confirmInput.setCustomValidity('');const body=pending;if(!confirmLabel.hidden)body.confirm_node=confirmInput.value;pending=null;$('confirm').close();setBusy(true);try{const result=await request('action',body);status(result.message);if(body.action==='operation'){hasPending=true;refreshOperations();}if(body.action==='send'){$('message').value='';$('message').oninput();}}catch(error){status(error.message+' If the request timed out, verify the radio before retrying.');}finally{setBusy(false);}};
-  $('refresh').onclick=refresh;$('lock').onclick=async()=>{try{await request('action',{action:'lock'});$('controls').hidden=true;$('unlock').hidden=false;state=null;groups=[];$('fields').replaceChildren();status('Controls locked.');}catch(error){status(error.message);}};
+  window.refreshNodeControl=async()=>{
+    if(busy)return;
+    if(readers.some(read=>read())){await refreshOperations();status('Action results refreshed. Unsaved settings kept; finish or discard those edits before reloading settings.');return;}
+    const values=Object.fromEntries(['sendChannel','recipient','operation','operationNode','operationChannel','operationHops'].map(id=>[id,$(id)?.value]));
+    await refresh();
+    for(const [id,value] of Object.entries(values)){const field=$(id);if(field&&value!=null&&(!field.options||[...field.options].some(o=>o.value===value)))field.value=value;}
+    operationChanged();
+  };$('refresh').onclick=window.refreshNodeControl;if(window.frameElement)$('refresh').hidden=true;$('lock').onclick=async()=>{try{await request('action',{action:'lock'});$('controls').hidden=true;$('unlock').hidden=false;state=null;groups=[];$('fields').replaceChildren();status('Controls locked.');}catch(error){status(error.message);}};
   $('unlockSettings').onclick=()=>{$('unlock').hidden=false;$('key').focus();};
   $('revokeDevices').onclick=async()=>{if(!window.confirm('Revoke remembered access for all browsers? Existing one-hour settings sessions will expire normally.'))return;try{const result=await request('action',{action:'revoke_devices'});status(result.message);}catch(e){status(e.message);}};
   request('session').then(s=>{$('rememberLabel').hidden=!s.secure;$('httpsHint').hidden=s.secure;if(s.unlocked)refresh();else{$('unlock').hidden=false;status('Unlock to view and change radio settings.');}}).catch(e=>status(e.message));

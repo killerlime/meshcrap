@@ -4,6 +4,20 @@ import static org.junit.Assert.*;
 import org.meshtastic.proto.MeshProtos;
 import org.meshtastic.proto.Portnums;
 public class SurveyRulesTest {
+ @Test public void eightHourCooldownSurvivesSurveyAndChannelChanges(){
+  assertTrue(SurveyRules.repeatEligible(0,1000));
+  assertFalse(SurveyRules.repeatEligible(1000,999));
+  assertFalse(SurveyRules.repeatEligible(1000,29799));
+  assertTrue(SurveyRules.repeatEligible(1000,29800));
+  var values=new java.util.HashMap<String,Object>();
+  values.put("sample_123_10_0_456_time",1000L);
+  values.put("sample_789_11_1_456_time",2000L);
+  values.put("probe_456_time",1500L);
+  values.put("sample_123_10_0_456_lat",9000L);
+  var result=SurveyRules.migrateProbeTimes(values);
+  assertEquals(1,result.size());assertEquals(Long.valueOf(2000),result.get("probe_456_time"));
+ }
+
  @Test public void acknowledgmentCanOnlyRemoveSubmittedRecords(){
   java.util.Set<String> sent=new java.util.HashSet<>(java.util.Arrays.asList("one","two"));
   SurveyRules.validateAcknowledgments(sent,java.util.Arrays.asList("two"));
@@ -32,7 +46,7 @@ public class SurveyRulesTest {
   assertTrue(SurveyRules.cadenceBlocked(1000,900));assertFalse(SurveyRules.cadenceBlocked(0,10));
  }
  @Test public void movingPositionMustBeCurrent(){
-  assertTrue(SurveyRules.travellingPositionFresh(6400,10000));assertFalse(SurveyRules.travellingPositionFresh(6399,10000));
+  assertTrue(SurveyRules.travellingPositionFresh(13600,100000));assertFalse(SurveyRules.travellingPositionFresh(13599,100000));
   assertFalse(SurveyRules.travellingPositionFresh(1001,1000));assertFalse(SurveyRules.travellingPositionFresh(0,1000));
  }
  @Test public void halfMileAccuracyBoundary(){
@@ -41,10 +55,10 @@ public class SurveyRulesTest {
   assertFalse(SurveyRules.travellingAccuracyValid(Double.POSITIVE_INFINITY));
  }
  @Test public void candidatesUseFixAgeSeparatelyFromLastHeard(){
-  assertFalse(SurveyRules.candidateFresh(699,999,1000,2));
-  assertTrue(SurveyRules.candidateFresh(700,999,1000,2));
+  assertFalse(SurveyRules.candidateFresh(56799,0,100000,2));
+  assertTrue(SurveyRules.candidateFresh(56800,0,100000,2));
   assertTrue(SurveyRules.candidateFresh(1,999,1000,1));
-  assertFalse(SurveyRules.candidateFresh(999,99,1000,1));
+  assertTrue(SurveyRules.candidateFresh(999,0,1000,1));
   assertFalse(SurveyRules.candidateFresh(1001,999,1000,2));
   assertFalse(SurveyRules.automaticCandidate(0,32));assertFalse(SurveyRules.automaticCandidate(2,0));
   assertFalse(SurveyRules.automaticCandidate(2,19));assertTrue(SurveyRules.automaticCandidate(2,20));

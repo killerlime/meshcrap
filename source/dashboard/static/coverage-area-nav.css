@@ -1,0 +1,7 @@
+.coverage-area-picker{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0;padding:0;border:0;background:none}
+.coverage-area-picker select{font:inherit;min-height:44px;max-width:100%;width:auto}
+#coverageAreaNav[hidden],.coverage-area-picker h3[hidden]{display:none!important}
+#dashboard-panel-map .western-banner{display:none!important}
+#dashboard-panel-map .coverage-area-picker label{font-size:14px}
+#meshmap{min-height:420px}
+@media(max-width:600px){.coverage-area-picker select{width:100%}#meshmap{min-height:360px}}

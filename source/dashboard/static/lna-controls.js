@@ -10,6 +10,7 @@
   function renderState(d){
     state=d;const current=d.transitions.at(-1);
     if(window.LnaSwitches)window.LnaSwitches.update(d.transitions);
+    status.dataset.lnaState=current.state;
     status.textContent=`Recorded LNA: ${current.state==='ON'?'enabled':current.state==='OFF'?'disabled':'unknown'} · ${new Date(current.time_utc).toLocaleString()}`;
     on.disabled=busy||!d.unlocked||!confirm.checked||current.state==='ON';
     off.disabled=busy||!d.unlocked||!confirm.checked||current.state==='OFF';
@@ -23,7 +24,7 @@
     if(polling||busy||document.hidden)return;polling=true;pending=false;
     const hours=window.getDashboardHours?.()||24;
     try{
-      renderState(await get('/api/lna-experiment'));
+      const experiment=await get('/api/lna-experiment');await RFRefresh.ready();renderState(experiment);
       const d=await get(`/api/lna-analysis?hours=${hours}`);if(hours===(window.getDashboardHours?.()||24))renderAnalysis(d);
     }catch(e){note.textContent=e.message+' Previously shown values may be stale.';}
     finally{polling=false;if(pending)refresh();}
@@ -41,6 +42,7 @@
     finally{busy=false;if(state)renderState(state);await refresh();}
   }
   function renderAnalysis(d){
+    window.dispatchEvent(new CustomEvent("rf:lna-analysis",{detail:{...d,hours:window.getDashboardHours?.()||24}}));
     analysis.replaceChildren(el('h3','Matched comparisons'));
     analysis.append(el('p',`${d.paired_hours} matched hour pair${d.paired_hours===1?'':'s'} · OFF → ON · same local clock hour, each hour used once`));
     if(d.paired_hours){
@@ -64,8 +66,8 @@
       else if(!c.recent_rf?.ok){level='warning';message='Mesh traffic is quiet. The collector is connected, but no recent RF packet was heard; this alone does not prove a collection fault.';}
       else {level='healthy';message='Collection healthy · Receiver connected · latest saved packet '+new Date(c.database_live.last_packet).toLocaleTimeString();}
       if(lastHealth&&lastHealth!=='healthy'&&level==='healthy')message='Collection recovered. '+message;
-      banner.dataset.level=level;banner.textContent=message;lastHealth=level;
-    }catch(e){banner.dataset.level='fault';banner.textContent='Cannot check collection health. Dashboard connection may be unavailable; displayed data may be stale.';lastHealth='unreachable';}
+      document.documentElement.dataset.collectionState=level;banner.dataset.level=level;banner.textContent=message;lastHealth=level;
+    }catch(e){document.documentElement.dataset.collectionState='fault';banner.dataset.level='fault';banner.textContent='Cannot check collection health. Dashboard connection may be unavailable; displayed data may be stale.';lastHealth='unreachable';}
     finally{healthBusy=false;}
   }
   function init(){
@@ -82,7 +84,7 @@
     note=el('p');note.setAttribute('role','status');box.append(note);
     const history=el('details');history.append(el('summary','Recent state changes'));const list=el('ul');list.dataset.history='';history.append(list);box.append(history);
     analysis=el('section');analysis.className='lna-match';box.append(analysis);
-    refresh();health();setInterval(refresh,60000);setInterval(health,30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden){refresh();health();}});
+    refresh();health();RFRefresh.every('filter',refresh,60000);RFRefresh.every('health',health,30000,{host:'.lna-health',controls:false});
   }
   window.addEventListener('load',init);
 })();

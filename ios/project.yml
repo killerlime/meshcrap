@@ -1,0 +1,38 @@
+name: Meshcrap
+options:
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+targets:
+  Meshcrap:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.meshcrap.dashboard
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Meshcrap
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: Connect to the private mesh dashboard you configure.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+  MeshcrapTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: Meshcrap
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Meshcrap:
+    build:
+      targets:
+        Meshcrap: all
+    test:
+      targets: [MeshcrapTests]

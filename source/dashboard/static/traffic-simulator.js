@@ -1,0 +1,109 @@
+(function(root){
+ 'use strict';
+ function simulate(rows,total,seconds,forwards){
+  const removed=rows.reduce((sum,r)=>sum+Math.max(0,Number(r.count)||0)*Math.max(0,Math.min(100,Number(r.reduction)||0))/100,0);
+  const before=Math.max(0,Number(total)||0),saved=Math.min(before,removed);
+  return {before,removed:saved,after:before-saved,percent:before?saved/before*100:0,airtimeSeconds:saved*Math.max(0,Number(seconds)||0)*(1+Math.max(0,Number(forwards)||0))};
+ }
+ function firmwareScenario(nodes,reductions,hours,policy){
+  const duration=Math.max(1,Number(hours)*3600),pct=v=>Math.max(0,Math.min(100,Number(v)||0))/100;
+  return nodes.map(n=>{
+   const reports={};for(const [k,count] of Object.entries(n.reports||{}))reports[k]=Math.max(0,count)*(1-pct(reductions[k]));
+   const beforeReports=Object.values(n.reports||{}).reduce((a,b)=>a+b,0),kept=Object.values(reports).reduce((a,b)=>a+b,0),telemetry=n.total-beforeReports+kept;
+   let position=0,cache=0,rate=0;
+   if(policy.enabled){
+    if(policy.interval>0){const eligible=(reports.position||0)*pct(policy.stationary);position=Math.max(0,eligible-Math.max(1,duration/policy.interval));reports.position=(reports.position||0)-position;}
+    cache=(reports.nodeinfo||0)*pct(policy.cache);reports.nodeinfo=(reports.nodeinfo||0)-cache;
+    const remaining=Object.values(reports).reduce((a,b)=>a+b,0);
+    if(policy.window>0&&policy.max>0)rate=Math.max(0,remaining-Math.ceil(duration/policy.window)*policy.max);
+   }
+   return {...n,telemetry,combined:Math.max(0,telemetry-position-cache-rate),positionSaved:position,cacheSaved:cache,rateSaved:rate};
+  });
+ }
+ if(typeof module==='object'&&module.exports){module.exports={simulate,firmwareScenario};return;}
+ const panel=document.getElementById('dashboard-panel-whatif');if(!panel)return;
+ const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;};
+ const names={device:'Device / battery',environment:'Environment',power:'Power sensors',air_quality:'Air quality',local_stats:'Local statistics',health:'Health sensors',host:'Host metrics',other:'Other / unclassified telemetry',position:'Position reports',nodeinfo:'Node information'};
+ const consequences={device:'Battery and device state become less current.',environment:'Weather and environmental changes appear later.',power:'Power changes and faults may be detected later.',air_quality:'Short pollution events can be missed.',local_stats:'Fewer health and performance observations.',health:'Health readings become less current; retain required monitoring.',host:'Host performance changes become less visible.',other:'Identify these reports before reducing them.',position:'Tracking becomes less current; keep movement and safety needs in mind.',nodeinfo:'Discovery and identity updates may take longer.'};
+ let saved={};try{saved=JSON.parse(localStorage.getItem('rf-traffic-scenario')||'{}');}catch{}
+ const keep={};let baseline=null,busy=false;
+ const card=el('details',null,'card insight-traffic-simulator traffic-simple');card.id='trafficReductionSimulator';card.open=true;
+ card.append(el('summary','Mesh traffic simulation · telemetry + firmware layers'));
+ const body=el('div',null,'traffic-sim-body');card.append(body);body.append(el('p','Choose a traffic scenario and compare it on the map. Your radios stay unchanged.'));
+ const tools=el('div',null,'traffic-sim-tools'),refresh=el('button','Refresh sample'),reset=el('button','Reset scenario'),status=el('p','Open this simulator to load the selected time range.','insight-sub');refresh.type=reset.type='button';tools.append(refresh,reset);body.append(tools,status);
+ const rows=el('div',null,'traffic-sim-rows');
+ for(const [key,title] of Object.entries(names)){
+  const row=el('div',null,'traffic-sim-row'),label=el('label',title),select=el('select'),count=el('span','Not loaded','traffic-sim-count');select.id='traffic-reduction-'+key;label.htmlFor=select.id;
+  for(const value of [0,25,50,75,100]){const option=el('option',value===0?'Keep current':value===100?'Stop these reports':`${value}% fewer reports`);option.value=String(value);select.append(option);}
+  select.value=[0,25,50,75,100].includes(Number(saved[key]))?String(saved[key]):'0';
+  row.append(label,count,select,el('small',consequences[key]));rows.append(row);keep[key]={select,count};select.addEventListener('change',render);
+ }
+ const reportControls=el('details');reportControls.append(el('summary','Report reductions · adjust each type'),rows);body.append(reportControls);
+ const assumptions=el('details'),assumptionBody=el('div',null,'traffic-sim-tools');assumptions.append(el('summary','Airtime assumptions · optional illustration'));
+ function numeric(labelText,key,initial,max){const label=el('label',labelText),input=el('input');input.type='number';input.min='0';input.max=String(max);input.step='0.1';input.value=String(Number.isFinite(Number(saved[key]))?Math.min(max,Math.max(0,Number(saved[key]))):initial);label.append(input);assumptionBody.append(label);input.addEventListener('input',render);return input;}
+ const seconds=numeric('Seconds per transmission ', 'seconds',0.5,60),forwards=numeric('Extra forwards per original ', 'forwards',0,20);assumptions.append(assumptionBody,el('p','Defaults are illustrative, not measured: 0.5 seconds per transmission and no extra forwards. Enter values suitable for your modem, payload and routes. The model applies the same values to every type.'));body.append(assumptions);
+  const fw=el('details',null,'traffic-firmware');fw.append(el('summary','Firmware 2.8.1 Alpha · traffic-management scenario'));
+ fw.append(el('p','Verified against the 2.8.1 release on October 4, 2026. This is a sensitivity model of report forwarding, not a firmware replay. It does not detect which version your nodes run.'));
+ const fwEnableLabel=el('label',' Include firmware traffic controls'),firmware=el('input');firmware.type='checkbox';firmware.checked=!!saved.firmware;fwEnableLabel.prepend(firmware);fw.append(fwEnableLabel);firmware.addEventListener('change',render);
+ const fwFields=el('div',null,'traffic-sim-tools');fw.append(fwFields);
+ function field(title,key,initial,max){const label=el('label',title),input=el('input');input.type='number';input.min='0';input.max=String(max);input.step='1';input.value=String(Number.isFinite(Number(saved[key]))?Math.max(0,Math.min(max,Number(saved[key]))):initial);label.append(input);fwFields.append(label);input.addEventListener('input',render);return input;}
+ const interval=field('Position suppression window (seconds) ','interval',21600,604800),stationary=field('Positions eligible for suppression (%) ','stationary',0,100),cache=field('Node-info receipts replaceable by cache (%) ','cache',0,100),rateWindow=field('Per-sender rate window (seconds) ','window',60,86400),rateMax=field('Reports allowed per window (0 = off) ','max',0,10000);
+ fw.append(el('p','Eligible position share and cache share are your assumptions, initially zero. Position savings assume eligible reports remain unchanged and are evenly spaced per sender; one report is retained even in short samples. The rate estimate caps remaining report traffic per sender in whole windows. Firmware uses packet context, role, precision, cache state and timing that this aggregate sample cannot fully reproduce.'));
+ fw.append(el('p','Rate limits here affect modeled report types only. Text, ACKs and other traffic stay protected in the simulation. Unknown-packet filtering is not quantified because this decoded sample cannot count undecodable traffic. Automatic hop and role behavior is not assigned guessed savings; use the extra-forwards assumption to explore relay load.'));
+ const fwSource=el('a','Pinned firmware source ↗');fwSource.href='https://github.com/meshtastic/firmware/blob/v2.8.1.8e6a88d/src/modules/TrafficManagementModule.cpp';fwSource.target='_blank';fwSource.rel='noopener noreferrer';fw.append(fwSource);body.append(fw);
+ const mapBox=el('section',null,'traffic-map-box'),mapHead=el('h3','Traffic before and after'),mapHelp=el('p','Blue: observed traffic. Amber: your scenario. Use Layers for other comparisons. Circles show traffic volume, not range.','insight-sub'),mapDiv=el('div',null,'traffic-scenario-map'),mapNote=el('p',null,'insight-sub'),firmwareResult=el('p');mapDiv.id='trafficScenarioMap';mapDiv.setAttribute('aria-label','Traffic scenario map');const fit=el('button','Fit mapped nodes');fit.type='button';mapBox.append(mapHead,mapHelp,mapDiv,mapNote,fit,firmwareResult);body.insertBefore(mapBox,tools);
+ let map=null,layers=null,fitted=false,lastBounds=[];
+ fit.addEventListener('click',()=>{if(map&&lastBounds.length)map.fitBounds(lastBounds,{padding:[24,24],maxZoom:12});});
+ function drawMap(nodes){
+  if(!window.L){mapNote.textContent='The map library is unavailable. Numerical scenario results remain available below.';return;}
+  if(!map){map=L.map(mapDiv,{scrollWheelZoom:false}).setView([44.16,-94.0],9);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,referrerPolicy:'strict-origin-when-cross-origin',attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);layers={observed:L.layerGroup().addTo(map),telemetry:L.layerGroup(),firmware:L.layerGroup(),combined:L.layerGroup().addTo(map),savings:L.layerGroup()};L.control.layers(null,{'Observed receipts':layers.observed,'Report reductions only':layers.telemetry,'Firmware controls only':layers.firmware,'Combined firmware scenario':layers.combined,'Total reduction':layers.savings},{collapsed:true}).addTo(map);}
+  Object.values(layers).forEach(l=>l.clearLayers());lastBounds=[];let omitted=0;
+  const max=Math.max(1,...nodes.map(n=>n.total));
+  for(const n of nodes){const lat=Number(n.latitude),lon=Number(n.longitude);if(n.latitude==null||n.longitude==null||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180||(lat===0&&lon===0)){omitted++;continue;}const pos=[lat,lon];lastBounds.push(pos);
+   for(const [key,value,color] of [['observed',n.total,'#68c9ff'],['telemetry',n.telemetry,'#54dc89'],['firmware',n.firmware,'#ffac75'],['combined',n.combined,'#f2c94c'],['savings',n.total-n.combined,'#b39aff']]){if(value<=0)continue;const text=el('div');text.append(el('strong',n.name),el('p',`Observed: ${n.total} · reports reduced: ${n.telemetry.toFixed(1)} · firmware only: ${n.firmware.toFixed(1)} · combined: ${n.combined.toFixed(1)} · reduction: ${(n.total-n.combined).toFixed(1)}`),el('small','Latest stored position; may be stale. This is an origin location, not a relay path.'));L.circleMarker(pos,{radius:3+22*Math.sqrt(value/max),color,weight:key==='observed'?2:1,fillOpacity:key==='observed'?0:0.45}).bindPopup(text).addTo(layers[key]);}
+  }
+  mapNote.textContent=`${lastBounds.length} mapped origins · ${omitted} without usable coordinates remain in totals. Locations are latest stored positions and may be outside the selected period. No routes or coverage boundaries are inferred.`;
+  if(lastBounds.length&&!fitted){map.fitBounds(lastBounds,{padding:[24,24],maxZoom:12});fitted=true;}requestAnimationFrame(()=>map.invalidateSize());
+ }
+
+ const results=el('div',null,'traffic-sim-results');results.setAttribute('aria-live','polite');body.append(results);
+ body.append(el('p','Counts are decoded remote receipts at HQ, including diagnostics, excluding receiver self reports and imported/MQTT data. One receipt is used as a proxy for one original in this scenario. Missed packets, repeated receptions, replies and uneven coverage can distort the estimate. Lower packet demand may leave more room for useful traffic; this model cannot predict delivery rate, latency, collisions, RF coverage, battery life or actual channel utilization.','insight-sub'));
+ const source=el('a','Meshtastic telemetry settings ↗');source.href='https://meshtastic.org/docs/configuration/module/telemetry/';source.target='_blank';source.rel='noopener noreferrer';body.append(source);
+ const quick=el('div',null,'traffic-quick');
+ function choice(title,items){const label=el('label',title),select=el('select');for(const [value,text] of items){const option=el('option',text);option.value=value;select.append(option);}label.append(select);quick.append(label);return select;}
+ const quickTarget=choice('Reports to reduce',[['routine','Routine telemetry'],['device','Device / battery'],['environment','Environment'],['position','Position'],['nodeinfo','Node information'],['all','All report types']]);
+ const quickAmount=choice('How much less?',[['0','Keep current'],['25','25% fewer'],['50','Half as many'],['75','75% fewer'],['custom','Custom settings']]);
+ const quickFirmware=choice('Firmware scenario',[['off','Off'],['light','Conservative estimate'],['moderate','Larger estimate'],['custom','Custom settings']]);
+ if([...quickTarget.options].some(o=>o.value===saved.quickTarget))quickTarget.value=saved.quickTarget;
+ quickAmount.value=[...quickAmount.options].some(o=>o.value===saved.quickAmount)?saved.quickAmount:Object.values(keep).some(v=>Number(v.select.value)>0)?'custom':'0';quickFirmware.value=[...quickFirmware.options].some(o=>o.value===saved.quickFirmware)?saved.quickFirmware:firmware.checked?'custom':'off';
+ const quickHint=el('p','Estimates use the selected sample; actual mesh behavior can differ.','insight-sub'),simpleMetrics=el('div',null,'traffic-sim-summary');
+ if(firmware.checked)quickHint.textContent=`Firmware estimate assumes ${stationary.value}% of positions and ${cache.value}% of node-info reports qualify. These are scenario assumptions, not recommended settings.`;
+ body.insertBefore(quick,mapBox);body.insertBefore(quickHint,mapBox);body.insertBefore(simpleMetrics,mapBox);body.insertBefore(tools,mapBox);body.insertBefore(status,mapBox);
+ const advanced=el('details',null,'traffic-advanced');advanced.append(el('summary','Fine-tune assumptions & view calculation details'),reportControls,fw,assumptions,firmwareResult,results);
+ for(const paragraph of [...body.children].filter(e=>e.tagName==='P'&&e!==status&&e!==quickHint).slice(1))advanced.append(paragraph);
+ advanced.append(source);body.append(advanced);
+ function applyQuickReports(){if(quickAmount.value==='custom'){advanced.open=true;reportControls.open=true;return;}const routine=['device','environment','power','local_stats','host'];for(const [key,value] of Object.entries(keep)){const active=quickTarget.value==='all'||quickTarget.value===key||(quickTarget.value==='routine'&&routine.includes(key));value.select.value=active?quickAmount.value:'0';}render();}
+ quickTarget.addEventListener('change',applyQuickReports);quickAmount.addEventListener('change',applyQuickReports);
+ quickFirmware.addEventListener('change',()=>{if(quickFirmware.value==='custom'){advanced.open=true;fw.open=true;return;}firmware.checked=quickFirmware.value!=='off';interval.value='21600';stationary.value=cache.value=quickFirmware.value==='moderate'?'50':quickFirmware.value==='light'?'25':'0';rateMax.value='0';rateWindow.value='60';quickHint.textContent=firmware.checked?`Firmware estimate assumes ${stationary.value}% of position and node-info reports qualify for suppression or caching. These are example assumptions, not recommended radio settings.`:'Estimates use the selected sample; actual mesh behavior can differ.';render();});
+ for(const v of Object.values(keep))v.select.addEventListener('change',()=>{quickAmount.value='custom';render();});
+ for(const input of [firmware,interval,stationary,cache,rateWindow,rateMax])input.addEventListener('change',()=>{quickFirmware.value='custom';render();});
+
+ panel.append(card);const heading=panel.querySelector('h2');if(heading)heading.after(card);
+ function counts(){const x=baseline?.improvement;return {...(x?.telemetry||{}),position:x?.mix.POSITION_APP||0,nodeinfo:x?.mix.NODEINFO_APP||0};}
+ function render(){
+  const prefs={quickTarget:quickTarget.value,quickAmount:quickAmount.value,quickFirmware:quickFirmware.value,seconds:Number(seconds.value),forwards:Number(forwards.value),firmware:firmware.checked,interval:Number(interval.value),stationary:Number(stationary.value),cache:Number(cache.value),window:Number(rateWindow.value),max:Number(rateMax.value)};for(const [k,v] of Object.entries(keep))prefs[k]=Number(v.select.value);try{localStorage.setItem('rf-traffic-scenario',JSON.stringify(prefs));}catch{}
+  results.replaceChildren();if(!baseline){results.append(el('p','Load a baseline to see the projected change.'));return;}
+  const c=counts();for(const [k,v] of Object.entries(keep)){v.count.textContent=`${c[k]||0} received`;}
+  if([seconds,forwards,interval,stationary,cache,rateWindow,rateMax].some(input=>!input.checkValidity()||input.value==='')){results.append(el('p','Check the highlighted scenario values before calculating.'));return;}
+  const policy={enabled:firmware.checked,interval:Number(interval.value),stationary:Number(stationary.value),cache:Number(cache.value),window:Number(rateWindow.value),max:Number(rateMax.value)};const firmwareOnly=firmwareScenario(baseline.improvement.nodes||[],{},baseline.hours,policy);const modeled=firmwareScenario(baseline.improvement.nodes||[],prefs,baseline.hours,{enabled:firmware.checked,interval:Number(interval.value),stationary:Number(stationary.value),cache:Number(cache.value),window:Number(rateWindow.value),max:Number(rateMax.value)});modeled.forEach((n,i)=>n.firmware=firmwareOnly[i].combined);drawMap(modeled);
+  const scenario=Object.entries(keep).map(([k,v])=>({count:c[k]||0,reduction:v.select.value})),r=simulate(scenario,baseline.improvement.remote_receipts,seconds.value,forwards.value),f=v=>v.toLocaleString(undefined,{maximumFractionDigits:1});
+  results.append(el('h3','Telemetry / report reduction alone'));const combined=modeled.reduce((sum,n)=>sum+n.combined,0),extra=modeled.reduce((sum,n)=>sum+n.telemetry-n.combined,0);simpleMetrics.replaceChildren();for(const [label,value] of [['Observed receipts',f(r.before)],['Scenario receipts',f(combined)],['Reduction',`${f(r.before?100*(r.before-combined)/r.before:0)}%`]]){const m=el('div');m.append(el('small',label),el('strong',value));simpleMetrics.append(m);}firmwareResult.textContent=`Combined: ${f(combined)} of ${f(r.before)} sampled receipts remain · ${f(extra)} additional report forwards avoided by the firmware scenario. Position: ${f(modeled.reduce((sum,n)=>sum+n.positionSaved,0))}; cached node-info: ${f(modeled.reduce((sum,n)=>sum+n.cacheSaved,0))}; rate cap: ${f(modeled.reduce((sum,n)=>sum+n.rateSaved,0))}. Illustrative combined airtime avoided: ${f((r.before-combined)*Number(seconds.value)*(1+Number(forwards.value)))} sec.`;
+  const summary=el('div',null,'traffic-sim-summary');for(const [label,value] of [['Before',f(r.before)],['After',f(r.after)],['Fewer receipts',`${f(r.removed)} (${f(r.percent)}%)`],['Illustrative airtime avoided',`${f(r.airtimeSeconds)} sec`]]){const m=el('div');m.append(el('small',label),el('strong',value));summary.append(m);}results.append(summary);
+  const bar=el('div',null,'traffic-sim-bar');bar.setAttribute('role','img');bar.setAttribute('aria-label',`${f(r.percent)} percent reduction in modeled receipts`);const remaining=el('span');remaining.style.width=(r.before?100-r.percent:0)+'%';bar.append(remaining);results.append(bar);
+  const changed=Object.entries(keep).filter(([k,v])=>(c[k]||0)>0&&Number(v.select.value)>0);
+  results.append(el('p',!r.before?'No decoded remote receipts in this range; no reduction can be estimated.':!changed.length?'No reduction selected for report types observed in this range.':changed.map(([k,v])=>`${names[k]}: ${f((c[k]||0)*Number(v.select.value)/100)} fewer`).join(' · ')));
+  results.append(el('p','For a purely periodic stream, doubling its interval approximates 50% fewer reports; four times the interval approximates 75% fewer. Smart broadcasts, event-driven reports and requested replies do not follow this simple rule. Routing acknowledgments, text and other traffic remain unchanged in this model.','insight-sub'));
+ }
+ async function load(){if(busy)return;busy=true;refresh.disabled=true;const hours=window.getDashboardHours?.()||24;status.textContent='Reading the selected traffic sample…';try{const response=await fetch(`/api/insights?hours=${hours}`,{cache:'no-store',signal:AbortSignal.timeout(25000)});if(!response.ok)throw Error();const d=await response.json();if(!d.improvement)throw Error();baseline=d;const label=[...document.getElementById('dashboardTimeWindow').options].find(o=>Number(o.value)===Number(d.hours))?.textContent.trim()||`${d.hours} hours`;status.textContent=`Baseline: ${label} · loaded ${new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}. Snapshot held while you adjust the scenario.`;if(hours!==(window.getDashboardHours?.()||24))status.textContent+=' Time range changed; refresh to load the current selection.';render();}catch{status.textContent=baseline?'Could not refresh; the previous baseline remains in use.':'Unable to load baseline. Try Refresh sample again.';}finally{busy=false;refresh.disabled=false;}}
+ refresh.addEventListener('click',load);reset.addEventListener('click',()=>{Object.values(keep).forEach(v=>v.select.value='0');firmware.checked=false;quickAmount.value='0';quickFirmware.value='off';quickHint.textContent='Estimates use the selected sample; actual mesh behavior can differ.';render();});document.getElementById('dashboard-tab-whatif')?.addEventListener('click',()=>{if(!baseline)load();if(map)requestAnimationFrame(()=>map.invalidateSize());});card.addEventListener('toggle',()=>{if(card.open&&!baseline&&!panel.hidden)load();if(card.open&&map)requestAnimationFrame(()=>map.invalidateSize());});window.addEventListener('dashboard:time-window',()=>{if(baseline)status.textContent='Time range changed. Use Refresh sample to update the baseline; your scenario is held.';});render();if(!panel.hidden)load();
+})(typeof window==='undefined'?null:window);

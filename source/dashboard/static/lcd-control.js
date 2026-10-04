@@ -6,7 +6,7 @@
   const status=box.querySelector('[data-lcd-status]'),note=box.querySelector('[data-lcd-note]');
   const sleep=box.querySelector('[data-lcd-sleep]'),wake=box.querySelector('[data-lcd-wake]');
   function render(d) {
-    status.textContent='LCD: '+(d.state || 'unknown');
+    status.textContent='LCD: '+(d.state || 'unknown');status.dataset.level=d.state==='awake'?'green':d.state==='asleep'?'yellow':'red';
     const changing=['activating','deactivating','reloading'].includes(d.service_state);
     sleep.disabled=busy||!d.available||!d.unlocked||changing||d.state==='asleep';
     wake.disabled=busy||!d.available||!d.unlocked||changing||d.state==='awake';
@@ -18,7 +18,7 @@
   }
   async function refresh() {
     if(busy||document.hidden||!box.getClientRects().length)return;
-    try{render(await requestState());}catch(e){status.textContent='LCD: unavailable';note.textContent=e.message;sleep.disabled=wake.disabled=true;}
+    try{render(await requestState());}catch(e){status.textContent='LCD: unavailable';status.dataset.level='red';note.textContent=e.message;sleep.disabled=wake.disabled=true;}
   }
   async function act(action) {
     if(busy)return;busy=true;sleep.disabled=wake.disabled=true;note.textContent=action==='sleep'?'Putting LCD to sleep…':'Waking LCD…';
@@ -27,5 +27,6 @@
   sleep.addEventListener('click',()=>act('sleep'));wake.addEventListener('click',()=>act('wake'));
   box.querySelector('[data-lcd-refresh]').addEventListener('click',refresh);
   box.querySelector('[data-lcd-unlock]').addEventListener('click',()=>window.showDashboardTab?.('control',true));
-  refresh();setInterval(refresh,15000);document.addEventListener('visibilitychange',refresh);
+  box.querySelector('[data-lcd-refresh]').hidden=true;
+  refresh();RFRefresh.every('lcd',refresh,15000,{host:'#lcdControls'});
 })();

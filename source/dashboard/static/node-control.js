@@ -35,7 +35,7 @@
   function operationChanged(){const spec=state?.actions?.find(a=>a.id===$('operation').value);$('operationNode').disabled=!!spec?.local;if(spec?.local)$('operationNode').value=state.node_id;
     const warnings={shutdown:'Receiver shuts down in 10 seconds and may need physical power to resume.',reboot:'Receiver reboots in 10 seconds, briefly interrupting collection.',reset_nodes:'Clears Receiver’s radio node list. Stored dashboard history is retained.',reset_config:'Resets Receiver configuration. Network access may be lost; local setup may be required.',factory_reset:'Erases Receiver configuration and node list. Local setup may be required to reconnect.',remove_node:'Removes this node from Receiver’s radio list. Dashboard history is retained; future traffic may rediscover it.',ignore:'Tells Receiver to ignore this node; this can change mesh reception.'};
     $('operationNote').textContent=warnings[$('operation').value]||(spec?.local?'This action applies to Receiver itself.':'Requests are directed to the selected node. No automatic retries.');}
-  async function refreshOperations(){if(resultBusy||$('controls').hidden)return;resultBusy=true;try{const data=await request('action',{action:'operations'});hasPending=data.operations.some(j=>['waiting','acknowledged'].includes(j.status));$('operationResults').replaceChildren();for(const job of data.operations){const box=element('details','');box.open=['waiting','acknowledged'].includes(job.status);box.append(element('summary',`${job.operation.replaceAll('_',' ')} → ${job.destination} · ${job.status}`),element('p',job.message));if(job.result){const pre=element('pre',resultText(job));pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere';box.append(pre);}$('operationResults').append(box);}if(!data.operations.length)$('operationResults').textContent='No actions yet.';}catch(error){status(error.message);}finally{resultBusy=false;}}
+  async function refreshOperations(){if(resultBusy||$('controls').hidden)return;resultBusy=true;try{const data=await request('action',{action:'operations'});await RFRefresh.ready();hasPending=data.operations.some(j=>['waiting','acknowledged'].includes(j.status));$('operationResults').replaceChildren();for(const job of data.operations){const box=element('details','');box.open=['waiting','acknowledged'].includes(job.status);box.append(element('summary',`${job.operation.replaceAll('_',' ')} → ${job.destination} · ${job.status}`),element('p',job.message));if(job.result){const pre=element('pre',resultText(job));pre.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere';box.append(pre);}$('operationResults').append(box);}if(!data.operations.length)$('operationResults').textContent='No actions yet.';}catch(error){status(error.message);}finally{resultBusy=false;}}
   async function request(path,body){
     const response=await fetch('/api/node-control/'+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,cache:'no-store',signal:AbortSignal.timeout(15000)});
     const result=await response.json();
@@ -45,6 +45,7 @@
   }
   function setBusy(value){busy=value;document.querySelectorAll('button').forEach(b=>b.disabled=value);}
   async function refresh(){
+    if(busy)return;
     setBusy(true);status('Reading settings from the collector…');
     try{
       state=await request('action',{action:'state'});$('unlock').hidden=true;$('controls').hidden=false;
@@ -105,8 +106,8 @@
   function review(title,text,body){pending=body;confirmInput.value='';confirmLabel.hidden=!(body.action==='operation'&&state.actions.find(a=>a.id===body.operation)?.confirm);$('confirmTitle').textContent=title;$('review').textContent=text;$('confirm').showModal();}
   $('operation').onchange=operationChanged;
   $('radioAction').onsubmit=event=>{event.preventDefault();const spec=state.actions.find(a=>a.id===$('operation').value);const destination=$('operationNode').value;review(spec.label+'?',$('operationNode').selectedOptions[0].textContent+'\n'+$('operationNote').textContent+(spec.confirm?'\n\nConfirm by typing '+destination:''),{action:'operation',operation:spec.id,destination,channel:Number($('operationChannel').value),hops:Number($('operationHops').value),request_id:uuid()});};
-  $('refreshOperations').onclick=refreshOperations;
-  setInterval(()=>{if(hasPending&&!document.hidden&&(!window.frameElement||window.frameElement.getClientRects().length))refreshOperations();},3000);
+  $('refreshOperations').hidden=true;$('refreshOperations').onclick=refreshOperations;
+  RFRefresh.every('control',refreshOperations,3000,{host:'#operationResults',before:true,guard:()=>hasPending,waiting:'Idle · no pending operations'});
   $('unlock').onsubmit=async event=>{event.preventDefault();setBusy(true);try{await request('unlock',{key:$('key').value,remember:$('rememberDevice').checked});$('key').value='';await refresh();}catch(error){status(error.message);}finally{setBusy(false);}};
   $('group').onchange=renderGroup;
   $('settings').onsubmit=event=>{event.preventDefault();const changes=collectValues(readers);if(!Object.keys(changes).length){status('No changes to apply.');return;}const group=groups[Number($('group').value)];const lines=readers.map(r=>r()).filter(Boolean).map(c=>c.label+': '+(c.secret?'[new hidden value]':JSON.stringify(c.value)));
@@ -115,7 +116,14 @@
   $('message').oninput=()=>$('messageSize').textContent=new TextEncoder().encode($('message').value).length+' / 228 bytes';
   $('cancel').onclick=()=>{$('confirm').close();pending=null;};
   $('apply').onclick=async()=>{if(busy||!pending)return;if(!confirmLabel.hidden&&confirmInput.value!==pending.destination){confirmInput.setCustomValidity('Enter the exact destination node ID');confirmInput.reportValidity();return;}confirmInput.setCustomValidity('');const body=pending;if(!confirmLabel.hidden)body.confirm_node=confirmInput.value;pending=null;$('confirm').close();setBusy(true);try{const result=await request('action',body);status(result.message);if(body.action==='operation'){hasPending=true;refreshOperations();}if(body.action==='send'){$('message').value='';$('message').oninput();replySelect.value='';}}catch(error){status(error.message+' If the request timed out, verify the radio before retrying.');}finally{setBusy(false);}};
-  $('refresh').onclick=refresh;$('lock').onclick=async()=>{try{await request('action',{action:'lock'});$('controls').hidden=true;$('unlock').hidden=false;state=null;groups=[];$('fields').replaceChildren();status('Controls locked.');}catch(error){status(error.message);}};
+  window.refreshNodeControl=async()=>{
+    if(busy)return;
+    if(readers.some(read=>read())){await refreshOperations();status('Action results refreshed. Unsaved settings kept; finish or discard those edits before reloading settings.');return;}
+    const values=Object.fromEntries(['sendChannel','recipient','operation','operationNode','operationChannel','operationHops'].map(id=>[id,$(id)?.value]));
+    await refresh();
+    for(const [id,value] of Object.entries(values)){const field=$(id);if(field&&value!=null&&(!field.options||[...field.options].some(o=>o.value===value)))field.value=value;}
+    operationChanged();
+  };$('refresh').onclick=window.refreshNodeControl;if(window.frameElement)$('refresh').hidden=true;$('lock').onclick=async()=>{try{await request('action',{action:'lock'});$('controls').hidden=true;$('unlock').hidden=false;state=null;groups=[];$('fields').replaceChildren();status('Controls locked.');}catch(error){status(error.message);}};
   $('unlockSettings').onclick=()=>{$('unlock').hidden=false;$('key').focus();};
   $('revokeDevices').onclick=async()=>{if(!window.confirm('Revoke remembered access for all browsers? Existing one-hour settings sessions will expire normally.'))return;try{const result=await request('action',{action:'revoke_devices'});status(result.message);}catch(e){status(e.message);}};
   request('session').then(s=>{$('rememberLabel').hidden=!s.secure;$('httpsHint').hidden=s.secure;if(s.unlocked)refresh();else{$('unlock').hidden=false;status('Unlock to view and change radio settings.');}}).catch(e=>status(e.message));

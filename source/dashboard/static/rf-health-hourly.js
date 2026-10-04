@@ -4,6 +4,7 @@
   const reliable = r => r.comparison_eligible === true;
   const label = h => new Date(h).toLocaleString([], {month:'short', day:'numeric', hour:'numeric'});
   function render(data) {
+    window.dispatchEvent(new CustomEvent("rf:lna-hours",{detail:data}));
     const summary = document.getElementById('rfHealthHourlySummary');
     const note = document.getElementById('rfHealthHourlyNote');
     if (data.comparison !== 'lna') {
@@ -65,7 +66,7 @@
     try {
       const r = await fetch(`/api/rf-health-hourly?hours=${hours}`,{cache:'no-store',signal:AbortSignal.timeout(15000)});
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data=await r.json();
+      const data=await r.json();await RFRefresh.ready();
       if(hours===(window.getDashboardHours?.()||24))render(data);
     } catch(e) {
       console.error('LNA comparison',e);
@@ -73,7 +74,7 @@
     } finally {loading=false;if(pending)load();}
   }
   window.loadRfHealthHourly = load;
-  window.addEventListener('load',() => {load(); setInterval(load,60000);});
+  window.addEventListener('load',() => {load(); RFRefresh.every('filter',load,60000);});
 })();
 
 
