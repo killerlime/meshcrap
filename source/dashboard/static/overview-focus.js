@@ -228,7 +228,15 @@
     const records = byId('nocRecords')?.closest('.card');
     const insightsPanel=byId('dashboard-panel-insights');
     if(records&&insightsPanel){records.id='insight-records';insightsPanel.querySelector('#insight-mesh')?.after(records);const link=el('a','Records & achievements');link.href='#insight-records';insightsPanel.querySelector('.insight-jumps')?.append(link);}
-    disclosure('Stored history', [document.querySelector('main > .topstats')]);
+    const storedStats = document.querySelector('main > .topstats');
+    if (storedStats) {
+      const history = el('section', null, 'rf-stored-history');
+      history.setAttribute('aria-labelledby', 'rfStoredHistoryTitle');
+      const title = el('h2', 'Stored History'); title.id = 'rfStoredHistoryTitle';
+      const description = el('p', 'Saved collector records and known nodes, separate from the reception window above.');
+      history.append(title, description, storedStats);
+      briefing.after(history);
+    }
     RFRefresh.every('insights',()=>loadNoc(),30000);
     if (liveGrid && !liveGrid.children.length) liveGrid.remove();
 
