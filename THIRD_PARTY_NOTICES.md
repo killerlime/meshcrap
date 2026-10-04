@@ -14,3 +14,7 @@ Android runtime dependency: **Protocol Buffers Java Lite 4.29.3**, copyright Goo
 When distributing an APK, provide the corresponding source for that exact build, including its build scripts and protocol definitions, alongside it. Do not rely on a moving main-branch link as the only record of the source used to build a binary. Retain each component's notices in redistributed source and binary packages.
 
 VM/live images additionally contain Debian and installed packages. Preserve `/usr/share/doc/*/copyright`, Python distribution license metadata, resolved package inventories and source availability required by those licenses. An appliance image is not entirely covered by the root Unlicense. Images must receive a distribution/license review before a public binary release.
+
+## Native iOS source preview
+
+The original `ios/` source uses the repository license. It imports Apple SwiftUI, UIKit, Foundation and WebKit frameworks from the Apple SDK; these frameworks are not vendored here. XcodeGen (MIT, https://github.com/yonaskolb/XcodeGen) is an optional build-time project generator and is not bundled. No third-party runtime SDK is included. See `ios/README.md` for source references, privacy declaration and unverified build status.

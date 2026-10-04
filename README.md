@@ -214,3 +214,5 @@ Run the dashboard and optional collector in separate containers with persistent
 storage. Build from source, configure through the wizard, then start locally:
 see [Docker installation](docs/DOCKER.md). The image includes no deployment
 credentials or personal data; external feeds and remote access remain optional.
+
+Native iPhone/iPad dashboard-and-controls source is available in [ios/README.md](ios/README.md). This is an unbuilt source preview requiring Mac/Xcode validation and signing; the Safari installation remains the usable option today.

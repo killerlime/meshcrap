@@ -51,7 +51,7 @@ python -m http.server 8765 --bind 127.0.0.1 --directory dist/demo
 
 Open `http://127.0.0.1:8765`. Demo data is synthetic. Map tiles and optional location search still use external services.
 
-The current iPhone option is the dashboard's installable web app over private HTTPS. It is not a native iOS binary; there is no Xcode project or Bluetooth survey support to build for iPhone in this release.
+The immediately usable iPhone option is the dashboard’s installable web app over private HTTPS. Native dashboard-and-controls source is now available under [ios](../ios/README.md), with an XcodeGen project recipe and XCTest cases. It has not been compiled, signed or device-tested; no native binary is provided. Bluetooth surveys remain Android-only.
 
 ## Appliance scope
 
