@@ -38,7 +38,7 @@ Serial/USB radio transport is not implemented in this release. A USB-attached ra
 
 ## Try it before installing
 
-[Open the interactive demo](https://killerlime.github.io/meshcrap/). Choose a city or coordinates and explore fictional nodes, maps, activity, messages and what-if insights. All data is simulated; this is not a real coverage forecast.
+[Open the interactive demo](https://killerlime.github.io/meshcrap/). Choose a city or coordinates and explore fictional nodes, maps, activity, messages and what-if insights. Try a survey with a live activity log, compare ingestor report cards, open Utilities, and switch light/dark color themes. All data is simulated; this is not a real coverage forecast.
 
 ## Quick start
 
