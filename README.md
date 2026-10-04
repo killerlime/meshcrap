@@ -137,6 +137,8 @@ Set `enable_weather` and your `weather_station`. Put your own Weather Undergroun
 
 ## Optional Potato feed
 
+The PotatoMesh integration credits **l5yth and the PotatoMesh contributors**. See the [PotatoMesh upstream project](https://github.com/l5yth/potato-mesh) for its source, API documentation and license. Meshcrap’s feed adapter and reporting views integrate with that project.
+
 Potato feeding is **disabled by default**. There is no bundled server address, API token, ingestor identity, private-channel exception list, position-fuzzing seed or preloaded outbox. The feed uses your configured receiver ID as its ingestor identity.
 
 To enable it deliberately:

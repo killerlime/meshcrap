@@ -18,3 +18,9 @@ VM/live images additionally contain Debian and installed packages. Preserve `/us
 ## Native iOS source preview
 
 The original `ios/` source uses the repository license. It imports Apple SwiftUI, UIKit, Foundation and WebKit frameworks from the Apple SDK; these frameworks are not vendored here. XcodeGen (MIT, https://github.com/yonaskolb/XcodeGen) is an optional build-time project generator and is not bundled. No third-party runtime SDK is included. See `ios/README.md` for source references, privacy declaration and unverified build status.
+
+## PotatoMesh integration credit
+
+[PotatoMesh](https://github.com/l5yth/potato-mesh) is developed by l5yth and the PotatoMesh contributors. Credit this upstream project for the Potato ecosystem and API used by the optional feed, ingestor directory and heard-by integrations. Upstream publishes its code under [Apache-2.0](https://github.com/l5yth/potato-mesh/blob/main/LICENSE). Meshcrap’s demo measurements and report-card calculations are illustrative Meshcrap examples, not upstream measurements.
+
+When incorporating or redistributing upstream code or assets, retain their applicable license, copyright and notices, identify modifications, and record the source revision. Link to PotatoMesh in relevant integration documentation and user-facing views; do not imply upstream authorship or endorsement of Meshcrap-specific features.
