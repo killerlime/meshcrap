@@ -108,3 +108,12 @@
  .rf-recent-table td:first-child{grid-column:1/-1}
  .rf-recent-table td[data-label]:not(:first-child)::before{content:attr(data-label);display:block;font-size:10px;color:var(--muted);margin-bottom:2px}
 }
+
+/* Keep saved history visible and distinct from selected-window reception. */
+.rf-stored-history{min-width:0;padding:18px;border:1px solid var(--border);border-top:3px solid var(--mesh);border-radius:12px;background:var(--surface-2,var(--surface));box-sizing:border-box}
+.rf-stored-history h2{font-size:17px;margin:0 0 5px}
+.rf-stored-history>p{font-size:12px;line-height:1.5;color:var(--muted);margin:0 0 14px}
+.rf-stored-history .topstats{margin:0;gap:12px}
+.rf-stored-history .topstats .big{font-size:23px}
+@media(max-width:650px){.rf-stored-history{padding:14px}.rf-stored-history .topstats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
+@media(max-width:380px){.rf-stored-history .topstats{grid-template-columns:1fr}}
