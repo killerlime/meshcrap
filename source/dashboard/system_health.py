@@ -46,3 +46,21 @@ def host_health(disk_path, root=Path('/')):
     except OSError:
         pass
     return result
+
+
+def reception_health(hard_checks, rf_age):
+    """Separate collection faults from absence of observed remote traffic."""
+    state = 'UNKNOWN' if rf_age is None else 'ACTIVE' if rf_age < 900 else 'QUIET'
+    return {
+        'status': 'HEALTHY' if all(hard_checks) else 'FAULT',
+        'status_scope': 'collection',
+        'rf_activity': {
+            'state': state,
+            'age_seconds': round(rf_age, 1) if rf_age is not None else None,
+            'message': {
+                'UNKNOWN': 'No remote RF observation is available; reception is unconfirmed.',
+                'ACTIVE': 'A remote RF packet was observed within the last 15 minutes.',
+                'QUIET': 'No remote RF packet was observed in the last 15 minutes. Quiet traffic alone does not establish a collection fault.'
+            }[state]
+        }
+    }

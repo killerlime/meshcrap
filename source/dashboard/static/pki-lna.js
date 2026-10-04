@@ -41,7 +41,7 @@
  async function refresh(){
   if(busy){pending=true;return;}if(document.hidden||!box?.getClientRects().length)return;
   busy=true;pending=false;const hours=window.getDashboardHours?.()||24;
-  try{const r=await fetch(`/api/lna-remote?hours=${hours}`,{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('Remote receiver data unavailable');const d=await r.json();if(hours!==(window.getDashboardHours?.()||24)){pending=true;return;}data=d;
+  try{const r=await fetch(`/api/lna-remote?hours=${hours}`,{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('Remote receiver data unavailable');const d=await r.json();await RFRefresh.ready();if(hours!==(window.getDashboardHours?.()||24)){pending=true;return;}data=d;
    let saved=select.value;try{saved=saved||localStorage.getItem('lnaRemoteNode');}catch{}
    select.replaceChildren();for(const n of d.nodes){const o=el('option',n.name);o.value=n.id;select.append(o);}select.value=d.nodes.some(n=>n.id===saved)?saved:(d.nodes.find(n=>n.id==='!00000000')?.id||d.nodes[0]?.id||'');
    status.textContent=`${d.responses} saved replies · ${d.requests} requests in the selected ${hours}h window · ${d.pending} waiting. Reads are paced and retries back off automatically.`;render();
@@ -57,6 +57,6 @@
   box.append(el('p','LNA switch markers describe Receiver only. Remote noise is measured at the selected node, not at Receiver. Startup samples, counter resets and gaps over 45 minutes are excluded from rates. Known poll replies are excluded from the main LNA reception graph; hardware counters still include polling traffic.','pki-note'));
   const all=el('details');all.append(el('summary','All local CLIENT receivers'));const scroller=el('div',null,'pki-table-wrap');table=el('table');table.setAttribute('aria-label','Remote receiver collection status');scroller.append(table);all.append(scroller);box.append(all);
   const noise=document.getElementById('lnaNoisePanel');if(noise)noise.after(box);else panel.append(box);
-  refresh();setInterval(refresh,60000);document.addEventListener('visibilitychange',refresh);document.getElementById('dashboardTabs')?.addEventListener('click',()=>setTimeout(refresh,80));window.addEventListener('dashboard:time-window',refresh);
+  refresh();RFRefresh.every('filter',refresh,60000);document.getElementById('dashboardTabs')?.addEventListener('click',()=>setTimeout(refresh,80));window.addEventListener('dashboard:time-window',refresh);
  });
 })();

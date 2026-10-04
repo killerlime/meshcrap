@@ -31,5 +31,9 @@ jobs:
       - run: python tests/public_weather_cache.py
       - run: node tests/visible-poll.cjs
       - run: node tests/mesh-simulator.cjs
+      - run: node tests/role-model.cjs
+      - run: node tests/refresh-controls.cjs
+      - run: node tests/traffic-simulation.cjs
+      - run: node tests/map-report.cjs
       - run: python tests/frontend.py
       - run: python tests/privacy_check.py

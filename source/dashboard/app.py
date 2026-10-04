@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 
 from node_summary import summarize_nodes
 from coverage_areas import AREAS, contains, clipped_bounds
-from system_health import host_health
+from system_health import host_health, reception_health
 
 app = Flask(__name__)
 app.config['RADIO_CONTROLS_ENABLED'] = @@ENABLE_RADIO_CONTROLS@@
@@ -2709,12 +2709,7 @@ def dashboard_self_test():
         rf_health_ok
     ]
 
-    if not all(hard_checks):
-        result["status"] = "FAULT"
-    elif not recent_rf_ok:
-        result["status"] = "DEGRADED"
-    else:
-        result["status"] = "HEALTHY"
+    result.update(reception_health(hard_checks, rf_age))
 
     return jsonify(result)
 

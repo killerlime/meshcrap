@@ -1,0 +1,9 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+const html=fs.readFileSync('source/dashboard/templates/index.html','utf8');
+const heard=fs.readFileSync('source/dashboard/static/msp-heard-by.js','utf8');
+const metrics={};vm.createContext(metrics);vm.runInContext(heard.slice(heard.indexOf(' function ingestorReport'),heard.indexOf(' function init')),metrics);
+const rows=[{node_id:'a',ingestor_id:'a',ingestor_name:'A',reports:10,self_report:true,kinds:[]},{node_id:'x',ingestor_id:'a',reports:2,self_report:false,kinds:[]},{node_id:'x',ingestor_id:'b',reports:1,self_report:false,kinds:[]},{node_id:'y',ingestor_id:'a',reports:3,self_report:false,kinds:[]}];
+const reports=metrics.ingestorReport(rows,[{node_id:'c',name:'C'}]);const first=reports.find(x=>x.id==='a');assert.equal(first.external,5);assert.equal(first.nodes.size,2);assert.equal(first.exclusive,1);assert.equal(first.yield,40);assert.equal(reports.find(x=>x.id==='c').yield,null);
+const code=html.slice(html.indexOf('const mapResponses='),html.indexOf('let lastMapNodes='));
+let calls=0,now=1000,fail=false;const ctx={Date:{now:()=>now},fetch:async()=>{calls++;await Promise.resolve();return {ok:!fail,status:503,json:async()=>({value:calls})}}};vm.createContext(ctx);vm.runInContext(code,ctx);
+(async()=>{const [a,b]=await Promise.all([ctx.cachedMapResponse('/map',30000),ctx.cachedMapResponse('/map',30000)]);assert.equal(calls,1);assert.equal(a,b);assert.equal(await ctx.cachedMapResponse('/map',30000),a);now+=30001;await ctx.cachedMapResponse('/map',30000);assert.equal(calls,2);fail=true;await assert.rejects(ctx.cachedMapResponse('/other',30000));fail=false;await ctx.cachedMapResponse('/other',30000);assert.equal(calls,4);console.log('PASS: shared in-flight fetches, reuse, expiry, and recovery after errors');})();

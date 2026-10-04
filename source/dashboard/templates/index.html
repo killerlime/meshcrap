@@ -1020,7 +1020,7 @@ tbody tr:hover .node-distance {
 .western-banner small {display:block;margin-top:5px;font-size:11px;letter-spacing:.16em;}
 #dashboard-panel-map.western-theme .western-banner {display:block;}
 .node-flyout-badge{display:flex;justify-content:center;align-items:center;margin:0 0 8px}.node-flyout-badge svg{display:block;width:84px;height:84px;flex:none}#telemetryNodeName .node-flyout-badge{display:inline-flex;vertical-align:middle;margin:0 12px 0 0}
-</style><script src="/static/western-icons.js?v=flyout-2"></script><link rel="stylesheet" href="/static/role-compare.css?v=1"></head>
+</style><script src="/static/western-icons.js?v=flyout-2"></script><link rel="stylesheet" href="/static/coverage-area-nav.css?v=map-20261004"><link rel="stylesheet" href="/static/role-compare.css?v=1"><link rel="stylesheet" href="/static/refresh-controls.css?v=1"><script src="/static/refresh-controls.js?v=1"></script></head>
 
 <body>
 
@@ -1286,9 +1286,9 @@ Survey idle
 <div id="coverageSummary" class="noc-grid"><div class="noc-record"><div class="muted">Coverage</div><div class="value">--</div></div></div><div id="coverageProgress" style="margin-top:12px"></div><div class="muted" id="coverageNote" style="margin-top:8px">Demonstrated coverage from fixed and mobile nodes. Target: 90%.</div></div><div class="space"></div>
 <div class="card">
 
-<div class="western-banner"><strong>★ WESTERN ★</strong><small>WESTERN THEME</small></div><h2>Mesh Map</h2>
-<button onclick="focusCoverageArea()">View coverage area</button>
-<p class="muted">Configured regions have independent coverage totals and surveys.</p>
+<h2>Mesh Map</h2>
+<button onclick="focusCoverageArea()">View selected grid</button>
+<p class="muted">Browse anywhere. Grids are optional overlays; changing the selected grid keeps your map view in place.</p>
 <details><summary>Coverage regions</summary><p>Region boundaries and grid sizes are defined in your local configuration.</p></details>
 
 <label>
@@ -1305,13 +1305,13 @@ Show all located nodes
 <button type="button" onclick="focusGunitMap()">Center Receiver</button>
 <button type="button" onclick="fitLocatedNodes()">Fit all nodes</button>
 
-&nbsp;&nbsp;<label><input type="checkbox" id="showRangeRings" checked onchange="loadMap()"> Home range rings</label>
-&nbsp;&nbsp;<label><input type="checkbox" id="showCoverage" checked onchange="renderCoverageLayer(true)"> Coverage</label>
+&nbsp;&nbsp;<label><input type="checkbox" id="showRangeRings" onchange="renderRangeRings()"> Home range rings</label>
+&nbsp;&nbsp;<label><input type="checkbox" id="showCoverage" onchange="renderCoverageLayer(true)"> Show grid</label>
 <div class="map-legend"><span><i class="legend-dot" style="background:#67ea94"></i>Local nodes</span><span><i class="legend-dot" style="background:#efc75e"></i>Infrastructure</span><span><i class="legend-dot" style="background:#929b94"></i>Other nodes</span></div>
 <div style="height:12px"></div>
 <div class="map-legend" aria-label="Coverage grid legend" style="margin:8px 0;line-height:1.8">
 <span><span id="coverageGridSize">1-mile grid:</span></span> <span style="color:#39d98a">■ Proven</span> <span style="color:#f2c94c">■ Marginal</span> <span style="color:#9b8afb">▧ Stale · over 30 days</span> <span>□ Untested</span>
-<label style="margin-left:10px"><input id="testedCoverageOnly" type="checkbox" onchange="renderCoverageLayer(true)"> Tested cells only</label>
+<label style="margin-left:10px"><input id="testedCoverageOnly" type="checkbox" checked onchange="renderCoverageLayer(true)"> Tested cells only</label>
 </div><div class="muted" style="margin-bottom:8px">Refreshes keep your view in place. Click a colored cell for evidence; nodes stay above the grid.</div>
 <div id="meshmap"></div>
 
@@ -1407,7 +1407,7 @@ Select a node
 </div>
 
 <div class="muted" style="margin-top:8px">
-Read-only operational health check.
+Collection health and remote RF activity are separate. Quiet traffic alone does not prove a receiver fault.
 </div>
 </div>
 
@@ -2364,7 +2364,7 @@ function renderRecentNodePanel(d) {
  if(active){const button=[...box.querySelectorAll('button[data-node]')].find(b=>b.dataset.node===active);button?.focus({preventScroll:true});}
 }
 
-async function loadNoc(){try{const r=await fetch(`/api/noc?hours=${hours}`); const d=await r.json(); nocData=d; const x=d.records||{}; document.getElementById('nocRecords').innerHTML=recordCard('Most Active',x.most_active,'packets',' pkts')+recordCard('Best SNR',x.best_snr,'best_snr',' dB')+recordCard('Weakest Decode',x.weakest_decode,'worst_snr',' dB')+recordCard('Highest Hop',x.highest_hops,'max_hops',' hops')+`<div class="noc-record"><div class="muted">Newest Discovery</div><div class="value">${esc(x.newest?.node||'--')}</div><div class="muted">${x.newest?.first_seen?age(x.newest.first_seen)+' ago':'None in window'}</div></div>`+`<div class="noc-record" title="${x.furthest_direct?esc((x.furthest_direct.location_source||'unknown')+' location • '+(x.furthest_direct.collector_time||'')):'No valid direct record'}"><div class="muted">🏆 Furthest Direct</div><div class="value">${esc(x.furthest_direct?.node||'--')}</div><div class="muted">${x.furthest_direct?.distance_miles!=null?fmt(x.furthest_direct.distance_miles,2)+' mi'+(x.furthest_direct.rx_snr!=null?' • '+fmt(x.furthest_direct.rx_snr,1)+' dB':''):'--'}</div></div>`+`<div class="noc-record" title="${x.furthest_reached?esc((x.furthest_reached.location_source||'unknown')+' location • '+(x.furthest_reached.collector_time||'')):'No valid reached record'}"><div class="muted">🌐 Furthest Reached</div><div class="value">${esc(x.furthest_reached?.node||'--')}</div><div class="muted">${x.furthest_reached?.distance_miles!=null?fmt(x.furthest_reached.distance_miles,2)+' mi'+(x.furthest_reached.hops_used!=null?' • '+x.furthest_reached.hops_used+' hop'+(x.furthest_reached.hops_used==1?'':'s'):'')+(x.furthest_reached.rx_snr!=null?' • '+fmt(x.furthest_reached.rx_snr,1)+' dB':''):'--'}</div></div>`;
+async function loadNoc(){try{const r=await fetch(`/api/noc?hours=${hours}`); const d=await r.json(); await RFRefresh.ready(); nocData=d; const x=d.records||{}; document.getElementById('nocRecords').innerHTML=recordCard('Most Active',x.most_active,'packets',' pkts')+recordCard('Best SNR',x.best_snr,'best_snr',' dB')+recordCard('Weakest Decode',x.weakest_decode,'worst_snr',' dB')+recordCard('Highest Hop',x.highest_hops,'max_hops',' hops')+`<div class="noc-record"><div class="muted">Newest Discovery</div><div class="value">${esc(x.newest?.node||'--')}</div><div class="muted">${x.newest?.first_seen?age(x.newest.first_seen)+' ago':'None in window'}</div></div>`+`<div class="noc-record" title="${x.furthest_direct?esc((x.furthest_direct.location_source||'unknown')+' location • '+(x.furthest_direct.collector_time||'')):'No valid direct record'}"><div class="muted">🏆 Furthest Direct</div><div class="value">${esc(x.furthest_direct?.node||'--')}</div><div class="muted">${x.furthest_direct?.distance_miles!=null?fmt(x.furthest_direct.distance_miles,2)+' mi'+(x.furthest_direct.rx_snr!=null?' • '+fmt(x.furthest_direct.rx_snr,1)+' dB':''):'--'}</div></div>`+`<div class="noc-record" title="${x.furthest_reached?esc((x.furthest_reached.location_source||'unknown')+' location • '+(x.furthest_reached.collector_time||'')):'No valid reached record'}"><div class="muted">🌐 Furthest Reached</div><div class="value">${esc(x.furthest_reached?.node||'--')}</div><div class="muted">${x.furthest_reached?.distance_miles!=null?fmt(x.furthest_reached.distance_miles,2)+' mi'+(x.furthest_reached.hops_used!=null?' • '+x.furthest_reached.hops_used+' hop'+(x.furthest_reached.hops_used==1?'':'s'):'')+(x.furthest_reached.rx_snr!=null?' • '+fmt(x.furthest_reached.rx_snr,1)+' dB':''):'--'}</div></div>`;
 renderFurthestHistory(
     d.furthest_direct_history || []
 );
@@ -2405,7 +2405,7 @@ function updateMobileCountdown(){
             mobileAccessState.grace_remaining=remain-1;
 
         if(remain<=0)
-            setTimeout(loadMobileAccess,1200);
+            RFRefresh.request('mobile');
 
         return;
     }
@@ -2422,7 +2422,7 @@ function updateMobileCountdown(){
             `${m}:${String(s).padStart(2,"0")} manual access remaining`;
 
         if(remain<=0)
-            setTimeout(loadMobileAccess,1200);
+            RFRefresh.request('mobile');
 
         return;
     }
@@ -2603,7 +2603,7 @@ async function resumeCollector(){
 }
 
 setInterval(()=>{if(!document.hidden)updateMobileCountdown();},1000);
-MeshcrapPoll.watch('mobileAccessControls',loadMobileAccess,3000,()=>mobileAccessState?.enabled!==false);
+RFRefresh.every('mobile',loadMobileAccess,3000,{host:'#mobileAccessControls'});
 
 
 
@@ -2661,6 +2661,7 @@ async function loadSummary() {
     );
 
     const d = await r.json();
+    await RFRefresh.ready();
 
     document.getElementById(
         "packets"
@@ -2691,8 +2692,8 @@ async function loadSummary() {
     });
 
     if (dashboardPanelVisible("nodes")) renderNodeTable();
-    loadNoc();
-    loadRfEnvironment(); // rf-env
+    await loadNoc();
+    await loadRfEnvironment(); // rf-env
 }
 
 
@@ -3626,7 +3627,7 @@ function fitLocatedNodes(){if(meshMap&&mapLocatedBounds.length){mapViewChosen=tr
 function initMap() {
 
     meshMap =
-        L.map("meshmap").setView(
+        L.map("meshmap", {preferCanvas:true}).setView(
             [HOME_LAT,HOME_LON],
             12
         );
@@ -3666,13 +3667,15 @@ function initMap() {
 let coverageData=null,coverageLayer=null,coverageRegionLayer=null;
 function renderCoverageRegions(data){
     if(!meshMap)return;
+    if(coverageRegionLayer)coverageRegionLayer.remove();
+    if(!document.getElementById('showCoverage')?.checked)return;
     if(!meshMap.getPane('coverageRegions')){meshMap.createPane('coverageRegions');meshMap.getPane('coverageRegions').style.zIndex='330';meshMap.getPane('coverageRegions').style.pointerEvents='none';}
     if(coverageRegionLayer)coverageRegionLayer.remove();coverageRegionLayer=L.layerGroup();
     [...(data.regions||[])].sort((a,b)=>Number(a.id===data.area_id)-Number(b.id===data.area_id)).forEach(region=>{
         const [south,north,west,east]=region.bounds,selected=region.id===data.area_id;
         const shape=region.outline||[[south,west],[north,west],[north,east],[south,east]];
         L.polygon(shape,{pane:'coverageRegions',color:region.accent,weight:selected?4:2,opacity:selected?.95:.65,dashArray:selected?null:'9 6',fillColor:region.accent,fillOpacity:selected?.025:.008,interactive:false}).addTo(coverageRegionLayer);
-        const label=region.id==='western'?'<strong style="display:block;font-family:Georgia,serif;font-size:16px;letter-spacing:.08em">★ WESTERN ★</strong><small style="display:block;margin-top:4px;font-size:10px;letter-spacing:.12em">WESTERN THEME</small>':esc(region.name);
+        const label=esc(region.name);
         L.marker([north,(west+east)/2],{pane:'coverageRegions',interactive:false,keyboard:false,icon:L.divIcon({className:'coverage-region-label',iconSize:[250,32],iconAnchor:[125,0],html:`<span style="display:block;transform:translateY(calc(-100% - 8px));width:max-content;max-width:250px;margin:auto;padding:5px 9px;border:1px solid ${region.accent};border-radius:6px;background:#101714e8;color:${region.accent};font-size:11px;font-weight:700;white-space:normal;text-align:center;box-shadow:0 2px 7px #0003">${label}</span>`})}).addTo(coverageRegionLayer);
     });coverageRegionLayer.addTo(meshMap);
 }
@@ -3680,12 +3683,12 @@ function renderCoverageRegions(data){
 let coverageArea='home';
 try { const saved=localStorage.getItem('meshcrapCoverageArea'); if(@@AREA_IDS@@.includes(saved))coverageArea=saved; } catch(e){}
 document.getElementById('coverageArea').value=coverageArea;
-function focusCoverageArea(){if(meshMap&&coverageData?.area_id===coverageArea)meshMap.fitBounds(coverageData.bounds,{paddingTopLeft:[20,64],paddingBottomRight:[20,20]});}
+function focusCoverageArea(){if(meshMap&&coverageData?.area_id===coverageArea){mapViewChosen=true;meshMap.fitBounds(coverageData.bounds,{paddingTopLeft:[20,24],paddingBottomRight:[20,20]});}}
 async function changeCoverageArea(){
     coverageArea=document.getElementById('coverageArea').value;
     try{localStorage.setItem('meshcrapCoverageArea',coverageArea);}catch(e){}
-    if(coverageLayer)coverageLayer.remove();coverageData=null;coverageSignature='';
-    await loadCoverage();focusCoverageArea();await loadSurvey();
+    if(coverageLayer)coverageLayer.remove();if(coverageRegionLayer)coverageRegionLayer.remove();coverageData=null;coverageSignature='';
+    await loadCoverage();await loadSurvey();
 }
 
 
@@ -3809,7 +3812,7 @@ async function loadSurvey() {
 
         const d = await r.json();
 
-        renderSurvey(d);
+        await RFRefresh.ready();renderSurvey(d);
 
     } catch(e) {
 
@@ -3874,16 +3877,13 @@ async function surveyAction(action) {
 }
 
 
-setInterval(
-    ()=>{if(dashboardPanelVisible("survey"))loadSurvey();},
-    5000
-);
+RFRefresh.every('survey',loadSurvey,5000);
 
 
 function coverageColor(s){return s==="PROVEN"?"#39d98a":s==="MARGINAL"?"#f2c94c":s==="STALE"?"#9b8afb":"#586069";}
 function renderCoverageSummary(d){const e=document.getElementById("coverageSummary"),p=document.getElementById("coverageProgress"),n=document.getElementById("coverageNote");if(!e)return;const c=d.counts||{},x=Number(d.demonstrated_pct||0),t=Number(d.tested_pct||0);e.innerHTML=`<div class="noc-record"><div class="muted">Demonstrated</div><div class="value">${x.toFixed(1)}%</div><div class="muted">90% target</div></div><div class="noc-record"><div class="muted">Tested · last 30 days</div><div class="value">${t.toFixed(1)}%</div><div class="muted">${d.evidence_packets||0} current observations</div></div><div class="noc-record"><div class="muted">Proven</div><div class="value">${c.PROVEN||0}</div><div class="muted">cells</div></div><div class="noc-record"><div class="muted">Marginal</div><div class="value">${c.MARGINAL||0}</div><div class="muted">cells</div></div><div class="noc-record"><div class="muted">Stale</div><div class="value">${c.STALE||0}</div><div class="muted">cells · over 30 days</div></div><div class="noc-record"><div class="muted">Untested</div><div class="value">${c.UNTESTED||0}</div><div class="muted">cells</div></div><div class="noc-record"><div class="muted">Remaining</div><div class="value">${Number(d.target_remaining||0).toFixed(1)}</div><div class="muted">percentage points</div></div>`;if(p)p.innerHTML=`<div style="height:16px;border:1px solid #56606a;border-radius:8px;overflow:hidden;position:relative"><div style="height:100%;width:${Math.min(100,x)}%;background:#39d98a"></div><div style="position:absolute;left:90%;top:0;bottom:0;border-left:2px solid #fff"></div></div>`;if(n)n.textContent=`${d.name} - ${d.cell_miles} mi cells - ${d.total_cells} cells - fixed and mobile nodes count as proof for 30 days · older records stay visible as stale`;}
-function renderCoverageLayer(force=false){if(!meshMap||!coverageData)return;if(!force&&(mapInteracting||mapPopupOpen||mapNodeHoverOpen))return;const signature=JSON.stringify([coverageData.cells,!!document.getElementById("showCoverage")?.checked,!!document.getElementById("testedCoverageOnly")?.checked]);if(!force&&signature===coverageSignature)return;coverageSignature=signature;if(coverageLayer)coverageLayer.remove();coverageLayer=L.layerGroup();if(!document.getElementById("showCoverage")?.checked)return;(coverageData.cells||[]).filter(c=>!document.getElementById("testedCoverageOnly")?.checked||c.status!=="UNTESTED").forEach(c=>{(c.display_bounds||[c.bounds]).forEach(bounds=>{const col=coverageColor(c.status),r=L.rectangle(bounds,{pane:"coverageGrid",color:col,weight:c.status==="UNTESTED"?1.4:2.4,opacity:c.status==="UNTESTED"?.65:.95,dashArray:c.status==="STALE"?"7 5":null,fillColor:col,fillOpacity:c.status==="UNTESTED"?0:.32,interactive:c.status!=="UNTESTED"});r.bindPopup(`<div class="popup-name">${esc(c.status)} coverage cell</div><div>${c.status==="STALE"?"Historical coverage only · no observations in the last 30 days":"Coverage based on the last 30 days"}</div><div><b>Current samples:</b> ${c.current_samples||0}</div><div><b>Older samples:</b> ${c.stale_samples||0}</div><div><b>Nodes:</b> ${(c.nodes||[]).map(esc).join(", ")||"--"}</div><div><b>Avg SNR:</b> ${c.avg_snr==null?"--":fmt(c.avg_snr)+" dB"}</div><div><b>Best SNR:</b> ${c.best_snr==null?"--":fmt(c.best_snr)+" dB"}</div><div><b>Avg hops:</b> ${c.avg_hops==null?"--":fmt(c.avg_hops,2)}</div><div><b>Direct:</b> ${c.direct_pct==null?"--":fmt(c.direct_pct)+"%"}</div><div><b>Last tested:</b> ${c.last_seen?age(c.last_seen):"--"}</div>`);r.addTo(coverageLayer);});});coverageLayer.addTo(meshMap);}
-async function loadCoverage(){const area=coverageArea;try{const r=await fetch('/api/coverage?area='+encodeURIComponent(area),{cache:'no-store'});if(!r.ok)throw Error(r.status);const data=await r.json();if(area!==coverageArea)return;coverageData=data;document.getElementById('dashboard-panel-map')?.classList.toggle('western-theme',area==='western');document.getElementById('coverageAreaHeading').textContent=data.name+' Coverage';document.getElementById('coverageGridSize').textContent=data.cell_miles+'-mile grid:';renderCoverageSummary(data);renderCoverageLayer();renderCoverageRegions(data);document.getElementById('coverageAreaHeading').style.color=data.accent;}catch(e){console.error('coverage',e);}}
+function renderCoverageLayer(force=false){if(!meshMap||!coverageData)return;if(force)renderCoverageRegions(coverageData);if(!force&&(mapInteracting||mapPopupOpen||mapNodeHoverOpen))return;const signature=JSON.stringify([coverageData.cells,!!document.getElementById("showCoverage")?.checked,!!document.getElementById("testedCoverageOnly")?.checked]);if(!force&&signature===coverageSignature)return;coverageSignature=signature;if(coverageLayer)coverageLayer.remove();coverageLayer=L.layerGroup();if(!document.getElementById("showCoverage")?.checked)return;(coverageData.cells||[]).filter(c=>!document.getElementById("testedCoverageOnly")?.checked||c.status!=="UNTESTED").forEach(c=>{(c.display_bounds||[c.bounds]).forEach(bounds=>{const col=coverageColor(c.status),r=L.rectangle(bounds,{pane:"coverageGrid",color:col,weight:c.status==="UNTESTED"?.6:1.2,opacity:c.status==="UNTESTED"?.3:.7,dashArray:c.status==="STALE"?"7 5":null,fillColor:col,fillOpacity:c.status==="UNTESTED"?0:.16,interactive:c.status!=="UNTESTED"});r.bindPopup(`<div class="popup-name">${esc(c.status)} coverage cell</div><div>${c.status==="STALE"?"Historical coverage only · no observations in the last 30 days":"Coverage based on the last 30 days"}</div><div><b>Current samples:</b> ${c.current_samples||0}</div><div><b>Older samples:</b> ${c.stale_samples||0}</div><div><b>Nodes:</b> ${(c.nodes||[]).map(esc).join(", ")||"--"}</div><div><b>Avg SNR:</b> ${c.avg_snr==null?"--":fmt(c.avg_snr)+" dB"}</div><div><b>Best SNR:</b> ${c.best_snr==null?"--":fmt(c.best_snr)+" dB"}</div><div><b>Avg hops:</b> ${c.avg_hops==null?"--":fmt(c.avg_hops,2)}</div><div><b>Direct:</b> ${c.direct_pct==null?"--":fmt(c.direct_pct)+"%"}</div><div><b>Last tested:</b> ${c.last_seen?age(c.last_seen):"--"}</div>`);r.addTo(coverageLayer);});});coverageLayer.addTo(meshMap);}
+async function loadCoverage(){const area=coverageArea;try{const data=await cachedMapResponse('/api/coverage?area='+encodeURIComponent(area),60000);if(area!==coverageArea)return;if(coverageData===data){renderCoverageLayer();return;}coverageData=data;document.getElementById('dashboard-panel-map')?.classList.remove('western-theme');document.getElementById('coverageAreaHeading').textContent=data.name+' Coverage';document.getElementById('coverageGridSize').textContent=data.cell_miles+'-mile grid:';renderCoverageSummary(data);renderCoverageLayer();renderCoverageRegions(data);document.getElementById('coverageAreaHeading').style.color=data.accent;}catch(e){console.error('coverage',e);}}
 
 function mapNodeStyle(n) {
     if (String(n.short_name || '').trim().toLowerCase().startsWith('@@NODE_PREFIX_LOWER@@')) {
@@ -3896,16 +3896,26 @@ function mapNodeStyle(n) {
     return {color: '#929b94', label: 'Other node'};
 }
 
+const mapResponses=new Map(),mapRequests=new Map();
+async function cachedMapResponse(url,ttl){
+ const cached=mapResponses.get(url);if(cached&&Date.now()-cached.at<ttl)return cached.data;
+ if(mapRequests.has(url))return mapRequests.get(url);
+ const pending=(async()=>{const response=await fetch(url,{cache:'no-store'});if(!response.ok)throw Error(response.status);const data=await response.json();mapResponses.set(url,{at:Date.now(),data});return data;})();
+ mapRequests.set(url,pending);try{return await pending;}finally{mapRequests.delete(url);}
+}
+let lastMapNodes=null,lastMapFilter=null;
+function renderRangeRings(){
+ if(!meshMap)return;if(rangeLayer)rangeLayer.remove();rangeLayer=L.layerGroup();
+ if(document.getElementById('showRangeRings')?.checked){[5,10,25,50,100].forEach(mi=>L.circle([HOME_LAT,HOME_LON],{radius:mi*1609.344,weight:1,fill:false,dashArray:'5,7',opacity:.35}).bindTooltip(mi+' mi').addTo(rangeLayer));rangeLayer.addTo(meshMap);}
+}
+
 async function loadMap() {
     if (!meshMap) initMap();
     if(mapInteracting||mapPopupOpen||mapNodeHoverOpen)return;
 
-    const r =
-        await fetch("/api/map");
-
-    const nodes =
-        await r.json();
-
+    const nodes = await cachedMapResponse('/api/map',30000);
+    const filter=document.getElementById('showAllNodes').checked;
+    if(nodes===lastMapNodes&&filter===lastMapFilter)return;
     if(mapInteracting||mapPopupOpen||mapNodeHoverOpen)return;
     const receiver=nodes.find(n=>n.node_id==='@@RECEIVER_ID@@');
     if(receiver&&Number.isFinite(receiver.latitude)&&Number.isFinite(receiver.longitude))receiverMapPosition=[receiver.latitude,receiver.longitude];
@@ -3945,7 +3955,7 @@ async function loadMap() {
         const appearance = mapNodeStyle(n);
 
         const marker =
-            westernMarker(n,appearance,meshMap) || L.circleMarker(
+            L.circleMarker(
                 [
                     n.latitude,
                     n.longitude
@@ -3959,7 +3969,7 @@ async function loadMap() {
                 }
             );
 
-        const flyoutBadge = window.nodeMapBadge?.(n,appearance,84);
+        const flyoutBadge = window.nodeMapBadge?.(n,appearance,40);
         let popup = `
             ${flyoutBadge ? `<div class="node-flyout-badge" role="img" aria-label="${esc(flyoutBadge.label)}">${flyoutBadge.html}</div>` : ''}
             <div class="popup-name">
@@ -4051,7 +4061,7 @@ async function loadMap() {
         ]);
     });
 
-    mapLocatedBounds=bounds;
+    mapLocatedBounds=bounds;lastMapNodes=nodes;lastMapFilter=filter;
 }
 
 
@@ -4173,13 +4183,13 @@ document.addEventListener('DOMContentLoaded',()=>requestAnimationFrame(()=>{
     nav?.addEventListener('click',refreshOpenedPanel);
     nav?.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key))refreshOpenedPanel();});
 }));
-setInterval(refreshDashboard,30000);
-window.addEventListener('online',refreshDashboard);
+RFRefresh.every(['overview','nodes','map','system'],refreshDashboard,30000);
+window.addEventListener('online',()=>RFRefresh.request(document.querySelector('.dashboard-panel:not([hidden])')?.id.replace('dashboard-panel-','')));
 window.addEventListener('offline',()=>{
     const notice=document.getElementById('recoveryNotice');notice.hidden=false;
     notice.textContent='This browser is offline — showing last received data. Updates resume when connected.';
 });
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDashboard();});
+
 
 // Mobile status is loaded when its controls become visible.
 </script>
@@ -4250,12 +4260,13 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDas
         return (sec/3600).toFixed(1) + " hr";
     }
 
-    function card(label,value,ok){
+    function card(label,value,ok,note=null){
+        const level=ok?"green":label==="RF activity"?"yellow":"red";
         return `
-<div class="noc-record">
+<div class="noc-record rf-health-${level}">
   <div class="muted">${label}</div>
-  <div class="value">${value}</div>
-  <div class="muted">${ok ? "OK" : "CHECK"}</div>
+  <div class="value"><span class="rf-status-light" aria-hidden="true"></span> ${value}</div>
+  <div class="muted">${note ?? (ok ? "OK" : "CHECK")}</div>
 </div>`;
     }
 
@@ -4284,7 +4295,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDas
 
             el.innerHTML =
                 card(
-                    "Overall",
+                    "Collection",
                     overall,
                     d.status === "HEALTHY"
                 )
@@ -4314,9 +4325,10 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDas
                 )
                 +
                 card(
-                    "Last RF Packet",
-                    fmtAge(c.recent_rf?.age_seconds),
-                    !!c.recent_rf?.ok
+                    "RF activity",
+                    (d.rf_activity?.state || 'UNKNOWN') + ' · ' + fmtAge(c.recent_rf?.age_seconds),
+                    !!c.recent_rf?.ok,
+                    c.recent_rf?.ok ? 'Recently observed' : 'Reception unconfirmed'
                 )
                 +
                 card(
@@ -4337,13 +4349,14 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDas
             el.innerHTML = `
 <div class="noc-record">
   <div class="muted">Overall</div>
-  <div class="value">✕ SELF-TEST ERROR</div>
+  <div class="value" style="color:var(--rf-fault)">● SELF-TEST ERROR</div>
   <div class="muted">${String(e)}</div>
 </div>`;
         }
     }
 
-    MeshcrapPoll.watch('dashboardSelfTest',loadDashboardSelfTest,15000);
+    loadDashboardSelfTest();
+    RFRefresh.every('system',loadDashboardSelfTest,15000);
 
 })();
 </script>
@@ -4366,6 +4379,10 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDas
 .node-hover-card .popup-name{font-size:15px;font-weight:700;margin-bottom:4px}.node-hover-hint{margin-top:8px;font-size:11px;opacity:.8}
 .leaflet-interactive[role="button"]:focus-visible{outline:3px solid #fff;outline-offset:3px}
 </style><script src="/static/map-node-hover.js?v=1"></script>
-
-<script src="/static/role-compare.js?v=1"></script><script src="/static/snow-day.js?v=1"></script><script src="/static/receiver-diagnostics.js?v=1"></script></body>
+<script src="/static/snow-day.js?v=1"></script>
+<script src="/static/coverage-area-nav.js?v=map-20261004"></script>
+<script src="/static/role-model.js?v=1"></script><script src="/static/role-compare.js?v=2"></script><script src="/static/receiver-diagnostics.js?v=1"></script><!-- RF overview refinement -->
+<link rel="stylesheet" href="/static/overview-focus.css?v=1">
+<script src="/static/overview-focus.js?v=1"></script>
+</body>
 </html>

@@ -36,7 +36,7 @@
       finally{busy=false;section.querySelector('.receiver-refresh').disabled=false;}
     }
     section.querySelector('.receiver-refresh').addEventListener('click',load);
-    section.querySelector('.receiver-open-logs').addEventListener('click',()=>{const form=document.getElementById('debugLogForm');if(form)form.elements.service.value='receiver';document.getElementById('dashboard-tab-debug')?.click();form?.requestSubmit();});
+    section.querySelector('.receiver-open-logs').addEventListener('click',()=>{const form=document.getElementById('debugLogForm');if(form)form.elements.service.value='receiver';window.openRFDebugLogs?.();form?.requestSubmit();});
     const observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&Date.now()-last>300000)load();});[section,sys,node].forEach(e=>observer.observe(e));
   }
   if(document.readyState!=='complete')window.addEventListener('load',init);else init();

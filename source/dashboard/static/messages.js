@@ -37,7 +37,7 @@
       if(target)params.set('before',target);
       const response=await fetch('/api/channel-messages?'+params,{cache:'no-store',signal:AbortSignal.timeout(10000)});
       if(!response.ok)throw new Error('Request failed');
-      const data=await response.json();
+      const data=await response.json();await RFRefresh.ready();
       if(data.channel!==Number(channelSelect.value))throw new Error('Channel change is not active yet');
       data.messages=[...data.messages,...(data.sent_messages||[])].sort((a,b)=>Date.parse(b.received_at)-Date.parse(a.received_at));
       loaded=data;exportButton.disabled=data.messages.length===0;
@@ -62,8 +62,9 @@
       ['Time UTC','Channel','Channel index','Sender','Sender ID','Message','SNR dB','Hops','Direction'],
       visible.map(m=>[m.received_at,loaded.channel_name,loaded.channel,m.sender,m.sender_id,m.text,m.snr,m.hops,m.direction||'received']));
   });
+  document.getElementById('refresh').hidden=true;
   document.getElementById('refresh').addEventListener('click',()=>load());
   older.addEventListener('click',()=>load(next));latest.addEventListener('click',()=>load(null));
-  setInterval(()=>{if(!cursor&&!document.hidden&&(!window.frameElement||window.frameElement.getClientRects().length))load(null);},10000);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!cursor)load(null);});load();
+  RFRefresh.every('messages',()=>load(),10000,{guard:()=>!cursor&&!search.value.trim()&&window.scrollY<80,waiting:'Holding your history, search, or reading position'});
+  load();
 })();
