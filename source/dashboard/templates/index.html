@@ -3732,7 +3732,7 @@ function surveyElapsed(ts) {
 let surveyRouteLayer=null, surveyRouteSignature="";
 function renderSurveyRoute(s) {
     if (!meshMap || mapInteracting || mapPopupOpen || mapNodeHoverOpen) return;
-    const routes=s?.routes||[], signature=JSON.stringify([s?.survey_id,routes]);
+    const routes=s?.routes||[], signature=JSON.stringify([s?.survey_id,routes,s?.phone?.evidence]);
     if (signature===surveyRouteSignature) return;
     surveyRouteSignature=signature;
     if (surveyRouteLayer) surveyRouteLayer.remove();
@@ -3745,6 +3745,11 @@ function renderSurveyRoute(s) {
         });
         const last=route.segments?.at(-1)?.at(-1);
         if(last) L.circleMarker(last,{radius:7,color,weight:3,fillOpacity:.15,interactive:false}).addTo(surveyRouteLayer);
+    });
+    (s?.phone?.evidence||[]).forEach(point=>{
+        const style={reply:['#55df91','Reply received · may include relays'],heard:['#60bfff','Packet heard · reception only'],no_reply:['#ffbf69','No reply · inconclusive'],other:['#b8b8b8','Incomplete or local error']}[point.kind]||['#b8b8b8','Observation'];
+        L.circleMarker([point.lat,point.lon],{radius:5,color:style[0],fillColor:style[0],fillOpacity:.75,weight:1})
+            .bindTooltip(esc(style[1]+' · slot '+point.channel+' · '+new Date(point.time*1000).toLocaleString())).addTo(surveyRouteLayer);
     });
     surveyRouteLayer.addTo(meshMap);
 }
@@ -3771,10 +3776,11 @@ function renderSurvey(d) {
     if(s)history.value=String(s.survey_id);
     renderSurveyRoute(s);
     if(!s)return;
-    const cards=[['Survey',s.active?'Recording':'Completed'],['Probe',(s.probe_nodes||[]).join(', ')||'Waiting for a travelling local node'],
-        ['GPS samples',s.gps_samples||0],['Observed distance',Number(s.distance_miles||0).toFixed(1)+' mi'],
-        ['Cells visited',s.area_id==='roaming'?'Not grid-limited':s.cells_visited||0],['Proven this outing',s.area_id==='roaming'?'Not inferred from GPS':s.cells_proven_this_survey||0],
-        ['Newly proven cells',s.area_id==='roaming'?'—':s.new_coverage_cells||0],['Stale cells refreshed',s.area_id==='roaming'?'—':s.stale_cells_refreshed||0]];
+    const metrics=s.phone?.metrics;
+    const cards=[['Survey',s.active?'Recording':'Completed'],['Travelling node',(s.probe_nodes||[]).join(', ')||'Waiting'],
+        ['Replies / requests',`${s.phone?.successes||0} / ${s.phone?.trace_count||0}`],
+        ['Destinations tested',metrics?.destinations??'—'],['Packets heard',metrics?.received_packets??'—'],['Nodes heard',metrics?.heard_nodes??'—'],
+        ['Precise GPS fixes',metrics?.precise_fixes??s.gps_samples??0],['Estimated tracked distance',Number(s.distance_miles||0).toFixed(1)+' mi']];
     const traceRows=(s.phone?.traces||[]).map(t=>{
         const node=id=>Number(id)===4294967295?'Unknown relay (!ffffffff)':(s.phone?.names?.[id]||'!'+Number(id).toString(16).padStart(8,'0'));
         const path=(ids)=>ids.map(node).join(' → ');
@@ -3782,9 +3788,9 @@ function renderSurvey(d) {
         return `<tr><td>${esc(node(t.source))} → ${esc(node(t.destination))}</td><td>${esc(t.status.replaceAll('_',' '))}</td><td>${Number(t.channel)}</td><td title="${esc(new Date(t.time*1000).toISOString())}">${esc(new Date(t.time*1000).toLocaleString())}</td><td>${route?esc(path([t.source,...route,t.destination])):'—'}${back?'<br>Return: '+esc(path([t.destination,...back,t.source])):''}</td></tr>`;
     }).join('');
     live.innerHTML=cards.map(([label,value])=>`<div class="noc-record"><div class="muted">${esc(label)}</div><div class="value">${esc(String(value))}</div></div>`).join('')+
-        `<div class="muted" style="grid-column:1/-1">${esc(s.contribution_note||'')}<br>Phone survey: ${esc(s.traceroute_status||'Phone not connected')}. ${Number(s.phone?.successes||0)} successful routes from ${Number(s.phone?.trace_count||0)} recorded requests. Phone GPS is a path record, not proof of radio coverage.</div>`+
+        `<div class="muted" style="grid-column:1/-1">${esc(metrics?.note||s.contribution_note||'')}<br>Green: reply received; blue: packet heard; amber: no reply. A route line alone is untested travel.<br>${metrics?esc(`${metrics.approximate_fixes} approximate fixes; ${metrics.recording_gaps} recording gaps; ${metrics.no_reply} timeouts; ${metrics.incomplete} incomplete requests. ${metrics.small_sample?'Few completed tests: avoid generalizing beyond the observations.':''} ${!metrics.received_packets?'Passive receptions require the updated companion; older trips cannot be backfilled.':''}`):''}<br>Phone survey: ${esc(s.traceroute_status||'Phone not connected')}. ${Number(s.phone?.successes||0)} successful routes from ${Number(s.phone?.trace_count||0)} recorded requests. Phone GPS is a path record, not proof of radio coverage.</div>`+
         `<button id="surveyFitRoute" type="button" style="min-height:44px">Fit recorded route</button>`+
-        (traceRows?`<details style="grid-column:1/-1;min-width:0"><summary>Phone traceroute results</summary><div style="overflow:auto"><table><thead><tr><th>Route</th><th>Outcome</th><th>Channel</th><th>Time</th><th>Observed path</th></tr></thead><tbody>${traceRows}</tbody></table></div><p class="muted">Latest 100 requests from the most recent 5,000 phone records. Unknown relays remain unknown. Complete records are retained separately.</p></details>`:'');
+        (traceRows?`<details style="grid-column:1/-1;min-width:0"><summary>Phone traceroute results</summary><div style="overflow:auto"><table><thead><tr><th>Route</th><th>Outcome</th><th>Channel</th><th>Time</th><th>Observed path</th></tr></thead><tbody>${traceRows}</tbody></table></div><p class="muted">Latest 100 requests. Summary totals include every retained companion record. Unknown relays remain unknown. Complete records are retained separately.</p></details>`:'');
     const routePoints=(s.routes||[]).flatMap(route=>(route.segments||[]).flat());
     const fitRoute=document.getElementById('surveyFitRoute');fitRoute.disabled=!routePoints.length;
     fitRoute.onclick=()=>{if(meshMap&&routePoints.length)meshMap.fitBounds(L.latLngBounds(routePoints),{padding:[24,24],maxZoom:15});};

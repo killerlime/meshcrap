@@ -10,7 +10,7 @@ Open your collector's `/survey-companion` page over private HTTPS for the APK an
 
 One request is outstanding at a time, with at least 30 seconds between starts and a 30-second timeout. Nearby destinations require recent observations and a valid position. Automatic requests pause when Bluetooth or collector connectivity is lost; collector authorization expires within 30 seconds. Stop releases Bluetooth. The app uses a three-hop request limit. No radio configuration is written.
 
-Results queue in private storage and upload with a revocable survey-only credential (uploads and survey start/end; no radio administration). Phone routes and traceroutes remain separate from HQ RF measurements; a phone GPS point is not proof of RF coverage. Unknown relay IDs are retained. Each destination is attempted once per survey; changing channels pauses requests until you explicitly resume.
+Results queue in private storage and upload with a revocable survey-only credential (uploads and survey start/end; no radio administration). Phone routes and traceroutes remain separate from HQ RF measurements; a phone GPS point is not proof of RF coverage. Unknown relay IDs are retained. Destinations can be retested after moving half a mile (at least 60 seconds since the previous test), or after five minutes; changing channels pauses requests until you explicitly resume.
 
 This is a debug-signed first test build. Build, unit tests and Android lint pass. Real-phone Bluetooth and radio-response testing remains necessary. Do not assume a successful software build establishes hardware compatibility.
 
@@ -27,7 +27,7 @@ Source is GPL-3.0; see LICENSE. Meshtastic protocol definitions under `app/src/m
 3. With a current travelling fix, tap **Start survey**. The collector confirms a roaming session and the app begins eligible requests. Manual tests are optional.
 4. **Pause** stops new traceroutes. **End survey** closes the collector session while keeping Bluetooth connected for final uploads. **Disconnect** releases Bluetooth; it does not delete saved results or end the collector session.
 
-Requests start at least 30 seconds apart and time out after 30 seconds. Late responses remain associated with their original request and position, without automatically retrying the destination. Position samples are saved every 15 seconds while the survey has live collector authorization. These are separate timings.
+Requests start at least 30 seconds apart and time out after 30 seconds. Late responses remain associated with their original request and position, without immediately retrying the destination. Position samples are saved every 15 seconds while the survey has live collector authorization. These are separate timings.
 
 ## Location quality
 
@@ -68,3 +68,15 @@ Older collector codes containing only `url` and `token` are supported. The app a
 Use **Save collector pairing** to save the code before connecting Bluetooth. This confirms local validation and secure storage, not successful server authorization. Then select the radio and connect to verify the collector. Incomplete pasted text, invalid addresses/secrets, secure-storage failures and Bluetooth-start failures now have separate messages. Do not generate a replacement code merely to upgrade the app; doing so revokes the previous pairing. Phone Start/End still requires a collector that supports those controls.
 
 Version 0.4.3-test relaxes only the travelling-position limits. Candidate-node freshness, 30-second traceroute cadence, and collector authorization timing are unchanged. Collector validation must also be updated to accept the expanded limits; older collectors reject fixes over 100 metres or five minutes old.
+
+## Field measurements and calmer UI: 0.5.0-test
+
+The default discovery radius is 25 miles, with 5/10/25/50/100-mile choices saved on the phone. This changes candidate selection, not RF power. Automatic repeats use the rules above; only accurate, recent phone GPS qualifies for movement-triggered retesting. One outstanding request and the existing 30-second global spacing remain enforced.
+
+New collectors advertise support for passive RF reception metadata. The companion uploads sender/packet/channel, reception time and last-hop RSSI/SNR, plus the available travelling position. No message contents or keys are uploaded. Internet-delivered packets and the radio's own packets are excluded. Older collectors keep the previous position/traceroute protocol. Old trips cannot acquire missing passive observations retroactively.
+
+Trip totals include all retained records, with duplicate fixes and results combined. Pending requests do not count as unanswered completed tests. Map evidence distinguishes replies (possibly relayed), received packets and inconclusive timeouts. Precise map evidence requires recent phone GPS with reported accuracy within 100 m; old or coarse fixes remain in storage. Tracked distance excludes gaps, implausible jumps and movement within GPS uncertainty, so it is an estimate, not an odometer.
+
+Status refreshes preserve the visible section and leave unchanged text alone. The activity log no longer requests focus or automatically scrolls; use **Show latest activity** intentionally. Saved pairing setup and detailed connection diagnostics are collapsible. The main action guides connection, starting and pausing.
+
+Validation includes synthetic complete-history, duplicate/late-result, GPS-quality and ingestion tests, Java cadence tests, APK build and lint. Scroll, keyboard, accessibility focus and Bluetooth behavior still require a real-phone check.

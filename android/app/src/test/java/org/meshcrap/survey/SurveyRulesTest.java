@@ -4,6 +4,16 @@ import static org.junit.Assert.*;
 import org.meshtastic.proto.MeshProtos;
 import org.meshtastic.proto.Portnums;
 public class SurveyRulesTest {
+ @Test public void repeatSamplingNeedsTimeOrTrustworthyMovement(){
+  assertTrue(SurveyRules.repeatEligible(0,1000,0,false));
+  assertFalse(SurveyRules.repeatEligible(1000,999,10,true));
+  assertFalse(SurveyRules.repeatEligible(1000,1059,10,true));
+  assertTrue(SurveyRules.repeatEligible(1000,1060,.5,true));
+  assertFalse(SurveyRules.repeatEligible(1000,1060,.5,false));
+  assertFalse(SurveyRules.repeatEligible(1000,1299,.1,true));
+  assertTrue(SurveyRules.repeatEligible(1000,1300,0,false));
+ }
+
  @Test public void acknowledgmentCanOnlyRemoveSubmittedRecords(){
   java.util.Set<String> sent=new java.util.HashSet<>(java.util.Arrays.asList("one","two"));
   SurveyRules.validateAcknowledgments(sent,java.util.Arrays.asList("two"));

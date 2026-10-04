@@ -6,6 +6,11 @@ public final class SurveyRules {
     public static final long POSITION_MAX_AGE_SECONDS=3600;
     public static final double POSITION_MAX_ACCURACY_METRES=804.672;
     private SurveyRules() {}
+    public static boolean repeatEligible(long previous,long now,double movedMiles,boolean precise) {
+        if(previous<=0)return true;
+        if(now<previous||now-previous<60)return false;
+        return now-previous>=300 || (precise&&Double.isFinite(movedMiles)&&movedMiles>=0.5);
+    }
     public static boolean validId(long id) { return id>0 && id<0xffffffffL; }
     public static boolean validPosition(double lat,double lon) {
         return Double.isFinite(lat)&&Double.isFinite(lon)&&lat>=-90&&lat<=90&&lon>=-180&&lon<=180&&(lat!=0||lon!=0);

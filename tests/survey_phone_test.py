@@ -36,6 +36,18 @@ class PhoneSurveyTests(unittest.TestCase):
         # Rate limiting is independently checked; simulate a later network retry.
         with self.phone.db() as db:db.execute('UPDATE clients SET last_seen=NULL')
         return self.post('sync',dict(source=305419896,ready=True,events=events))
+    def test_passive_receptions_allowlist_and_cache_invalidation(self):
+        survey=self.start();event=self.event(survey)
+        event.update(kind='reception',sender=42,packet_id=7,channel=0,rx_time=self.now,rssi=-110,snr=-5.5,via_mqtt=False,text='never retain message contents')
+        self.assertEqual(self.phone.report(survey)['metrics']['received_packets'],0)
+        result=self.sync([event]);self.assertEqual(result.status_code,200);self.assertTrue(result.json['reception_records'])
+        self.assertEqual(self.phone.report(survey)['metrics']['received_packets'],1)
+        with self.phone.db() as db:
+            self.assertNotIn('text',json.loads(db.execute('SELECT body FROM events').fetchone()[0]))
+        for fields in [dict(via_mqtt=True),dict(sender=305419896),dict(rx_time=self.now-121),dict(snr=float('inf'))]:
+            bad=dict(event,id=str(uuid.uuid4()),**fields)
+            self.assertEqual(self.sync([bad]).status_code,400)
+
     def test_start_replay_and_no_area_requirement(self):
         command=self.command();first=self.post('control',command);second=self.post('control',command)
         self.assertEqual(first.json,second.json)

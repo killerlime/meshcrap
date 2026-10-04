@@ -870,14 +870,11 @@ def _survey_metrics(conn, survey):
     s = dict(survey)
     if s.get('area_id') == 'roaming':
         phone = app.extensions['survey_phone'].report(s['survey_id'])
-        distance = sum(_survey_haversine(a[0], a[1], b[0], b[1])
-                       for route in phone['routes'] for segment in route['segments']
-                       for a, b in zip(segment, segment[1:]))
         return dict(s, active=s['ended_at'] is None, area_name='Roaming survey',
                     routes=phone['routes'], phone=phone, traceroute_status=phone['status'],
-                    gps_samples=sum(r['samples'] for r in phone['routes']), distance_miles=distance,
+                    gps_samples=phone['metrics']['unique_fixes'], distance_miles=phone['metrics']['reliable_distance_miles'],
                     probe_nodes=[r['node'] for r in phone['routes']],
-                    contribution_note='Roaming survey: route and traceroutes across all areas. GPS tracks do not prove RF coverage. Latest 5,000 phone records displayed; full history retained.')
+                    contribution_note='Roaming survey: route and traceroutes across all areas. GPS tracks do not prove RF coverage. All retained companion records contribute to totals; display points are limited. GPS uncertainty and recording gaps are reported separately.')
 
     end_row = s["end_row_id"]
 

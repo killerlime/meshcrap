@@ -1,5 +1,6 @@
 """Private Android survey uploads, isolated from HQ radio measurements."""
-import hashlib,json,math,secrets,sqlite3,time,uuid
+import hashlib,json,math,secrets,sqlite3,time,uuid,threading
+from collections import OrderedDict
 from pathlib import Path
 from contextlib import contextmanager,closing
 from datetime import datetime,timezone
@@ -29,6 +30,7 @@ def validate_position(p,now):
 
 class SurveyPhone:
     def __init__(self,app,root):
+        self.report_cache=OrderedDict();self.report_lock=threading.Lock()
         self.root=Path(root);self.path=self.root/'survey-phone.sqlite3';self.mesh=self.root/'mesh.db'
         with self.db() as db:
             db.executescript('''CREATE TABLE IF NOT EXISTS clients(id INTEGER PRIMARY KEY,token_hash TEXT UNIQUE NOT NULL,created REAL NOT NULL,revoked INTEGER NOT NULL DEFAULT 0,last_seen REAL,status TEXT);
@@ -96,6 +98,16 @@ class SurveyPhone:
                     if kind=='position':
                         if p is None:raise ValueError('Missing position')
                         if survey['ended_at'] and stamp>epoch(survey['ended_at'])+30:raise ValueError('Position outside survey')
+                    elif kind=='reception':
+                        if survey['ended_at'] and stamp>epoch(survey['ended_at'])+30:raise ValueError('Reception outside survey')
+                        sender=integer(event.get('sender'),1,0xfffffffe)
+                        if sender==node:raise ValueError('Local transmission is not received RF')
+                        rx=integer(event.get('rx_time'),1,stamp)
+                        if stamp-rx>120 or event.get('via_mqtt') is not False:raise ValueError('Not a current radio reception')
+                        rssi=integer(event.get('rssi'),-200,-1)
+                        snr=event.get('snr')
+                        if type(snr) not in (int,float) or not math.isfinite(snr) or not -100<=snr<=100:raise ValueError('Invalid SNR')
+                        clean.update(sender=sender,packet_id=integer(event.get('packet_id'),1,0xffffffff),channel=integer(event.get('channel'),0,7),rx_time=rx,rssi=rssi,snr=snr,via_mqtt=False)
                     elif kind=='trace':
                         dest=integer(event.get('destination'),1,0xfffffffe)
                         if dest==node:raise ValueError('Destination equals source')
@@ -140,7 +152,7 @@ class SurveyPhone:
                 db.execute('UPDATE clients SET last_seen=?,status=? WHERE id=?',(now,json.dumps(status),client['id']))
             from coverage_areas import AREAS
             return jsonify(ok=True,accepted=[e['id'] for e in normalized],survey_id=active['survey_id'] if active else 0,
-                           phone_controls=True,
+                           phone_controls=True, reception_records=True,
                            area_name=('Roaming survey' if active['area_id']=='roaming' else AREAS[active['area_id']]['name']) if active else '',lease_seconds=30 if source in known and status['ready'] else 0)
         except (ValueError,TypeError,KeyError,AttributeError,OverflowError) as e:return jsonify(error=str(e)),400
     def control(self):
@@ -178,37 +190,24 @@ class SurveyPhone:
             return jsonify(result)
         except (ValueError,TypeError,AttributeError):return jsonify(error='Invalid survey command'),400
     def report(self,survey_id):
+        from survey_evidence import summarize
         with self.db() as db:
-            # Bound the response; all original records remain in the separate phone database.
-            rows=db.execute('SELECT body FROM events WHERE survey=? ORDER BY received DESC,rowid DESC LIMIT 5000',(survey_id,)).fetchall()
-            client=db.execute('SELECT last_seen,status FROM clients WHERE revoked=0 ORDER BY id DESC LIMIT 1').fetchone()
-        traces={};positions={}
-        for r in rows:
-            e=json.loads(r['body'])
-            if e['kind']=='trace':
-                key=(e['source'],e['packet_id'])
-                priority={'requested':0,'stopped':1,'transport_error':1,'routing_error':1,'timeout':1,'success':2,'late_success':2}
-                if key not in traces or priority[e['status']]>priority[traces[key]['status']]:traces[key]=e
-            elif e['kind']=='position':positions.setdefault(e['source'],[]).append(e['position'])
-        paths=[]
-        import math
-        def distance(a,b):
-            p1,p2=math.radians(a['lat']),math.radians(b['lat'])
-            x=math.sin((p2-p1)/2)**2+math.cos(p1)*math.cos(p2)*math.sin(math.radians(b['lon']-a['lon'])/2)**2
-            return 3958.7613*2*math.asin(math.sqrt(min(1,max(0,x))))
-        for node,points in positions.items():
-            points.sort(key=lambda p:p['time']);segments=[];segment=[];previous=None
-            for p in points:
-                if previous and (p['time']-previous['time']>300 or distance(previous,p)>5):
-                    if segment:segments.append(segment)
-                    segment=[]
-                segment.append([p['lat'],p['lon']]);previous=p
-            if segment:segments.append(segment)
-            paths.append(dict(node_num=node,node=f'Phone survey !{node:08x}',segments=segments,samples=len(points),simplified=False))
+            db.execute('BEGIN')
+            total,last=db.execute('SELECT count(*),max(rowid) FROM events WHERE survey=?',(survey_id,)).fetchone()
+            key=(survey_id,total,last)
+            with self.report_lock:
+                report=self.report_cache.get(key)
+                if report is None:
+                    rows=db.execute("SELECT body FROM events WHERE survey=? ORDER BY json_extract(body,'$.time'),rowid",(survey_id,))
+                    report=summarize(rows,total)
+                    self.report_cache[key]=report
+                    while len(self.report_cache)>12:self.report_cache.popitem(last=False)
+                else:self.report_cache.move_to_end(key)
+            client=db.execute('SELECT last_seen FROM clients WHERE revoked=0 ORDER BY id DESC LIMIT 1').fetchone()
         with self.meshdb() as mesh:
             names={r['node_num']:r['name'] for r in mesh.execute("SELECT node_num,coalesce(nullif(long_name,''),nullif(short_name,''),node_id) AS name FROM nodes") if r['name']}
-        return dict(names=names,status='Phone connected' if client and client['last_seen'] and time.time()-client['last_seen']<45 else 'Phone not connected',
-                    traces=list(traces.values())[:100],trace_count=len(traces),successes=sum(e['status'] in ('success','late_success') for e in traces.values()),routes=paths)
+        return dict(report,names=names,status='Phone connected' if client and client['last_seen'] and time.time()-client['last_seen']<45 else 'Phone not connected')
+
 
 def register_survey_phone(app,root='@@DATA_DIR@@'):
     phone=SurveyPhone(app,root)
