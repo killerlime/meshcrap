@@ -33,6 +33,7 @@ jobs:
       - run: node tests/mesh-simulator.cjs
       - run: node tests/role-model.cjs
       - run: node tests/refresh-controls.cjs
+      - run: node tests/dashboard-refresh.cjs
       - run: node tests/traffic-simulation.cjs
       - run: node tests/map-report.cjs
       - run: python tests/frontend.py
