@@ -33,7 +33,14 @@ jobs:
       - run: node tests/mesh-simulator.cjs
       - run: node tests/role-model.cjs
       - run: node tests/refresh-controls.cjs
+      - run: node tests/dashboard-refresh.cjs
       - run: node tests/traffic-simulation.cjs
       - run: node tests/map-report.cjs
       - run: python tests/frontend.py
       - run: python tests/privacy_check.py
+      - run: python tests/licenses.py
+      - run: python tools/license_inventory.py dist/licenses
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-license-inventory-${{ matrix.python }}
+          path: dist/licenses

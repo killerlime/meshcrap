@@ -7,6 +7,8 @@ set -eu
 python3 -m venv /opt/meshcrap/.venv
 /opt/meshcrap/.venv/bin/pip install --no-cache-dir -r /opt/meshcrap/requirements.txt
 /opt/meshcrap/.venv/bin/pip check
+/opt/meshcrap/.venv/bin/python /opt/meshcrap/tools/license_inventory.py /opt/meshcrap/third-party
+dpkg-query -W > /opt/meshcrap/BUILD-OS-PACKAGES.txt
 useradd --system --no-create-home --home-dir /var/lib/meshcrap --shell /usr/sbin/nologin meshcrap
 install -d -m 700 -o meshcrap -g meshcrap /var/lib/meshcrap
 # The service owns its state, not the executable application or dependencies.

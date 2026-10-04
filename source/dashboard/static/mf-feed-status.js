@@ -3,6 +3,7 @@ const main=document.querySelector('main');if(!main)return;
 const box=document.createElement('details');box.className='console-feed';
 const summary=document.createElement('summary'),description=document.createElement('p');
 summary.textContent='Potato feed';box.append(summary,description);main.querySelector('h1')?.after(box);
+box.insertAdjacentHTML('beforeend','<p class="muted">PotatoMesh integration · Credit to <a href="https://github.com/l5yth/potato-mesh">l5yth and the PotatoMesh contributors · source</a>.</p>');
 let busy=false;
 async function refresh(){if(busy||document.hidden)return;busy=true;
 try{const r=await fetch('/api/potato-feed/status',{cache:'no-store',signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error();const s=await r.json();

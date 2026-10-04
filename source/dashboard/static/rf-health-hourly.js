@@ -1,5 +1,18 @@
 (() => {
   let charts = [];
+  // Explicit trace colors avoid falling back to the theme's neutral grid color.
+  const traceStyle = index => {
+    const light=document.documentElement.dataset.mode==='light';
+    const color=(light?['#12668a','#a34816','#784093']:['#7bcaff','#ffbf78','#d8abf4'])[index%3];
+    return {borderColor:color,backgroundColor:color,pointBackgroundColor:color,pointBorderColor:color,borderWidth:2,pointRadius:2,pointHoverRadius:5,borderDash:[[],[6,3],[2,3]][index%3],fill:false};
+  };
+  const traceTheme={id:'rfTrendColors',beforeUpdate(chart){
+    chart.data.datasets.forEach((dataset,index)=>Object.assign(dataset,traceStyle(index)));
+    const text=document.documentElement.dataset.mode==='light'?'#4d5d72':'#b8c9bf';
+    chart.options.plugins.legend.labels.color=text;
+    for(const scale of Object.values(chart.options.scales)){scale.ticks.color=text;scale.grid.color=document.documentElement.dataset.mode==='light'?'#ced7e3':'#334255';}
+  }};
+
   const fmt = (x, n=1) => x == null ? '--' : Number(x).toFixed(n);
   const reliable = r => r.comparison_eligible === true;
   const label = h => new Date(h).toLocaleString([], {month:'short', day:'numeric', hour:'numeric'});
@@ -47,8 +60,8 @@
     ];
     for (const [id, fields] of groups) {
       charts.push(new Chart(document.getElementById(id), {
-        type:'line',
-        data:{labels:points.map(r => label(r.hour)), datasets:fields.map(([key,title]) => ({label:title, data:points.map(r => reliable(r) ? r[key] : null), spanGaps:false}))},
+        type:'line',plugins:[traceTheme],
+        data:{labels:points.map(r => label(r.hour)), datasets:fields.map(([key,title],index) => ({...traceStyle(index),label:title, data:points.map(r => reliable(r) ? r[key] : null), spanGaps:false}))},
         options:{responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false}, scales:{x:{ticks:{maxTicksLimit:6,maxRotation:0,color:'#b8c9bf'}},y:{ticks:{color:'#b8c9bf'}}},plugins:{legend:{labels:{color:'#b8c9bf'}},lnaSwitches:{timestamps:points.map(r=>r.hour)},tooltip:{callbacks:{afterBody(items){
           if (!items.length) return '';
           const r = points[items[0].dataIndex];

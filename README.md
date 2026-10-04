@@ -38,7 +38,7 @@ Serial/USB radio transport is not implemented in this release. A USB-attached ra
 
 ## Try it before installing
 
-[Open the interactive demo](https://killerlime.github.io/meshcrap/). Choose a city or coordinates and explore fictional nodes, maps, activity, messages and what-if insights. All data is simulated; this is not a real coverage forecast.
+[Open the interactive demo](https://killerlime.github.io/meshcrap/). Choose a city or coordinates and explore fictional nodes, maps, activity, messages and what-if insights. Try a survey with a live activity log, compare ingestor report cards, open Utilities, and switch light/dark color themes. All data is simulated; this is not a real coverage forecast.
 
 ## Quick start
 
@@ -137,6 +137,8 @@ Set `enable_weather` and your `weather_station`. Put your own Weather Undergroun
 
 ## Optional Potato feed
 
+The PotatoMesh integration credits **l5yth and the PotatoMesh contributors**. See the [PotatoMesh upstream project](https://github.com/l5yth/potato-mesh) for its source, API documentation and license. Meshcrap’s feed adapter and reporting views integrate with that project.
+
 Potato feeding is **disabled by default**. There is no bundled server address, API token, ingestor identity, private-channel exception list, position-fuzzing seed or preloaded outbox. The feed uses your configured receiver ID as its ingestor identity.
 
 To enable it deliberately:
@@ -216,3 +218,7 @@ see [Docker installation](docs/DOCKER.md). The image includes no deployment
 credentials or personal data; external feeds and remote access remain optional.
 
 Native iPhone/iPad dashboard-and-controls source is available in [ios/README.md](ios/README.md). This is an unbuilt source preview requiring Mac/Xcode validation and signing; the Safari installation remains the usable option today.
+
+## Third-party sources and licensing
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for upstream sources, component licenses, service attribution, and release requirements. The root Unlicense covers original Meshcrap material only; Android and bundled/runtime dependencies retain their own terms.

@@ -16,6 +16,8 @@ tar xzf /tmp/meshcrap-source.tar.gz -C /opt/meshcrap
 python3 -m venv /opt/meshcrap/.venv
 /opt/meshcrap/.venv/bin/pip install --no-cache-dir -r /opt/meshcrap/requirements.txt
 /opt/meshcrap/.venv/bin/pip check
+/opt/meshcrap/.venv/bin/python /opt/meshcrap/tools/license_inventory.py /opt/meshcrap/third-party
+dpkg-query -W > /opt/meshcrap/BUILD-OS-PACKAGES.txt
 id meshcrap >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo meshcrap
 passwd -l meshcrap
 passwd -l root

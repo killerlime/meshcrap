@@ -5,8 +5,10 @@ LABEL org.opencontainers.image.title="Meshcrap" \
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /opt/meshcrap
 COPY requirements.txt ./
+COPY tools/license_inventory.py /opt/meshcrap/license_inventory.py
 RUN pip install --no-cache-dir -r requirements.txt && pip check \
     && pip freeze > /opt/meshcrap/BUILD-DEPENDENCIES.txt \
+    && python /opt/meshcrap/license_inventory.py /opt/meshcrap/third-party \
     && groupadd --gid 10001 meshcrap \
     && useradd --uid 10001 --gid 10001 --no-create-home meshcrap \
     && mkdir /data && chown 10001:10001 /data

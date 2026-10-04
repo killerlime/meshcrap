@@ -1,0 +1,17 @@
+(() => {
+ 'use strict';
+ const $=id=>document.getElementById(id);
+ const colors={forest:['#79ecaa','#176b43'],slate:['#c4cfdf','#425774'],ocean:['#7bcaff','#12668a'],plum:['#d8abf4','#784093'],amber:['#efc078','#845400'],neon:['#ff8bdb','#a72e80']};
+ function appearance(){const light=$('demoMode').value==='light',color=$('demoColors').value;document.documentElement.dataset.mode=light?'light':'dark';document.documentElement.style.setProperty('--green',colors[color][light?1:0]);try{localStorage.setItem('meshcrap-demo-appearance',JSON.stringify({mode:$('demoMode').value,color}));}catch{}const chart=Chart.getChart('traffic');if(chart){chart.data.datasets[0].backgroundColor=colors[color][light?1:0];for(const axis of Object.values(chart.options.scales)){axis.ticks.color=light?'#4d5d72':'#aebdb2';}chart.update('none');}}
+ try{const saved=JSON.parse(localStorage.getItem('meshcrap-demo-appearance'));if(saved){$('demoMode').value=saved.mode==='light'?'light':'dark';$('demoColors').value=Object.hasOwn(colors,saved.color)?saved.color:'forest';}}catch{}
+ $('demoMode').onchange=appearance;$('demoColors').onchange=appearance;$('window').addEventListener('change',appearance);document.querySelectorAll('[data-center]').forEach(b=>b.addEventListener('click',appearance));appearance();
+ let running=false,stops=0,successes=0;
+ function log(text){const line=document.createElement('p');line.textContent=new Date().toLocaleTimeString()+' · '+text;$('surveyLog').append(line);while($('surveyLog').children.length>30)$('surveyLog').firstElementChild.remove();$('surveyLog').scrollTop=$('surveyLog').scrollHeight;}
+ function controls(){ $('surveyStart').disabled=running;$('surveyStep').disabled=!running;$('surveyStop').disabled=!running;$('surveyChannel').disabled=running;}
+ $('surveyStart').onclick=()=>{running=true;stops=0;successes=0;$('surveyLog').replaceChildren();$('surveyTotals').textContent='0 stops · 0 successful route observations';$('surveyState').textContent='Survey running · channel slot '+$('surveyChannel').value;log('Recent GPS fix accepted; survey started. No area restriction.');controls();};
+ $('surveyStep').onclick=()=>{stops++;const ok=stops%3!==0;if(ok)successes++;log('Stop '+stops+': position recorded'+(stops===4?' outside the example grid':'')+'. '+(ok?'Simulated route reply saved.':'No simulated route reply; position retained.'));$('surveyTotals').textContent=stops+' stops · '+successes+' successful route observations';};
+ $('surveyStop').onclick=()=>{running=false;log('Survey finished. '+stops+' positions retained in this tab.');$('surveyState').textContent='Survey complete · start again to reset the example';controls();};
+ const ingestors=[{name:'Basecamp',heard:150,unique:45,forwards:180},{name:'Ridge Relay',heard:130,unique:30,forwards:135},{name:'Library Roof',heard:85,unique:15,forwards:110}];
+ function report(){const key=$('ingestorSort').value,score=x=>key==='efficiency'?x.heard/x.forwards:x[key];$('ingestorRows').replaceChildren(...[...ingestors].sort((a,b)=>score(b)-score(a)).map(x=>{const row=document.createElement('tr');for(const value of [x.name,x.heard,x.unique,x.forwards,(100*x.heard/x.forwards).toFixed(1)+'%']){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}return row;}));}
+ $('ingestorSort').onchange=report;report();$('demoCheck').onclick=()=>{$('demoCheckResult').textContent='Sample check passed: collector connected, saved data recent, receiver reachable. No real services were contacted.';};
+})();
