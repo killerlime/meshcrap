@@ -58,7 +58,7 @@ public final class MainActivity extends Activity {
         deviceHint=text("",14);listRadios();
         connectButton=button("Connect radio",()->connect());
         card("Survey settings");
-        endSessionButton=button("End survey",()->new AlertDialog.Builder(this).setTitle("End this survey?").setMessage("End the active survey on the collector and stop new requests. Saved results remain available; Bluetooth stays connected for uploads.").setPositiveButton("End survey",(d,n)->{SurveyService s=SurveyService.instance;if(s!=null)s.controlSurvey(false);renderState();}).setNegativeButton("Keep surveying",null).show());
+        endSessionButton=button("End survey",()->new AlertDialog.Builder(this).setTitle("End this survey?").setMessage("End this outing and stop new requests. Phone outings can end offline; saved records upload automatically when connected. Bluetooth stays connected for uploads.").setPositiveButton("End survey",(d,n)->{SurveyService s=SurveyService.instance;if(s!=null)s.controlSurvey(false);renderState();}).setNegativeButton("Keep surveying",null).show());
         text("Your route follows you across all areas. Choose the channel and search radius below.",15);
         channelButton=button("Choose channel",()->chooseChannel());
         radiusButton=button("Nearby radius · 25 miles",()->chooseRadius());

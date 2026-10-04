@@ -36,6 +36,44 @@ class PhoneSurveyTests(unittest.TestCase):
         # Rate limiting is independently checked; simulate a later network retry.
         with self.phone.db() as db:db.execute('UPDATE clients SET last_seen=NULL')
         return self.post('sync',dict(source=305419896,ready=True,events=events))
+    def test_offline_outing_creates_separate_trip_and_replays_once(self):
+        active=self.start();event=self.event(0)
+        event['outing']=dict(id=str(uuid.uuid4()),started_at=self.now-3600)
+        first=self.sync([event]);self.assertEqual(first.status_code,200,first.json)
+        self.assertEqual(self.sync([event]).status_code,200)
+        with sqlite3.connect(self.data/'mesh.db') as db:
+            local=db.execute('SELECT survey FROM phone_outings').fetchone()[0]
+            self.assertNotEqual(local,active)
+            self.assertEqual(db.execute('SELECT survey_id FROM coverage_surveys WHERE ended_at IS NULL').fetchone()[0],active)
+        self.assertEqual(self.phone.report(local)['metrics']['position_records'],1)
+        self.assertIn('still open',self.phone.report(local)['status'])
+        end=dict(event,id=str(uuid.uuid4()),kind='outing_end');end.pop('position')
+        self.assertEqual(self.sync([end]).status_code,200)
+        self.assertEqual(self.sync([end]).status_code,200)
+        self.assertIn('ended on phone',self.phone.report(local)['status'])
+        bad=dict(event,id=str(uuid.uuid4()),time=self.now+1)
+        self.assertEqual(self.sync([bad]).status_code,400)
+
+    def test_offline_batch_rolls_back_trip_and_records_on_conflict(self):
+        event=self.event(0);event['outing']=dict(id=str(uuid.uuid4()),started_at=self.now-100)
+        bad=dict(event,id=str(uuid.uuid4()),outing=dict(event['outing'],started_at=self.now-99))
+        self.assertEqual(self.sync([event,bad]).status_code,400)
+        with self.phone.db() as db:self.assertEqual(db.execute('SELECT count(*) FROM events').fetchone()[0],0)
+        with sqlite3.connect(self.data/'mesh.db') as db:self.assertEqual(db.execute('SELECT count(*) FROM coverage_surveys').fetchone()[0],0)
+
+    def test_offline_permit_accepts_delayed_records_after_remote_end(self):
+        survey=self.start();response=self.sync([]);grant=response.json['offline_permit']
+        self.assertTrue(grant)
+        self.assertEqual(self.post('control',self.command('stop',survey)).status_code,200)
+        event=self.event(survey);event.update(time=self.now+60,offline_permit=grant)
+        self.assertEqual(self.sync([event]).status_code,200)
+        self.assertEqual(self.sync([event]).status_code,200)
+        bad=dict(event,id=str(uuid.uuid4()),offline_permit='x'*43)
+        self.assertEqual(self.sync([bad]).status_code,400)
+        bad=dict(event,id=str(uuid.uuid4()),survey_id=self.start())
+        self.assertEqual(self.sync([bad]).status_code,400)
+        with self.phone.db() as db:db.execute('UPDATE clients SET revoked=1')
+        self.assertEqual(self.sync([event]).status_code,401)
     def test_passive_receptions_allowlist_and_cache_invalidation(self):
         survey=self.start();event=self.event(survey)
         event.update(kind='reception',sender=42,packet_id=7,channel=0,rx_time=self.now,rssi=-110,snr=-5.5,via_mqtt=False,text='never retain message contents')

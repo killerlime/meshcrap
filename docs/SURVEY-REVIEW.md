@@ -1,4 +1,4 @@
-# Companion and dashboard logic review — 0.5.2-test
+# Companion and dashboard logic review — 0.6.0-test
 
 Scope: survey request lifecycle, restart behavior, candidate selection, uploads, positioning, trip summaries, setup instructions, authentication boundaries, and existing dashboard regression checks. This is a focused source/regression review, not a claim of exhaustive hardware or security certification.
 
@@ -8,7 +8,7 @@ Scope: survey request lifecycle, restart behavior, candidate selection, uploads,
 - Cooldown persists per destination on a phone across survey/channel/radio changes. Separate phones do not share that state. Retry selection remains subject to GPS/radius/channel eligibility; movement does not force a test outside those bounds.
 - Travelling fixes remain acceptable for 24 hours, candidate GPS for 12 hours, fixed/manual positions for 24 hours. Last-heard time does not filter or rank candidates. Approximate fixes are never relabelled as precise map evidence.
 - Cached candidate calculations avoid repeating formatting, distance calculations and sorting within one second. New radio packets, phone positions and radius changes invalidate the cache.
-- Queue backlog drains at five-second HTTPS intervals rather than fifteen; batches stay bounded at ten records. Normal idle polling and radio cadence are unchanged.
+- Queue backlog drains at 2.5-second HTTPS intervals rather than fifteen; batches stay bounded at ten records. Normal idle polling and radio cadence are unchanged.
 - Setup instructions now match the APK, including start/resume/end/disconnect differences, retry budget and offline-recording limitations.
 
 ## Validation
@@ -23,4 +23,6 @@ Native dashboard-and-controls source, project generation recipe, URL/origin test
 
 ## Remaining limits
 
-Coverage results describe observations, not guaranteed service. Timeouts can reflect routing/congestion as well as poor reachability. Last-hop RSSI/SNR is not whole-route RF quality. Older apps do not supply passive reception records. The app does not continuously record through expired collector authorization. Installing the matching update is required for its retry behavior; a server update cannot change an already-installed older APK.
+Coverage results describe observations, not guaranteed service. Timeouts can reflect routing/congestion as well as poor reachability. Last-hop RSSI/SNR is not whole-route RF quality. Older apps do not supply passive reception records. Phone-owned outings record offline; older collector-started outings use a bounded 24-hour authorization. Network uploads still require a valid pairing token. Installing the matching update is required for its retry behavior; a server update cannot change an already-installed older APK.
+
+Offline update: Android build, lint and 28 unit tests pass. Fifteen synthetic server tests cover separate offline trip import, replay deduplication, atomic rollback on conflicting outing metadata, late delivery after a remotely ended session and revoked credentials. Real-device airplane-mode/background/restart and notification-color checks remain necessary. The matching collector update is required for offline-created trip uploads.
