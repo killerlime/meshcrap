@@ -12,7 +12,7 @@ One request is outstanding at a time, with at least 30 seconds between starts an
 
 Results queue in private storage and upload with a revocable survey-only credential (uploads and survey start/end; no radio administration). Phone routes and traceroutes remain separate from HQ RF measurements; a phone GPS point is not proof of RF coverage. Unknown relay IDs are retained. Timeouts/routing failures permit up to three total attempts, including manual tests; success or the third failure starts an eight-hour cooldown; changing channels pauses requests until you explicitly resume.
 
-This is a debug-signed first test build. Build, unit tests and Android lint pass. Real-phone Bluetooth and radio-response testing remains necessary. Do not assume a successful software build establishes hardware compatibility.
+This is a debug-signed test build. Build, unit tests and Android lint pass. Real-phone Bluetooth and radio-response testing remains necessary. Do not assume a successful software build establishes hardware compatibility.
 
 ## Build
 

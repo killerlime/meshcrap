@@ -183,7 +183,7 @@ Original project code follows the repository's existing [Unlicense](LICENSE), ex
 
 ## Latest update
 
-The Android companion is version 0.3.0-test with clearer connection, pairing, location and survey status. Install updates over the existing app to retain its encrypted pairing. The setup page can remember a personal browser for 30 days for routine survey controls; changing or revoking a pairing still requires a fresh admin unlock. Generating a replacement pairing invalidates the previous one.
+The Android companion is version 0.6.1-test with offline outings, durable uploads, animated data flow and notification status. Install updates over the existing app to retain its encrypted pairing. The setup page can remember a personal browser for 30 days for routine survey controls; changing or revoking a pairing still requires a fresh admin unlock. Generating a replacement pairing invalidates the previous one.
 
 PKI probing has been removed; historical observations remain readable. The Funny Pages section has also been removed. Receiver role comparisons are observational scenarios, not predictions of delivery or a substitute for a controlled field test. Personal region boundaries, themed artwork, hardware overrides, network addresses and feed credentials are intentionally excluded; configure your own installation.
 
