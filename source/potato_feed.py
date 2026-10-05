@@ -11,11 +11,37 @@ def iso(timestamp):
     return datetime.fromtimestamp(timestamp,timezone.utc).isoformat()
 
 
+def omit_zero_sensor_readings(records):
+    """Omit numeric zero metrics at export; retain reception and identity fields."""
+    from meshtastic.protobuf import telemetry_pb2
+    families={field.name:field.message_type for field in telemetry_pb2.Telemetry.DESCRIPTOR.fields if field.message_type}
+    sensor_names={field.name for descriptor in families.values() for field in descriptor.fields}
+    sensor_names.update(field.json_name for descriptor in families.values() for field in descriptor.fields)
+    def clean(value):
+        if isinstance(value,dict):
+            return {k:clean(v) for k,v in value.items() if not (type(v) in (int,float) and v==0)}
+        if isinstance(value,list):return [clean(v) for v in value]
+        return value
+    for record in records:
+        record['telemetry']=dict(record.get('telemetry',{}))
+        for key in list(record):
+            if key in sensor_names and type(record[key]) in (int,float) and record[key]==0:
+                del record[key]
+            elif key in families:
+                record[key]=clean(record[key])
+        for field in telemetry_pb2.Telemetry.DESCRIPTOR.fields:
+            if field.message_type:
+                for key in (field.name,field.json_name):
+                    if key in record.get('telemetry',{}):record['telemetry'][key]=clean(record['telemetry'][key])
+    return records
+
+
 def wire_payload(payloads):
     if not payloads or not all(validate_payload(p) for p in payloads): raise ValueError('Invalid public payload')
     port=payloads[0]['portnum']
     if any(p['portnum']!=port for p in payloads): raise ValueError('Mixed types')
-    records=[dict(p, modem_preset='MediumFast',rx_iso=iso(p['rx_time'])) for p in payloads]
+    # Strip radio metadata from queued records, including older captured packets.
+    records=[dict({k:v for k,v in p.items() if k not in ('lora_freq','modem_preset')},rx_iso=iso(p['rx_time'])) for p in payloads]
     if port=='TELEMETRY_APP':
         from meshtastic.protobuf import telemetry_pb2
         from google.protobuf.json_format import ParseDict, MessageToDict
@@ -27,16 +53,15 @@ def wire_payload(payloads):
             for family,kind in families.items():
                 if family in metrics:
                     record['telemetry_type']=kind
-                    # Keep every supported sensor value, including valid zeros;
-                    # omit absent readings instead of sending null replacements.
+                    # Preserve supported sensor fields before applying export filtering.
                     record[family]=metrics[family]
                     if family in ('device_metrics','environment_metrics'):
                         record.update(metrics[family])
     if port=='NODEINFO_APP':
         nodes={}
         for p in payloads:
-            node={'num':int(p['from_id'][1:],16),'user':p['user'],'lastHeard':p['rx_time'],'modem_preset':'MediumFast','protocol':'meshtastic'}
-            for key in ('snr','lora_freq'):
+            node={'num':int(p['from_id'][1:],16),'user':p['user'],'lastHeard':p['rx_time'],'protocol':'meshtastic'}
+            for key in ('snr',):
                 if key in p: node[key]=p[key]
             if p.get('hop_start',0)>0 and 0<=p.get('hop_limit',99)<=p['hop_start']:
                 node['hopsAway']=p['hop_start']-p['hop_limit']
@@ -46,8 +71,8 @@ def wire_payload(payloads):
         records=[]
         for p in payloads:
             section=p['neighborinfo']
-            record={k:p[k] for k in ('rx_time','ingestor','protocol','lora_freq') if k in p}
-            record.update(node_id=p['from_id'],node_num=int(p['from_id'][1:],16),rx_iso=iso(p['rx_time']),modem_preset='MediumFast',neighbors=[])
+            record={k:p[k] for k in ('rx_time','ingestor','protocol') if k in p}
+            record.update(node_id=p['from_id'],node_num=int(p['from_id'][1:],16),rx_iso=iso(p['rx_time']),neighbors=[])
             for n in section.get('neighbors',[]):
                 heard=n.get('lastRxTime',p['rx_time']) or p['rx_time']
                 entry=dict(neighbor_id=f"!{n['nodeId']:08x}",neighbor_num=n['nodeId'],rx_time=heard,rx_iso=iso(heard))
@@ -56,6 +81,7 @@ def wire_payload(payloads):
             if 'nodeBroadcastIntervalSecs' in section:record['node_broadcast_interval_secs']=section['nodeBroadcastIntervalSecs']
             if section.get('lastSentById',0)>0:record['last_sent_by_id']=f"!{section['lastSentById']:08x}"
             records.append(record)
+    if port=='TELEMETRY_APP':records=omit_zero_sensor_readings(records)
     return records
 
 

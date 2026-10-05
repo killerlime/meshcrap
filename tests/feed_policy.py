@@ -29,6 +29,28 @@ with tempfile.TemporaryDirectory(prefix='feed-policy-') as directory:
     from unittest.mock import patch
     token=mf_feed.ROOT/'potato-feed/api-token';token.write_text('synthetic-test-token')
     payload=potato_feed.wire_payload([valid]);assert payload[0]['text']=='Synthetic test'
+    def no_radio_metadata(value):
+        if isinstance(value,dict):
+            assert not {'lora_freq','modem_preset'}&value.keys()
+            for item in value.values():no_radio_metadata(item)
+        elif isinstance(value,list):
+            for item in value:no_radio_metadata(item)
+    sections={'TEXT_MESSAGE_APP':'Synthetic test','NODEINFO_APP':{'id':valid['from_id'],'longName':'Test'},'POSITION_APP':{'latitudeI':440000000,'longitudeI':-930000000},'TELEMETRY_APP':{'time':valid['rx_time'],'deviceMetrics':{'batteryLevel':0,'voltage':0}},'NEIGHBORINFO_APP':{'nodeId':int(valid['from_id'][1:],16),'neighbors':[{'nodeId':0x34567890,'snr':0}]}}
+    original_allowed=mf_feed.ALLOWED
+    mf_feed.ALLOWED=set(sections)
+    for port,section in sections.items():
+        sample={k:v for k,v in valid.items() if k!='text'}
+        sample.update(portnum=port,lora_freq=906.875,snr=0)
+        sample[mf_feed.SECTIONS[port]]=mf_feed.clean_section(port,section,sample['from_id'])
+        before=json.dumps(sample,sort_keys=True)
+        output=potato_feed.wire_payload([sample]);no_radio_metadata(output)
+        assert json.dumps(sample,sort_keys=True)==before
+        if isinstance(output,list):assert output[0]['rx_iso']==potato_feed.iso(sample['rx_time'])
+        if port=='TELEMETRY_APP':
+            assert 'battery_level' not in output[0] and 'voltage' not in output[0]
+            assert not output[0]['device_metrics']
+            assert not output[0]['telemetry']['deviceMetrics']
+    mf_feed.ALLOWED=original_allowed
     class Reply:
         status=201
         def __enter__(self):return self
@@ -40,6 +62,7 @@ with tempfile.TemporaryDirectory(prefix='feed-policy-') as directory:
         assert opener.return_value.open.call_count==1
         request=opener.return_value.open.call_args.args[0]
         assert request.full_url=='https://example.invalid/api/messages'
+        no_radio_metadata(json.loads(request.data))
     assert mf_feed.capture(packet|{'id':2},radio)
     with patch('urllib.request.build_opener') as opener:
         opener.return_value.open.side_effect=TimeoutError('Synthetic uncertain response')
