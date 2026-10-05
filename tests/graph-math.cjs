@@ -1,0 +1,11 @@
+const vm=require('vm'),fs=require('fs'),assert=require('node:assert/strict');
+const window={};vm.runInNewContext(fs.readFileSync('source/dashboard/static/graph-math.js','utf8'),{window});
+const p=window.RFGraphMath.pearson,series=Array.from({length:12},(_,i)=>[i,2*i]);
+assert.equal(p(series).r,1);assert.equal(p(series.map(([x,y])=>[x,-y])).r,-1);
+assert.equal(p(series.slice(0,11)).r,null);assert.equal(p(series.map(([x])=>[x,1])).r,null);
+assert.equal(p([...series,[null,5],[3,NaN]]).n,12);
+const intensity=window.RFGraphMath.nodeIntensity;
+assert.equal(intensity({packets_per_observed_hour:120,unique_nodes:30}),4);
+assert.equal(intensity({packets_per_observed_hour:0,unique_nodes:5}),0);
+for(const row of [{packets_per_observed_hour:4,unique_nodes:0},{packets_per_observed_hour:null,unique_nodes:2},{packets_per_observed_hour:Infinity,unique_nodes:2},{packets_per_observed_hour:4,unique_nodes:null}])assert.equal(intensity(row),null);
+console.log('PASS: correlation excludes missing readings, requires 12 paired hours, handles constant values and positive/negative relationships');

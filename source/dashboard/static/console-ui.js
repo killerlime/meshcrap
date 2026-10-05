@@ -31,7 +31,7 @@
 
   const controls=document.querySelector('main>.controls');const scope=el('span','Shared time window','console-scope');controls?.append(scope);
 
-  const sync=()=>{const selected=nav.querySelector('[aria-selected=true]');if(!selected)return;const id=selected.id.replace('dashboard-tab-','');if(controls)controls.hidden=!['overview','insights','nodes','relays','map','filter','role','whatif'].includes(id);const windowSelect=controls?.querySelector('#dashboardTimeWindow');if(windowSelect)windowSelect.value=String(window.getDashboardHours?.()||24);try{sessionStorage.setItem('console-active-tab',id);}catch{};controls?.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.getAttribute('onclick')?.match(/setHours\((\d+)\)/)?.[1])===(typeof hours==='number'?hours:24))));};
+  const sync=()=>{const selected=nav.querySelector('[aria-selected=true]');if(!selected)return;const id=selected.id.replace('dashboard-tab-','');if(controls)controls.hidden=!['overview','insights','nodes','relays','graphs','map','filter','role','whatif'].includes(id);const windowSelect=controls?.querySelector('#dashboardTimeWindow');if(windowSelect)windowSelect.value=String(window.getDashboardHours?.()||24);try{sessionStorage.setItem('console-active-tab',id);}catch{};controls?.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.getAttribute('onclick')?.match(/setHours\((\d+)\)/)?.[1])===(typeof hours==='number'?hours:24))));};
 
   nav.addEventListener('click',()=>queueMicrotask(sync));window.addEventListener('dashboard:time-window',()=>queueMicrotask(sync));controls?.addEventListener('click',()=>queueMicrotask(sync));
 

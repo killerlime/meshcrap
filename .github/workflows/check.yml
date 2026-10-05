@@ -30,6 +30,10 @@ jobs:
       - run: python tests/tropo_evidence.py
       - run: python tests/public_weather_cache.py
       - run: node tests/visible-poll.cjs
+      - run: node tests/graph-math.cjs
+      - run: python tests/graph_filters.py
+      - run: node tests/message-read.cjs
+      - run: python tests/message_heads.py
       - run: node tests/mesh-simulator.cjs
       - run: node tests/role-model.cjs
       - run: node tests/refresh-controls.cjs

@@ -19,7 +19,7 @@
     const go = id => byId('dashboard-tab-' + id)?.click();
 
     const pages = [
-      ['overview','Overview'], ['nodemap','Node map'], ['map','Map & coverage'], ['survey','Survey'], ['nodes','Nodes'], ['relays','Relays'],
+      ['overview','Overview'], ['nodemap','Node map'], ['map','Map & coverage'], ['survey','Survey'], ['nodes','Nodes'], ['relays','Relays'], ['graphs','Graphs'],
       ['messages','Messages'], ['insights','Insights'], ['control','Node control'],
       ['filter','LNA test'], ['heardby','Heard by'], ['role','HQ role comparison'], ['whatif','What-if'],
       ['tropo','Tropo'], ['ask','Ask questions'], ['ingestors','MSP ingestors'],

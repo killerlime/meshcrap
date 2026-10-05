@@ -2089,6 +2089,14 @@ def rf_health_hourly():
 
     hours = max(1, min(hours, 720))
 
+    device_mode = request.args.get('device_mode', 'ALL').strip().upper()
+    import re
+    if not re.fullmatch(r'[A-Z][A-Z0-9_]{0,49}', device_mode):
+        return jsonify(error='Invalid device mode'), 400
+    node_group = request.args.get('node_group', 'all')
+    if node_group not in ('all', 'only_local', 'exclude_local'):
+        return jsonify(error='Invalid node group'), 400
+
     RECEIVER_ID = "@@RECEIVER_ID@@"
 
     experiment = json.loads((DB.parent / "reports" / "lna-experiment.json").read_text())
@@ -2099,6 +2107,15 @@ def rf_health_hourly():
     start = max(experiment_start, now - timedelta(hours=hours))
 
     conn = db()
+
+    # Keep receiver observation time and local stats independent of this
+    # originating-node filter. Roles are latest metadata, not historical roles.
+    known_nodes = conn.execute('SELECT node_num, role, long_name, short_name FROM nodes').fetchall()
+    node_modes = {r['node_num']: (r['role'] or 'UNKNOWN').strip().upper() or 'UNKNOWN'
+                  for r in known_nodes}
+    local_nodes = {r['node_num'] for r in known_nodes
+                if any((r[k] or '').strip().lower().startswith('@@NODE_PREFIX_LOWER@@') for k in ('long_name', 'short_name'))}
+    device_modes = sorted(set(node_modes.values()))
 
     rows = conn.execute("""
         SELECT
@@ -2206,7 +2223,9 @@ def rf_health_hourly():
         except (ValueError, TypeError):
             diagnostic_reply = False
         # Mesh reception metrics exclude Receiver self telemetry and known PKI poll replies.
-        if r["from_id"] != RECEIVER_ID and not diagnostic_reply:
+        if (r["from_id"] != RECEIVER_ID and not diagnostic_reply
+                and (device_mode == 'ALL' or node_modes.get(r['from_num'], 'UNKNOWN') == device_mode)
+                and (node_group == 'all' or (r['from_num'] in local_nodes) == (node_group == 'only_local'))):
 
             b["packets"] += 1
 
@@ -2549,6 +2568,9 @@ def rf_health_hourly():
         "fixed_setup": experiment["fixed_setup"],
         "current_lna_state": transitions[-1][1],
         "hours": hours,
+        "device_mode": device_mode,
+        "device_modes": device_modes,
+        "node_group": node_group,
         "generated":
             now.isoformat(),
         "timeline":

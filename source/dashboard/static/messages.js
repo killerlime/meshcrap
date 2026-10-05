@@ -39,9 +39,12 @@
       if(!response.ok)throw new Error('Request failed');
       const data=await response.json();await RFRefresh.ready();
       if(data.channel!==Number(channelSelect.value))throw new Error('Channel change is not active yet');
+      const receivedHead=Math.max(0,...data.messages.map(m=>Number(m.id)||0));
       data.messages=[...data.messages,...(data.sent_messages||[])].sort((a,b)=>Date.parse(b.received_at)-Date.parse(a.received_at));
       loaded=data;exportButton.disabled=data.messages.length===0;
       cursor=target;next=data.next_before;render();
+      if(!target&&!search.value.trim()&&window.scrollY<80&&window.parent!==window)
+        window.parent.postMessage({type:'rf:messages-read',channel:String(data.channel),id:receivedHead},location.origin);
       document.querySelector('h1').textContent=data.channel_name+' messages';
       document.getElementById('empty').hidden=data.messages.length>0;
       older.hidden=!next;latest.hidden=!cursor;
