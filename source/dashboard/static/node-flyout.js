@@ -13,7 +13,7 @@
  window.enhanceNodeFlyout=d=>{
   window.stopFlyoutRequests();const gen=generation,n=d.node||{},node=n.node_id,body=document.getElementById('telemetryBody');
   const section=title=>{const e=el('section');e.className='telemetry-section';const h=el('h3',title);h.className='telemetry-section-title';e.append(h);return e;};
-  const info=section('Node identity');fields(info,{'Node ID':node||telemetryNode,'Short name':n.short_name,'Long name':n.long_name,'Reported hardware':n.hw_model,'Role':n.role,'Node record updated':n.node_updated_at});body.prepend(info);
+  const info=section('Node identity');fields(info,{'Node ID':node||telemetryNode,'Short name':n.short_name,'Long name':n.long_name,'Reported hardware':n.hw_model,'Role':n.role,'Node record updated':n.node_updated_at&&Number.isFinite(Date.parse(n.node_updated_at))?new Date(n.node_updated_at).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit',timeZoneName:'short'}):null});body.prepend(info);
   const heard=el('div');heard.className='telemetry-row';const time=el('time',d.first_heard?new Date(d.first_heard).toLocaleString():'Not recorded');if(d.first_heard)time.dateTime=d.first_heard;heard.title='Earliest retained local radio reception; excludes imported metadata and startup snapshots.';heard.append(el('span','First heard here'),time);info.append(heard);
   for(const [key,title] of [['position','Last reported location'],['environment','Environmental metrics'],['environment_radio','Radio-reported environmental metrics']]){
    const card=section(title),item=d.details?.[key];if(key==='environment_radio'&&!item)continue;
