@@ -40,7 +40,6 @@ for name in result.stdout.decode().split('\0'):
     }
     # Fingerprints avoid republishing the private labels this check rejects.
     if '/proto/' not in name and not name.startswith('licenses/'):
-        denied={'313f63a03b64a6deb4dff8bfe931825f89b7af9e64011d2d2e21e705ed2e5e3d', 'c9f5b7e52716ade5d621c97ffd845a64ea2946746d959b8ee6a057444ca6f8e9', '226015df8a6ee1cd5f690a3ecae3666057355f105e1ede087fce6a62e923cb91', '31b25869b39f1baa9e7fc279255901b696c36629e57294d4455f479534139852', '0b29840c2c1eec11b89bcc6078d86406afad04d30ca5ce67e0fef350845efb5e', '27d300fe53b3b94f115cfd63be02d868bcb8f755e56893709418084c1bfab1cd', '3293c9f8c7f1a0363cd54d6ca49c28ae160f4461d57b16a8ea8b4ffc5fe966be', '95fd8a89b0edb9824c750830d2043e9eb28238a313b249bb49803dfd26d7c47f', '2022d9212721bdd79490399a3ff328f3eef1ddf110edf7f4ab0e837e6f76e4d6', 'd2dbb2be65d9c5fd405224832a5cda87e4e09542c20ff2efe82aa5f3ee056760'}
         words=re.findall(r'[a-z0-9]+',text.lower())
         candidates=words+[a+sep+b for a,b in zip(words,words[1:]) for sep in ('-',' ')]
         if any(hashlib.sha256(w.encode()).hexdigest() in denied for w in candidates):

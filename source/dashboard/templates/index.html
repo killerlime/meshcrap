@@ -1155,14 +1155,14 @@ Receiver reception analysis &amp; site monitoring
 </div>
 <div id="receiverStats" style="display:flex;gap:32px;flex-wrap:wrap;margin-top:14px"></div>
 </section>
-<div id="nodeSummary" class="console-summary" aria-label="Filtered node summary"></div><p class="muted">Observed in the selected time window; cached node records are excluded. Activity means a recorded update, not proof a node is online. Signal measures the final received radio link, which may be a relay.</p>
+<div id="nodeSummary" class="console-summary" aria-label="Filtered node summary"></div><p class="muted">Recorded updates in this window; cached records excluded. Activity does not prove a node is online. Signal is the final hop, possibly a relay.</p>
 <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
 <label>Find node <input id="nodeSearch" type="search" placeholder="Name, shortname or node ID" oninput="renderNodeTable()" style="min-width:240px;padding:8px 10px;border:1px solid #35463c;border-radius:6px;background:#101b15;color:#e7f3eb"></label>
 <label><input id="nodeJkOnly" type="checkbox" onchange="if(this.checked)document.getElementById('nodeExcludeLocal').checked=false;renderNodeTable()"> Local nodes only</label><label><input id="nodeExcludeLocal" type="checkbox" onchange="if(this.checked)document.getElementById('nodeJkOnly').checked=false;renderNodeTable()"> Exclude Local nodes</label>
 <button id="exportNodesCsv" type="button" onclick="exportNodesCsv()" disabled>Export CSV</button>
 <span id="nodeCount" class="muted" aria-live="polite"></span>
 </div>
-<p class="muted">Direct % uses only packets with a known hop count. A dash means no measurement. Distance uses the installed site or last advertised position and may be out of date.</p>
+<p class="muted">Direct % excludes unknown hops. — means no data. Distance uses the installed or advertised position, which may be old.</p>
 
 <div class="node-table-scroll">
 
@@ -1196,7 +1196,7 @@ Receiver reception analysis &amp; site monitoring
 <div class="space"></div>
 <div class="card">
 <h2>Mesh Records & Achievements</h2>
-<p class="muted">Activity and signal records use the selected time window. Discoveries mean first recorded here. Distance records use all retained packets with a packet position or installed site; current advertised positions are excluded. Mesh reach is distance to the sender, not radio path length. SNR measures the received link.</p>
+<p class="muted">Activity and signal use this window; discoveries are first seen here. Distance records use saved packet or installed positions, not current advertised positions. Reach is sender distance, not route length. SNR is the received link.</p>
 
 <div class="noc-grid" id="nocRecords"></div>
 
@@ -1283,12 +1283,12 @@ Survey idle
      style="display:none;margin-bottom:14px">
 </div>
 
-<div id="coverageSummary" class="noc-grid"><div class="noc-record"><div class="muted">Coverage</div><div class="value">--</div></div></div><div id="coverageProgress" style="margin-top:12px"></div><div class="muted" id="coverageNote" style="margin-top:8px">Demonstrated coverage from fixed and mobile nodes. Target: 90%.</div></div><div class="space"></div>
+<div id="coverageSummary" class="noc-grid"><div class="noc-record"><div class="muted">Coverage</div><div class="value">--</div></div></div><div id="coverageProgress" style="margin-top:12px"></div><div class="muted" id="coverageNote" style="margin-top:8px">Fixed + mobile coverage · target 90%.</div></div><div class="space"></div>
 <div class="card">
 
 <h2>Mesh Map</h2>
 <button onclick="focusCoverageArea()">View selected grid</button>
-<p class="muted">Browse anywhere. Grids are optional overlays; changing the selected grid keeps your map view in place.</p>
+<p class="muted">Browse freely. Changing grids keeps your view.</p>
 <details><summary>Coverage regions</summary><p>Region boundaries and grid sizes are defined in your local configuration.</p></details>
 
 <label>
@@ -1312,7 +1312,7 @@ Show all located nodes
 <div class="map-legend" aria-label="Coverage grid legend" style="margin:8px 0;line-height:1.8">
 <span><span id="coverageGridSize">1-mile grid:</span></span> <span style="color:#39d98a">■ Proven</span> <span style="color:#f2c94c">■ Marginal</span> <span style="color:#9b8afb">▧ Stale · over 30 days</span> <span>□ Untested</span>
 <label style="margin-left:10px"><input id="testedCoverageOnly" type="checkbox" checked onchange="renderCoverageLayer(true)"> Tested cells only</label>
-</div><div class="muted" style="margin-bottom:8px">Refreshes keep your view in place. Click a colored cell for evidence; nodes stay above the grid.</div>
+</div><div class="muted" style="margin-bottom:8px">Click a colored cell for evidence. Refreshes keep your view.</div>
 <div id="meshmap"></div>
 
 </div>
@@ -3543,7 +3543,7 @@ function renderTelemetry(d) {
              id="nodeNotesText"
              class="node-notes-box"
              maxlength="2000"
-             placeholder="Small free-text notes about this node...">${
+             placeholder="Add a node note…">${
                 esc(existingNote)
             }</textarea>
 
@@ -3792,9 +3792,9 @@ function renderSurvey(d) {
         return `<tr><td>${esc(node(t.source))} → ${esc(node(t.destination))}</td><td>${esc(t.status.replaceAll('_',' '))}</td><td>${Number(t.channel)}</td><td title="${esc(new Date(t.time*1000).toISOString())}">${esc(new Date(t.time*1000).toLocaleString())}</td><td>${route?esc(path([t.source,...route,t.destination])):'—'}${back?'<br>Return: '+esc(path([t.destination,...back,t.source])):''}</td></tr>`;
     }).join('');
     live.innerHTML=cards.map(([label,value])=>`<div class="noc-record"><div class="muted">${esc(label)}</div><div class="value">${esc(String(value))}</div></div>`).join('')+
-        `<div class="muted" style="grid-column:1/-1">${esc(metrics?.note||s.contribution_note||'')}<br>Green: reply received; blue: packet heard; amber: no reply. A route line alone is untested travel.<br>${metrics?esc(`${metrics.approximate_fixes} approximate fixes; ${metrics.recording_gaps} recording gaps; ${metrics.no_reply} timeouts; ${metrics.incomplete} incomplete requests. ${metrics.small_sample?'Few completed tests: avoid generalizing beyond the observations.':''} ${!metrics.received_packets?'Passive receptions require the updated companion; older trips cannot be backfilled.':''}`):''}<br>Phone survey: ${esc(s.traceroute_status||'Phone not connected')}. ${Number(s.phone?.successes||0)} successful routes from ${Number(s.phone?.trace_count||0)} recorded requests. Phone GPS is a path record, not proof of radio coverage.</div>`+
+        `<div class="muted" style="grid-column:1/-1">${esc(metrics?.note||s.contribution_note||'')}<br>Green: reply · blue: heard · amber: no reply. Tracks alone do not prove coverage.<br>${metrics?esc(`${metrics.approximate_fixes} approximate fixes; ${metrics.recording_gaps} recording gaps; ${metrics.no_reply} timeouts; ${metrics.incomplete} incomplete requests. ${metrics.small_sample?'Few tests: results are limited.':''} ${!metrics.received_packets?'Passive receptions require the updated companion; older trips cannot be backfilled.':''}`):''}<br>Phone survey: ${esc(s.traceroute_status||'Phone not connected')}. ${Number(s.phone?.successes||0)} successful routes from ${Number(s.phone?.trace_count||0)} recorded requests. GPS tracks do not prove coverage.</div>`+
         `<button id="surveyFitRoute" type="button" style="min-height:44px">Fit recorded route</button>`+
-        (traceRows?`<details style="grid-column:1/-1;min-width:0"><summary>Phone traceroute results</summary><div style="overflow:auto"><table><thead><tr><th>Route</th><th>Outcome</th><th>Channel</th><th>Time</th><th>Observed path</th></tr></thead><tbody>${traceRows}</tbody></table></div><p class="muted">Latest 100 requests. Summary totals include every retained companion record. Unknown relays remain unknown. Complete records are retained separately.</p></details>`:'');
+        (traceRows?`<details style="grid-column:1/-1;min-width:0"><summary>Phone traceroute results</summary><div style="overflow:auto"><table><thead><tr><th>Route</th><th>Outcome</th><th>Channel</th><th>Time</th><th>Observed path</th></tr></thead><tbody>${traceRows}</tbody></table></div><p class="muted">Latest 100 requests shown; totals include all saved records. Unknown relays remain unknown.</p></details>`:'');
     const routePoints=(s.routes||[]).flatMap(route=>(route.segments||[]).flat());
     const fitRoute=document.getElementById('surveyFitRoute');fitRoute.disabled=!routePoints.length;
     fitRoute.onclick=()=>{if(meshMap&&routePoints.length)meshMap.fitBounds(L.latLngBounds(routePoints),{padding:[24,24],maxZoom:15});};
@@ -3882,7 +3882,7 @@ RFRefresh.every('survey',loadSurvey,5000);
 
 
 function coverageColor(s){return s==="PROVEN"?"#39d98a":s==="MARGINAL"?"#f2c94c":s==="STALE"?"#9b8afb":"#586069";}
-function renderCoverageSummary(d){const e=document.getElementById("coverageSummary"),p=document.getElementById("coverageProgress"),n=document.getElementById("coverageNote");if(!e)return;const c=d.counts||{},x=Number(d.demonstrated_pct||0),t=Number(d.tested_pct||0);e.innerHTML=`<div class="noc-record"><div class="muted">Demonstrated</div><div class="value">${x.toFixed(1)}%</div><div class="muted">90% target</div></div><div class="noc-record"><div class="muted">Tested · last 30 days</div><div class="value">${t.toFixed(1)}%</div><div class="muted">${d.evidence_packets||0} current observations</div></div><div class="noc-record"><div class="muted">Proven</div><div class="value">${c.PROVEN||0}</div><div class="muted">cells</div></div><div class="noc-record"><div class="muted">Marginal</div><div class="value">${c.MARGINAL||0}</div><div class="muted">cells</div></div><div class="noc-record"><div class="muted">Stale</div><div class="value">${c.STALE||0}</div><div class="muted">cells · over 30 days</div></div><div class="noc-record"><div class="muted">Untested</div><div class="value">${c.UNTESTED||0}</div><div class="muted">cells</div></div><div class="noc-record"><div class="muted">Remaining</div><div class="value">${Number(d.target_remaining||0).toFixed(1)}</div><div class="muted">percentage points</div></div>`;if(p)p.innerHTML=`<div style="height:16px;border:1px solid #56606a;border-radius:8px;overflow:hidden;position:relative"><div style="height:100%;width:${Math.min(100,x)}%;background:#39d98a"></div><div style="position:absolute;left:90%;top:0;bottom:0;border-left:2px solid #fff"></div></div>`;if(n)n.textContent=`${d.name} - ${d.cell_miles} mi cells - ${d.total_cells} cells - fixed and mobile nodes count as proof for 30 days · older records stay visible as stale`;}
+function renderCoverageSummary(d){const e=document.getElementById("coverageSummary"),p=document.getElementById("coverageProgress"),n=document.getElementById("coverageNote");if(!e)return;const c=d.counts||{},x=Number(d.demonstrated_pct||0),t=Number(d.tested_pct||0);e.innerHTML=`<div class="noc-record"><div class="muted">Demonstrated</div><div class="value">${x.toFixed(1)}%</div><div class="muted">90% target</div></div><div class="noc-record"><div class="muted">Tested · last 30 days</div><div class="value">${t.toFixed(1)}%</div><div class="muted">${d.evidence_packets||0} current observations</div></div><div class="noc-record"><div class="muted">Proven</div><div class="value">${c.PROVEN||0}</div><div class="muted">cells</div></div><div class="noc-record"><div class="muted">Marginal</div><div class="value">${c.MARGINAL||0}</div><div class="muted">cells</div></div><div class="noc-record"><div class="muted">Stale</div><div class="value">${c.STALE||0}</div><div class="muted">cells · over 30 days</div></div><div class="noc-record"><div class="muted">Untested</div><div class="value">${c.UNTESTED||0}</div><div class="muted">cells</div></div><div class="noc-record"><div class="muted">Remaining</div><div class="value">${Number(d.target_remaining||0).toFixed(1)}</div><div class="muted">percentage points</div></div>`;if(p)p.innerHTML=`<div style="height:16px;border:1px solid #56606a;border-radius:8px;overflow:hidden;position:relative"><div style="height:100%;width:${Math.min(100,x)}%;background:#39d98a"></div><div style="position:absolute;left:90%;top:0;bottom:0;border-left:2px solid #fff"></div></div>`;if(n)n.textContent=`${d.name} - ${d.cell_miles} mi cells - ${d.total_cells} cells - Fixed + mobile evidence · stale after 30 days`;}
 function renderCoverageLayer(force=false){if(!meshMap||!coverageData)return;if(force)renderCoverageRegions(coverageData);if(!force&&(mapInteracting||mapPopupOpen||mapNodeHoverOpen))return;const signature=JSON.stringify([coverageData.cells,!!document.getElementById("showCoverage")?.checked,!!document.getElementById("testedCoverageOnly")?.checked]);if(!force&&signature===coverageSignature)return;coverageSignature=signature;if(coverageLayer)coverageLayer.remove();coverageLayer=L.layerGroup();if(!document.getElementById("showCoverage")?.checked)return;(coverageData.cells||[]).filter(c=>!document.getElementById("testedCoverageOnly")?.checked||c.status!=="UNTESTED").forEach(c=>{(c.display_bounds||[c.bounds]).forEach(bounds=>{const col=coverageColor(c.status),r=L.rectangle(bounds,{pane:"coverageGrid",renderer:coverageRenderer,color:col,weight:c.status==="UNTESTED"?.6:1.2,opacity:c.status==="UNTESTED"?.3:.7,dashArray:c.status==="STALE"?"7 5":null,fillColor:col,fillOpacity:c.status==="UNTESTED"?0:.16,interactive:c.status!=="UNTESTED"});r.bindPopup(`<div class="popup-name">${esc(c.status)} coverage cell</div><div>${c.status==="STALE"?"Historical coverage only · no observations in the last 30 days":"Coverage based on the last 30 days"}</div><div><b>Current samples:</b> ${c.current_samples||0}</div><div><b>Older samples:</b> ${c.stale_samples||0}</div><div><b>Nodes:</b> ${(c.nodes||[]).map(esc).join(", ")||"--"}</div><div><b>Avg SNR:</b> ${c.avg_snr==null?"--":fmt(c.avg_snr)+" dB"}</div><div><b>Best SNR:</b> ${c.best_snr==null?"--":fmt(c.best_snr)+" dB"}</div><div><b>Avg hops:</b> ${c.avg_hops==null?"--":fmt(c.avg_hops,2)}</div><div><b>Direct:</b> ${c.direct_pct==null?"--":fmt(c.direct_pct)+"%"}</div><div><b>Last tested:</b> ${c.last_seen?age(c.last_seen):"--"}</div>`);r.addTo(coverageLayer);});});coverageLayer.addTo(meshMap);}
 async function loadCoverage(){const area=coverageArea;try{const data=await cachedMapResponse('/api/coverage?area='+encodeURIComponent(area),60000);if(area!==coverageArea)return;if(coverageData===data){renderCoverageLayer();return;}coverageData=data;document.getElementById('dashboard-panel-map')?.classList.remove('western-theme');document.getElementById('coverageAreaHeading').textContent=data.name+' Coverage';document.getElementById('coverageGridSize').textContent=data.cell_miles+'-mile grid:';renderCoverageSummary(data);renderCoverageLayer();renderCoverageRegions(data);document.getElementById('coverageAreaHeading').style.color=data.accent;}catch(e){console.error('coverage',e);}}
 
@@ -4054,7 +4054,7 @@ async function loadMap() {
         });
 
         marker.addTo(nodeLayer);
-        installMapNodeHover(marker, meshMap, popup + '<div class="node-hover-hint">Click or tap for full details · Esc to dismiss</div>', name);
+        installMapNodeHover(marker, meshMap, popup + '<div class="node-hover-hint">Tap for details · Esc to close</div>', name);
 
         bounds.push([
             n.latitude,

@@ -190,7 +190,7 @@
     const heading = overview.querySelector('.console-panel-heading');
     if (heading) {
       heading.querySelector('h2').textContent = 'Reception at Receiver';
-      heading.querySelector('p').textContent = 'Current activity and changes in the selected window';
+      heading.querySelector('p').textContent = 'Activity in the selected window';
     }
 
     const briefing = el('section', null, 'rf-briefing'); briefing.id = 'rfBriefing';
@@ -233,7 +233,7 @@
       const history = el('section', null, 'rf-stored-history');
       history.setAttribute('aria-labelledby', 'rfStoredHistoryTitle');
       const title = el('h2', 'Stored History'); title.id = 'rfStoredHistoryTitle';
-      const description = el('p', 'Saved collector records and known nodes, separate from the reception window above.');
+      const description = el('p', 'Saved records · separate from the window above.');
       history.append(title, description, storedStats);
       briefing.after(history);
     }
@@ -253,7 +253,7 @@
     const wrap=el('div',null,'rf-recent-table-wrap');wrap.tabIndex=0;wrap.setAttribute('role','region');wrap.setAttribute('aria-label','Sortable recently heard nodes');
     const table=el('table',null,'rf-recent-table'),caption=el('caption','Recently heard nodes');caption.className='rf-sr-only';table.append(caption);
     const thead=el('thead'),headrow=el('tr'),tbody=el('tbody');thead.append(headrow);table.append(thead,tbody);wrap.append(table);
-    const help=el('p','Sort any column by its heading. Signal describes the last radio hop; it is not an end-to-end reading. Power is the latest report found in the recent packet sample.','rf-recent-help');
+    const help=el('p','Click a heading to sort. Signal is the last radio hop; power is the latest sampled report.','rf-recent-help');
     recentBox.replaceChildren(toolbar,recentNote,wrap,help);
     const numeric=value=>typeof value==='number'&&Number.isFinite(value)?value:null;
     const timestamp=value=>Number.isFinite(Date.parse(value))?Date.parse(value):null;
@@ -351,7 +351,7 @@
         const a=d.current,b=d.previous;
         metrics[0].value.textContent=count(a.packets); metrics[0].note.textContent=`${count(b.packets)} in previous ${windowLabel(h)}`;
         metrics[1].value.textContent=count(a.nodes); metrics[1].note.textContent=`${count(b.nodes)} in previous ${windowLabel(h)}`;
-        metrics[2].value.textContent=count(a.direct); metrics[2].note.textContent=`${count(a.unknown_hops)} packets have unknown hops`;
+        metrics[2].value.textContent=count(a.direct); metrics[2].note.textContent=`${count(a.unknown_hops)} packets with unknown hops`;
         metrics[3].value.textContent=Number.isFinite(a.observed_pct)?`${a.observed_pct.toLocaleString(undefined,{maximumFractionDigits:1})}%`:'—';
         metrics[3].note.textContent='Based on HQ self updates';
         metrics.forEach(m => m.button.setAttribute('aria-label', `${m.label.textContent}: ${m.value.textContent}. ${m.note.textContent}. Open details.`));
@@ -365,13 +365,13 @@
           trendTitle.textContent=`${Math.round(Math.abs(pct))}% ${pct>=0?'more':'fewer'} packets than the previous ${windowWords(h)}`;
           trendText.textContent=`${count(d.newly_heard_count)} nodes heard only in this window; ${count(d.quiet_count)} previously active nodes not heard here. Reception at HQ does not measure total mesh traffic.`;
         } else {
-          trendTitle.textContent='More history is needed for a meaningful trend';
+          trendTitle.textContent='Not enough history to compare';
           trendText.textContent=`The previous window has ${count(b.packets)} qualifying packets. Current counts describe reception at HQ.`;
         }
         lastHours=h;loadedAt=Date.now();
-        stamp.textContent=`Last ${windowLabel(h)} · updated ${new Date(loadedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})} · ordinary remote packets; self-traffic and diagnostic traffic excluded`;
+        stamp.textContent=`Last ${windowLabel(h)} · updated ${new Date(loadedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})} · Remote packets only · excludes self and diagnostics`;
       } catch(error) {
-        stamp.textContent=lastHours===h?'Summary could not refresh. Previous readings remain visible; retrying automatically.':'Reception summary unavailable. Retrying automatically; live node details remain below.';
+        stamp.textContent=lastHours===h?'Refresh failed · showing previous readings. Retrying…':'Summary unavailable. Retrying… Node details are below.';
         if (lastHours!==h) {metrics.forEach(m=>m.note.textContent='Unavailable');trendTitle.textContent='Waiting for reception summary';}
       } finally {
         busy=false;briefing.setAttribute('aria-busy','false');
