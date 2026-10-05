@@ -2839,6 +2839,9 @@ register_heywhatsthat(app, DB)
 from receiver_diagnostics import register_receiver_diagnostics
 register_receiver_diagnostics(app, DB)
 
+from relay_activity import register_relay_activity
+register_relay_activity(app, DB, '@@RECEIVER_ID@@')
+
 if __name__ == "__main__":
     if @@ENABLE_WEATHER@@: start_weather()
     import sys
