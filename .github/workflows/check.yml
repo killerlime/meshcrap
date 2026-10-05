@@ -36,6 +36,7 @@ jobs:
       - run: node tests/dashboard-refresh.cjs
       - run: node tests/traffic-simulation.cjs
       - run: node tests/map-report.cjs
+      - run: python tests/first_heard.py
       - run: python tests/frontend.py
       - run: python tests/privacy_check.py
       - run: python tests/licenses.py

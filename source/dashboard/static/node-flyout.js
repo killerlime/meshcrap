@@ -14,6 +14,7 @@
   window.stopFlyoutRequests();const gen=generation,n=d.node||{},node=n.node_id,body=document.getElementById('telemetryBody');
   const section=title=>{const e=el('section');e.className='telemetry-section';const h=el('h3',title);h.className='telemetry-section-title';e.append(h);return e;};
   const info=section('Node identity');fields(info,{'Node ID':node||telemetryNode,'Short name':n.short_name,'Long name':n.long_name,'Reported hardware':n.hw_model,'Role':n.role,'Node record updated':n.node_updated_at});body.prepend(info);
+  const heard=el('div');heard.className='telemetry-row';const time=el('time',d.first_heard?new Date(d.first_heard).toLocaleString():'Not recorded');if(d.first_heard)time.dateTime=d.first_heard;heard.title='Earliest retained local radio reception; excludes imported metadata and startup snapshots.';heard.append(el('span','First heard here'),time);info.append(heard);
   for(const [key,title] of [['position','Last reported location'],['environment','Environmental metrics'],['environment_radio','Radio-reported environmental metrics']]){
    const card=section(title),item=d.details?.[key];if(key==='environment_radio'&&!item)continue;
    if(item){const values={...item.values};if(key==='position'){if(values.latitudeI!=null){values.latitude=values.latitudeI/1e7;delete values.latitudeI;}if(values.longitudeI!=null){values.longitude=values.longitudeI/1e7;delete values.longitudeI;}if(values.altitude!=null){values['Altitude (m)']=values.altitude;delete values.altitude;}if(values.time){values['Node position time']=new Date(values.time*1000).toLocaleString();delete values.time;}if(values.groundTrack!=null){values['Ground track (raw)']=values.groundTrack;delete values.groundTrack;}if(values.groundSpeed!=null){values['Ground speed (raw)']=values.groundSpeed;delete values.groundSpeed;}}
@@ -22,19 +23,20 @@
    info.after(card);
   }
   const location=d.details?.position,position=location?.values||{};
-  const latitude=position.latitudeI!=null?Number(position.latitudeI)/1e7:(position.latitude==null?NaN:Number(position.latitude));
-  const longitude=position.longitudeI!=null?Number(position.longitudeI)/1e7:(position.longitude==null?NaN:Number(position.longitude));
+  const installed=n.location_source==='installed';
+  const latitude=installed?Number(n.latitude):position.latitudeI!=null?Number(position.latitudeI)/1e7:position.latitude!=null?Number(position.latitude):n.latitude!=null?Number(n.latitude):NaN;
+  const longitude=installed?Number(n.longitude):position.longitudeI!=null?Number(position.longitudeI)/1e7:position.longitude!=null?Number(position.longitude):n.longitude!=null?Number(n.longitude):NaN;
   const mapCard=section('Around this node · 10-mile radius');info.after(mapCard);
   if(!window.L||!Number.isFinite(latitude)||!Number.isFinite(longitude)||Math.abs(latitude)>90||Math.abs(longitude)>180||(latitude===0&&longitude===0)){
-   mapCard.append(el('p','No valid reported location is available for this node.'));
+   mapCard.append(el('p','No location recorded.'));
   }else{
    const canvas=el('div');canvas.style.cssText='height:280px;width:100%;border-radius:10px;overflow:hidden';canvas.setAttribute('aria-label','Map showing a ten-mile radius around the last reported node location');mapCard.append(canvas);
-   mapCard.append(el('p','Centered on the last reported position. The circle shows distance, not proven radio coverage.'));
+   mapCard.append(el('p',(installed?'Installed position. ':'Advertised position; may be old. ')+'Circle: 10 miles, not radio coverage.'));
    const stamp=position.time?Number(position.time)*1000:NaN;
    mapCard.append(el('p',Number.isFinite(stamp)?'Position reported '+new Date(stamp).toLocaleString():'Position time unknown; this may be an old location.'));
    requestAnimationFrame(()=>{if(gen!==generation||!canvas.isConnected)return;
     detailMap=L.map(canvas,{scrollWheelZoom:false}).setView([latitude,longitude],10);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(detailMap);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,referrerPolicy:'strict-origin-when-cross-origin',attribution:'&copy; OpenStreetMap contributors'}).addTo(detailMap);
     const radius=L.circle([latitude,longitude],{radius:16093.44,color:'#45d68c',weight:2,fillOpacity:.08}).addTo(detailMap);
     L.circleMarker([latitude,longitude],{radius:7,color:'#fff',fillColor:'#45d68c',fillOpacity:1}).addTo(detailMap).bindTooltip(el('span',n.long_name||n.short_name||node));
     detailMap.fitBounds(radius.getBounds(),{padding:[12,12]});detailMap.invalidateSize();

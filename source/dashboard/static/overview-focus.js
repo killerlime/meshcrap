@@ -19,7 +19,7 @@
     const go = id => byId('dashboard-tab-' + id)?.click();
 
     const pages = [
-      ['overview','Overview'], ['map','Map & coverage'], ['survey','Survey'], ['nodes','Nodes'],
+      ['overview','Overview'], ['nodemap','Node map'], ['map','Map & coverage'], ['survey','Survey'], ['nodes','Nodes'],
       ['messages','Messages'], ['insights','Insights'], ['control','Node control'],
       ['filter','LNA test'], ['heardby','Heard by'], ['role','HQ role comparison'], ['whatif','What-if'],
       ['tropo','Tropo'], ['ask','Ask questions'], ['ingestors','MSP ingestors'],
@@ -259,7 +259,7 @@
     const timestamp=value=>Number.isFinite(Date.parse(value))?Date.parse(value):null;
     const packetLabel=p=>({TELEMETRY_APP:'Telemetry',POSITION_APP:'Position',NODEINFO_APP:'Node info',TEXT_MESSAGE_APP:'Message',TRACEROUTE_APP:'Traceroute',ROUTING_APP:'Routing',NEIGHBORINFO_APP:'Neighbors'}[p]||p||'Update');
     const columns=[
-      ['name','Node','asc'],['heard','Last heard','desc'],['snr','SNR (dB)','desc'],['rssi','RSSI (dBm)','desc'],
+      ['name','Node','asc'],['heard','Last heard','desc'],['distance','Distance','asc'],['snr','SNR (dB)','desc'],['rssi','RSSI (dBm)','desc'],
       ['hops','Hops','asc'],['updates','Updates','desc'],['direct','Direct %','desc'],['battery','Battery','desc'],
       ['voltage','Volts','desc'],['hardware','Hardware','asc'],['role','Role','asc'],['types','Packet types','asc']
     ];
@@ -296,6 +296,7 @@
           }else{
             let text=row[key]==null||row[key]===''?'—':String(row[key]);
             if(key==='heard'){text=row.heard==null?'—':age(new Date(row.heard).toISOString())+' ago';if(row.heard!=null)td.title=new Date(row.heard).toLocaleString();}
+            if(key==='distance'){text=row.distance==null?'—':row.distance.toFixed(1)+' mi';td.title='Straight-line distance from the receiver to the installed or latest advertised position; location may be old.';}
             if(key==='snr'&&row.snr!=null)text=row.snr.toFixed(1);
             if(key==='hops'&&row.hops===0)text='Direct';
             if(key==='direct'&&row.direct!=null)text=row.direct.toFixed(1)+'%';
@@ -323,7 +324,7 @@
         if(!groups.has(id))groups.set(id,{p,types:new Set(),power:null});const g=groups.get(id);g.types.add(packetLabel(p.portnum));
         if(!g.power&&(numeric(p.battery_level)!=null||numeric(p.voltage)!=null))g.power=p;
       }
-      rows=[...groups].map(([id,{p,types,power}])=>({id,name:p.node||id,short:p.short_name||'',heard:timestamp(p.collector_time),snr:numeric(p.rx_snr),rssi:numeric(p.rx_rssi),hops:numeric(p.hops_used),updates:numeric(p.window_packets),direct:numeric(p.window_direct_pct),battery:power&&numeric(power.battery_level)!=null&&power.battery_level>=0&&power.battery_level<=101?power.battery_level:null,voltage:power?numeric(power.voltage):null,powerTime:power?.collector_time,hardware:p.hw_model||'',role:p.role||'',types:[...types].sort().join(', ')}));
+      rows=[...groups].map(([id,{p,types,power}])=>({id,name:p.node||id,short:p.short_name||'',heard:timestamp(p.collector_time),distance:numeric(p.distance_miles),snr:numeric(p.rx_snr),rssi:numeric(p.rx_rssi),hops:numeric(p.hops_used),updates:numeric(p.window_packets),direct:numeric(p.window_direct_pct),battery:power&&numeric(power.battery_level)!=null&&power.battery_level>=0&&power.battery_level<=101?power.battery_level:null,voltage:power?numeric(power.voltage):null,powerTime:power?.collector_time,hardware:p.hw_model||'',role:p.role||'',types:[...types].sort().join(', ')}));
       renderRecentTable();
     };
     search.addEventListener('input',renderRecentTable);limit.addEventListener('change',()=>{save('rf-recent-limit',limit.value);renderRecentTable();});

@@ -986,6 +986,11 @@ tbody tr:hover .node-distance {
 .recent-node-facts>div{min-width:0}.recent-node-facts dt{opacity:.7;font-size:10px;margin-bottom:3px}.recent-node-facts dd{margin:0;line-height:1.5;overflow-wrap:anywhere}
 @media(max-width:600px){.recent-node-facts{grid-template-columns:1fr}.recent-node-heading{align-items:flex-start}.recent-node-name{font-size:14px}}
 
+
+#dashboard-panel-nodes .node-table-scroll{max-height:1100px;min-height:380px}
+#dashboard-panel-nodes .node-table-scroll table{font-size:14px;min-width:1100px}
+#dashboard-panel-nodes .node-table-scroll td,#dashboard-panel-nodes .node-table-scroll th{padding:12px 10px}
+@media(max-width:700px){ #dashboard-panel-nodes .node-table-scroll{max-height:80vh;min-height:300px}}
 </style>
 
 
@@ -3617,7 +3622,7 @@ document.addEventListener(
 
 
 
-async function loadTelemetryTrend(node){try{const r=await fetch(`/api/telemetry-history?node=${encodeURIComponent(node)}&hours=168`);const d=await r.json();const c=document.getElementById('batteryTrendChart');if(!c)return;if(batteryTrendChart)batteryTrendChart.destroy();batteryTrendChart=new Chart(c,{type:'line',data:{labels:d.map(x=>new Date(x.collector_time).toLocaleString()),datasets:[{label:'Battery %',data:d.map(x=>x.battery_level),yAxisID:'y'},{label:'Volts',data:d.map(x=>x.voltage),yAxisID:'y1'}]},options:{responsive:true,maintainAspectRatio:false,pointRadius:1,scales:{y:{position:'left'},y1:{position:'right',grid:{drawOnChartArea:false}},x:{ticks:{maxTicksLimit:5}}}}});const vals=d.filter(x=>x.voltage!=null).slice(-6).map(x=>Number(x.voltage));let state='Insufficient history';if(vals.length>=2){const delta=vals[vals.length-1]-vals[0];state=delta>.03?'Charging / energy positive':delta<-.03?'Discharging / energy negative':'Voltage stable';}document.getElementById('solarState').textContent=state+' · '+d.length+' telemetry samples / 7d';}catch(e){const s=document.getElementById('solarState');if(s)s.textContent='Trend unavailable';}}
+async function loadTelemetryTrend(node){const generation=telemetryGeneration;try{const r=await fetch(`/api/telemetry-history?node=${encodeURIComponent(node)}&hours=168`);const d=await r.json();const c=document.getElementById('batteryTrendChart');if(!c||generation!==telemetryGeneration)return;if(batteryTrendChart)batteryTrendChart.destroy();batteryTrendChart=new Chart(c,{type:'line',data:{labels:d.map(x=>new Date(x.collector_time).toLocaleString()),datasets:[{label:'Battery %',borderColor:'#39b875',backgroundColor:'#39b875',pointBackgroundColor:'#39b875',borderWidth:2,data:d.map(x=>x.battery_level),yAxisID:'y'},{label:'Volts',borderColor:'#419fe8',backgroundColor:'#419fe8',pointBackgroundColor:'#419fe8',borderDash:[6,3],borderWidth:2,data:d.map(x=>x.voltage),yAxisID:'y1'}]},options:{responsive:true,maintainAspectRatio:false,pointRadius:1,scales:{y:{position:'left',title:{display:true,text:'Battery %'}},y1:{position:'right',title:{display:true,text:'Volts'},grid:{drawOnChartArea:false}},x:{ticks:{maxTicksLimit:5}}}}});const vals=d.filter(x=>x.voltage!=null).slice(-6).map(x=>Number(x.voltage));let state='Insufficient history';if(vals.length>=2){const delta=vals[vals.length-1]-vals[0];state=delta>.03?'Charging / energy positive':delta<-.03?'Discharging / energy negative':'Voltage stable';}document.getElementById('solarState').textContent=state+' · '+d.length+' telemetry samples / 7d';}catch(e){const s=document.getElementById('solarState');if(s)s.textContent='Trend unavailable';}}
 
 let mapNodeHoverOpen=false;
 let mapInteracting=false,mapPopupOpen=false,mapViewChosen=false,mapLocatedBounds=[],receiverMapPosition=[HOME_LAT,HOME_LON],coverageSignature='';
@@ -4385,6 +4390,7 @@ window.addEventListener('offline',()=>{
 <script src="/static/coverage-area-nav.js?v=map-20261004"></script>
 <script src="/static/role-model.js?v=1"></script><script src="/static/role-compare.js?v=2"></script><script src="/static/receiver-diagnostics.js?v=1"></script><!-- RF overview refinement -->
 <link rel="stylesheet" href="/static/overview-focus.css?v=1">
+<script src="/static/node-map.js?v=1"></script>
 <script src="/static/overview-focus.js?v=1"></script>
 </body>
 </html>

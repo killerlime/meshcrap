@@ -369,6 +369,17 @@ def history():
 # Telemetry
 # ------------------------------------------------------------
 
+def first_radio_heard(conn, node_num):
+    # Only retained local radio receipts qualify; metadata/snapshots do not.
+    return conn.execute("""SELECT MIN(collector_time) FROM packets
+        WHERE from_num=? AND COALESCE(observation_type,'LIVE')='LIVE'
+        AND COALESCE(transport,'') NOT IN ('TRANSPORT_MQTT','TRANSPORT_INTERNAL')
+        AND (rx_snr IS NOT NULL OR rx_rssi IS NOT NULL)
+        AND CASE WHEN json_valid(raw_json) THEN COALESCE(json_extract(raw_json,'$.viaMqtt'),0) ELSE 0 END=0
+        AND COALESCE(from_id,printf('!%08x',from_num)) !=
+            COALESCE(json_extract(CASE WHEN json_valid(raw_json) THEN raw_json ELSE NULL END,'$._collectorReceiverId'),'@@RECEIVER_ID@@')
+        """, (node_num,)).fetchone()[0]
+
 @app.route("/api/telemetry")
 def telemetry():
 
@@ -388,6 +399,9 @@ def telemetry():
         SELECT
             n.node_num,
             n.node_id,
+            COALESCE(s.latitude,n.latitude) AS latitude,
+            COALESCE(s.longitude,n.longitude) AS longitude,
+            CASE WHEN s.latitude IS NOT NULL AND s.longitude IS NOT NULL THEN 'installed' ELSE 'advertised' END AS location_source,
             n.long_name,
             n.short_name,
             n.hw_model,
@@ -522,6 +536,7 @@ def telemetry():
             identity["node_id"]
         )).fetchone()
 
+    first_heard = first_radio_heard(conn, identity["node_num"]) if identity else None
     details = {}
     if identity:
         import json
@@ -541,6 +556,7 @@ def telemetry():
     conn.close()
 
     return jsonify({
+        "first_heard": first_heard,
         "details": details,
         "node":
             dict(identity)
@@ -1722,11 +1738,16 @@ def noc():
     recent=[dict(x) for x in conn.execute(f"""SELECT p.collector_time,COALESCE(NULLIF(TRIM(n.long_name),''),NULLIF(p.from_id,''),CASE WHEN p.from_num IS NOT NULL THEN printf('!%08x',p.from_num) ELSE 'Unknown node' END) node,
         p.portnum,p.rx_snr,p.rx_rssi,p.hops_used,p.battery_level,p.voltage,
         p.from_num,n.short_name,n.hw_model,n.role,
+        COALESCE(s.latitude,n.latitude,p.latitude) distance_latitude, COALESCE(s.longitude,n.longitude,p.longitude) distance_longitude,
         COALESCE(NULLIF(p.from_id,''),printf('!%08x',p.from_num)) node_id
-        FROM packets p LEFT JOIN nodes n ON p.from_num=n.node_num
+        FROM packets p LEFT JOIN nodes n ON p.from_num=n.node_num LEFT JOIN sites s ON s.node_long_name=n.long_name
         WHERE p.collector_time >= ? AND p.from_num IS NOT NULL AND p.from_num != CASE WHEN COALESCE(json_extract(CASE WHEN json_valid(p.raw_json) THEN p.raw_json ELSE NULL END,'$._collectorReceiverId'),'@@RECEIVER_ID@@')='@@RECEIVER_ID@@' THEN @@RECEIVER_NUM@@ ELSE @@RECEIVER_NUM@@ END AND COALESCE(p.observation_type,'LIVE')='LIVE' AND ({filt}) ORDER BY p.row_id DESC LIMIT 200""",params).fetchall()]
     window_activity = {r['from_num']:r for r in rr}
+    origin=conn.execute("SELECT COALESCE(s.latitude,n.latitude),COALESCE(s.longitude,n.longitude) FROM nodes n LEFT JOIN sites s ON s.node_long_name=n.long_name WHERE n.node_id=? LIMIT 1", ('@@RECEIVER_ID@@',)).fetchone()
     for packet in recent:
+        lat=packet.pop('distance_latitude');lon=packet.pop('distance_longitude')
+        def located(a,b):return isinstance(a,(int,float)) and isinstance(b,(int,float)) and -90<=a<=90 and -180<=b<=180 and (a,b)!=(0,0)
+        packet['distance_miles']=_survey_haversine(origin[0],origin[1],lat,lon) if origin and located(*origin) and located(lat,lon) else None
         activity = window_activity.get(packet['from_num'], {})
         packet['window_packets'] = activity.get('packets', 0)
         packet['window_direct_pct'] = activity.get('direct_pct')
