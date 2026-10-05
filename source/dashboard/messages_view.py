@@ -6,32 +6,6 @@ from pathlib import Path
 from flask import jsonify, render_template, request
 
 
-def message_text(raw):
-    try:
-        decoded = json.loads(raw).get('decoded') or {}
-        text = decoded.get('text')
-        if isinstance(text, str):
-            return text or None
-        payload = decoded.get('payload')
-        if isinstance(payload, str):
-            return bytes.fromhex(payload).decode('utf-8', errors='replace') or None
-        return None
-    except (ValueError, TypeError, AttributeError):
-        return None
-
-
-def message_heads(database, channels):
-    """Newest displayable broadcast per configured channel; no message bodies."""
-    heads = {}
-    with closing(sqlite3.connect(Path(database).resolve().as_uri() + '?mode=ro', uri=True, timeout=3)) as conn:
-        for channel in channels:
-            rows = conn.execute("""SELECT row_id,raw_json FROM packets
-                WHERE COALESCE(channel,0)=? AND portnum='TEXT_MESSAGE_APP'
-                  AND to_num=4294967295 ORDER BY row_id DESC LIMIT 100""", (int(channel),))
-            heads[str(channel)] = next((row[0] for row in rows if message_text(row[1])), 0)
-    return heads
-
-
 def read_messages(database, channel, limit=100, before=None):
     cutoff=int((Path(database).resolve().parent/'potato-feed/primary-policy-start').read_text().strip())
     # Protobuf omits channel zero; the collector stores that omission as NULL.
@@ -49,7 +23,18 @@ def read_messages(database, channel, limit=100, before=None):
     more = len(rows) > limit
     messages = []
     for row in rows[:limit]:
-        text = message_text(row['raw_json'])
+        try:
+            packet = json.loads(row['raw_json'])
+            decoded = packet.get('decoded') or {}
+            text = decoded.get('text')
+            if not isinstance(text, str):
+                # collector.json_default stores bytes as hexadecimal.
+                payload = decoded.get('payload')
+                if not isinstance(payload, str):
+                    continue
+                text = bytes.fromhex(payload).decode('utf-8', errors='replace')
+        except (ValueError, TypeError, AttributeError):
+            continue
         if not text:
             continue
         sender_id = row['from_id'] or (f"!{row['from_num']:08x}" if row['from_num'] is not None else 'Unknown')
@@ -63,24 +48,6 @@ def read_messages(database, channel, limit=100, before=None):
 
 def register_messages(app, database):
     config_path = Path(__file__).with_name('messages_config.json')
-    import time
-    from threading import Lock
-    cache = {'at': 0, 'heads': {}}
-    lock = Lock()
-
-    @app.get('/api/message-heads')
-    def latest_message_heads():
-        channels = json.loads(config_path.read_text())['channels']
-        try:
-            with lock:
-                if time.monotonic()-cache['at'] >= 10 or not cache['heads']:
-                    cache['heads'] = message_heads(database, channels)
-                    cache['at'] = time.monotonic()
-                response = jsonify(heads=cache['heads'])
-        except sqlite3.Error:
-            return jsonify(error='Message history is temporarily unavailable'), 503
-        response.headers['Cache-Control'] = 'no-store'
-        return response
 
     @app.get('/messages')
     def message_page():
