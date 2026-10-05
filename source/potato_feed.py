@@ -40,8 +40,7 @@ def wire_payload(payloads):
     if not payloads or not all(validate_payload(p) for p in payloads): raise ValueError('Invalid public payload')
     port=payloads[0]['portnum']
     if any(p['portnum']!=port for p in payloads): raise ValueError('Mixed types')
-    # Strip radio metadata from queued records, including older captured packets.
-    records=[dict({k:v for k,v in p.items() if k not in ('lora_freq','modem_preset')},rx_iso=iso(p['rx_time'])) for p in payloads]
+    records=[dict(p,modem_preset='MediumFast',rx_iso=iso(p['rx_time'])) for p in payloads]
     if port=='TELEMETRY_APP':
         from meshtastic.protobuf import telemetry_pb2
         from google.protobuf.json_format import ParseDict, MessageToDict
@@ -60,8 +59,8 @@ def wire_payload(payloads):
     if port=='NODEINFO_APP':
         nodes={}
         for p in payloads:
-            node={'num':int(p['from_id'][1:],16),'user':p['user'],'lastHeard':p['rx_time'],'protocol':'meshtastic'}
-            for key in ('snr',):
+            node={'num':int(p['from_id'][1:],16),'user':p['user'],'lastHeard':p['rx_time'],'modem_preset':'MediumFast','protocol':'meshtastic'}
+            for key in ('snr','lora_freq'):
                 if key in p: node[key]=p[key]
             if p.get('hop_start',0)>0 and 0<=p.get('hop_limit',99)<=p['hop_start']:
                 node['hopsAway']=p['hop_start']-p['hop_limit']
@@ -71,8 +70,8 @@ def wire_payload(payloads):
         records=[]
         for p in payloads:
             section=p['neighborinfo']
-            record={k:p[k] for k in ('rx_time','ingestor','protocol') if k in p}
-            record.update(node_id=p['from_id'],node_num=int(p['from_id'][1:],16),rx_iso=iso(p['rx_time']),neighbors=[])
+            record={k:p[k] for k in ('rx_time','ingestor','protocol','lora_freq') if k in p}
+            record.update(node_id=p['from_id'],node_num=int(p['from_id'][1:],16),rx_iso=iso(p['rx_time']),modem_preset='MediumFast',neighbors=[])
             for n in section.get('neighbors',[]):
                 heard=n.get('lastRxTime',p['rx_time']) or p['rx_time']
                 entry=dict(neighbor_id=f"!{n['nodeId']:08x}",neighbor_num=n['nodeId'],rx_time=heard,rx_iso=iso(heard))
