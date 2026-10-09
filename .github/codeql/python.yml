@@ -1,8 +1,7 @@
 name: Rendered portable Python and installation tools
 paths:
   - codeql-generated/runtime
-  - meshcrap.py
-  - setup_wizard.py
+  - codeql-generated/installation
   - tests
   - tools
   - deploy

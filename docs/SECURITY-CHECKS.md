@@ -10,7 +10,7 @@ Portable Python files contain `@@SETTING@@` placeholders that are replaced durin
 
 JavaScript analysis uses rendered templates and assets, so inline settings are valid JavaScript. Bundled third-party browser libraries are excluded from this authored-code scan; their identities, versions and checksums remain in the vendor manifest and third-party notices.
 
-Findings in `codeql-generated/runtime/<path>` correspond to `source/<path>`. The generated `source-map.json` records each source path and checksum. Fix the source template, then regenerate and rerun analysis. Do not commit the generated directory or use an installation's private runtime/configuration for scanning.
+Findings in `codeql-generated/runtime/<path>` correspond to `source/<path>`. The root CLI and wizard are copied unchanged into `codeql-generated/installation` because the Python extractor requires directory entries in its scan paths. The generated `source-map.json` records each source path and checksum. Fix the original source, then regenerate and rerun analysis. Do not commit the generated directory or use an installation's private runtime/configuration for scanning.
 
 Swift analysis generates the Xcode project and performs an unsigned simulator build explicitly; an absent generated project prevents reliable automatic builds. The separate iOS workflow runs XCTest. Android's separate workflow compiles the generic companion and runs unit tests/lint. No pairing data or signing credentials are supplied to these jobs.
 

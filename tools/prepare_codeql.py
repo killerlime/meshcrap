@@ -25,7 +25,7 @@ def prepare():
         raise ValueError('Analysis output already exists without this tool\'s ownership marker')
     GENERATED.mkdir(exist_ok=True)
     marker.write_text(MARKER, encoding='utf-8')
-    for name in ('staging', 'runtime'):
+    for name in ('staging', 'runtime', 'installation'):
         child = GENERATED / name
         if child.is_symlink() or child.resolve().parent != GENERATED.resolve():
             raise ValueError('Analysis child must stay inside the generated directory')
@@ -46,6 +46,17 @@ def prepare():
     shutil.copytree(rendered, runtime, ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '*.pyo'))
     shutil.rmtree(staging)
     source_map = []
+    installation = GENERATED / 'installation'
+    installation.mkdir()
+    # The Python extractor's paths entries must be directories, not root files.
+    for name in ('meshcrap.py', 'setup_wizard.py'):
+        source = ROOT / name
+        target = installation / name
+        shutil.copyfile(source, target)
+        ast.parse(target.read_text(encoding='utf-8'), filename=target.relative_to(ROOT).as_posix())
+        source_map.append({'generated': target.relative_to(ROOT).as_posix(),
+                           'source': name,
+                           'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest()})
     count = 0
     for path in sorted(runtime.rglob('*')):
         if not path.is_file():
