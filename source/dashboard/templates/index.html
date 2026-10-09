@@ -1307,7 +1307,7 @@ Show all located nodes
 
 &nbsp;&nbsp;
 
-<button type="button" onclick="focusGunitMap()">Center Receiver</button>
+<button type="button" onclick="focusReceiverMap()">Center Receiver</button>
 <button type="button" onclick="fitLocatedNodes()">Fit all nodes</button>
 
 &nbsp;&nbsp;<label><input type="checkbox" id="showRangeRings" onchange="renderRangeRings()"> Home range rings</label>
@@ -3626,7 +3626,7 @@ async function loadTelemetryTrend(node){const generation=telemetryGeneration;try
 
 let mapNodeHoverOpen=false;
 let mapInteracting=false,mapPopupOpen=false,mapViewChosen=false,mapLocatedBounds=[],receiverMapPosition=[HOME_LAT,HOME_LON],coverageSignature='';
-function focusGunitMap(){if(meshMap){mapViewChosen=true;meshMap.setView(receiverMapPosition,12);}}
+function focusReceiverMap(){if(meshMap){mapViewChosen=true;meshMap.setView(receiverMapPosition,12);}}
 function fitLocatedNodes(){if(meshMap&&mapLocatedBounds.length){mapViewChosen=true;meshMap.fitBounds(mapLocatedBounds,{padding:[25,25],maxZoom:13});}}
 function initMap() {
 
@@ -3925,7 +3925,7 @@ async function loadMap() {
     if(mapInteracting||mapPopupOpen||mapNodeHoverOpen)return;
     const receiver=nodes.find(n=>n.node_id==='@@RECEIVER_ID@@');
     if(receiver&&Number.isFinite(receiver.latitude)&&Number.isFinite(receiver.longitude))receiverMapPosition=[receiver.latitude,receiver.longitude];
-    if(!mapViewChosen)focusGunitMap();
+    if(!mapViewChosen)focusReceiverMap();
     nodeLayer.clearLayers();
 
     const showAll =
@@ -4396,6 +4396,7 @@ window.addEventListener('offline',()=>{
 <script src="/static/offline-map.js?v=1"></script>
 <script src="/static/node-map.js?v=controls-3"></script>
 <link rel="stylesheet" href="/static/mesh-explorer.css?v=1"><script src="/static/mesh-explorer.js?v=2"></script>
+<link rel="stylesheet" href="/static/rf-sniffer.css?v=1"><script src="/static/rf-sniffer.js?v=1"></script>
 <script src="/static/overview-focus.js?v=graphs-1"></script>
 </body>
 </html>

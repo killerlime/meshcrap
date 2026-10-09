@@ -1,0 +1,13 @@
+.rf-sniffer {margin: 0 auto; max-width: 1800px}
+.rf-sniffer .sniffer-heading {display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+.rf-sniffer .sniffer-heading h2 {margin-right:auto}
+.rf-sniffer .sniffer-separate {color:var(--muted); border:1px solid var(--border); border-radius:8px; padding:5px 9px}
+.rf-sniffer .sniffer-wizard {max-width:780px; border:1px solid var(--border); padding:20px; border-radius:var(--radius); background:var(--surface)}
+.rf-sniffer .sniffer-wizard h3 {margin-top:0}
+.rf-sniffer .sniffer-wizard button,.rf-sniffer .sniffer-heading button,.rf-sniffer .sniffer-heading a {min-height:44px}
+.rf-sniffer .sniffer-wizard code {display:block; white-space:normal; overflow-wrap:anywhere; margin:12px 0; padding:12px; background:var(--surface-3); border-radius:6px}
+.rf-sniffer .sniffer-step-actions {display:flex; gap:10px; margin-top:16px; flex-wrap:wrap}
+.rf-sniffer iframe {width:100%; height:max(560px,80vh); border:1px solid var(--border); border-radius:var(--radius); background:var(--surface)}
+.rf-sniffer .sniffer-status {color:var(--muted)}
+.rf-nav-row[data-page=sniffer] {border-top:2px solid var(--border); margin-top:12px; padding-top:10px}
+@media(max-width:700px) {.rf-sniffer .sniffer-wizard {padding:15px}.rf-sniffer iframe {height:75vh; min-height:500px}}

@@ -18,6 +18,10 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent
+# Support imports by file path as well as execution from the source folder.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from source.dashboard.rf_sniffer import validate_embed_url
 
 
 def load_config(path):
@@ -40,8 +44,11 @@ def load_config(path):
     for key in ('radio_host','bind_host','https_host','weather_station'):
         if not isinstance(config[key],str) or not re.fullmatch(r'[A-Za-z0-9_.:\-]*',config[key]):
             raise ValueError('Invalid '+key)
-    for key in ('enable_radio_controls','enable_weather','enable_potato'):
+    for key in ('enable_radio_controls','enable_weather','enable_potato','rf_sniffer_enabled'):
         if type(config[key]) is not bool: raise ValueError(key+' must be boolean')
+    config['rf_sniffer_url'] = validate_embed_url(config['rf_sniffer_url'])
+    if config['rf_sniffer_enabled'] and not config['rf_sniffer_url']:
+        raise ValueError('Set rf_sniffer_url before enabling the RF sniffer view')
     if type(config['radio_idle_timeout']) is not int or config['radio_idle_timeout'] < 0:
         raise ValueError('radio_idle_timeout must be a nonnegative integer')
     if not re.fullmatch(r'[A-Za-z][A-Za-z0-9]{0,7}', config['node_prefix']):
@@ -103,7 +110,7 @@ def load_config(path):
 def render(config,data):
     runtime = data/'.runtime'
     tokens={key.upper():repr(value) if isinstance(value,(bool,int,float,list,dict)) else str(value) for key,value in config.items()}
-    tokens.update(APP_TITLE_HTML=html.escape(config['app_title']).replace('{','&#123;').replace('}','&#125;'),DATA_DIR=data.as_posix(),RECEIVER_NUM=str(int(config['receiver_id'][1:],16)),
+    tokens.update(RF_SNIFFER_URL_PY=repr(config['rf_sniffer_url']),APP_TITLE_HTML=html.escape(config['app_title']).replace('{','&#123;').replace('}','&#125;'),DATA_DIR=data.as_posix(),RECEIVER_NUM=str(int(config['receiver_id'][1:],16)),
         NODE_PREFIX_LOWER=config['node_prefix'].lower(),AREAS=repr(config['regions']),
         AREA_IDS=json.dumps(list(config['regions'])),
         AREA_OPTIONS=''.join('<option value="'+k+'">'+html.escape(v['name'])+'</option>' for k,v in config['regions'].items()),
@@ -162,8 +169,12 @@ def _initialize(config,data):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config',default=str(ROOT/'config.json'))
-    parser.add_argument('command',choices=('setup','init','serve','collect','check','feed'))
+    parser.add_argument('command',choices=('setup','sniffer-setup','init','serve','collect','check','feed'))
     args=parser.parse_args()
+    if args.command=='sniffer-setup':
+        from setup_wizard import configure_sniffer
+        configure_sniffer(args.config,json.loads((ROOT/'config.example.json').read_text()),load_config)
+        return
     if args.command=='setup':
         from setup_wizard import configure
         if not configure(args.config,json.loads((ROOT/'config.example.json').read_text()),load_config):return

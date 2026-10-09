@@ -35,11 +35,13 @@
    const stamp=position.time?Number(position.time)*1000:NaN;
    mapCard.append(el('p',Number.isFinite(stamp)?'Position reported '+new Date(stamp).toLocaleString():'Position time unknown; this may be an old location.'));
    requestAnimationFrame(()=>{if(gen!==generation||!canvas.isConnected)return;
-    detailMap=L.map(canvas,{scrollWheelZoom:false}).setView([latitude,longitude],10);
+    // The drawer can close immediately. A pending zoom transition would outlive
+    // its removed map panes, so this small location snapshot changes instantly.
+    detailMap=L.map(canvas,{scrollWheelZoom:false,zoomAnimation:false}).setView([latitude,longitude],10);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,referrerPolicy:'strict-origin-when-cross-origin',attribution:'&copy; OpenStreetMap contributors'}).addTo(detailMap);
     const radius=L.circle([latitude,longitude],{radius:16093.44,color:'#45d68c',weight:2,fillOpacity:.08}).addTo(detailMap);
     L.circleMarker([latitude,longitude],{radius:7,color:'#fff',fillColor:'#45d68c',fillOpacity:1}).addTo(detailMap).bindTooltip(el('span',n.long_name||n.short_name||node));
-    detailMap.fitBounds(radius.getBounds(),{padding:[12,12]});detailMap.invalidateSize();
+    detailMap.fitBounds(radius.getBounds(),{padding:[12,12],animate:false});detailMap.invalidateSize();
    });
   }
   const actions=section('Request from this node'),status=el('p','Checking control session…');status.setAttribute('role','status');

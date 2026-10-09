@@ -28,7 +28,7 @@ assert len(calls)==2
 with tempfile.TemporaryDirectory() as temporary:
     base=Path(temporary);config=base/'config.json'
     defaults=json.loads((ROOT/'config.example.json').read_text())
-    answers=iter(['Field & Friends','','0','8080','n','n','n','y'])
+    answers=iter(['Field & Friends','','0','8080','n','n','n','n','y'])
     assert configure(config,defaults,cli.load_config,lambda _:next(answers))
     assert json.loads(config.read_text())['enable_potato'] is False
     original=config.read_bytes()

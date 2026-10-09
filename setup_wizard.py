@@ -6,6 +6,62 @@ import ipaddress
 import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
+from source.dashboard.rf_sniffer import validate_embed_url
+
+
+def _save_config(path, config, validate, expected=None, check_unchanged=False):
+    """Validate before replacing; private atomic file and restrictive backup."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix='.meshcrap-setup-', suffix='.json', dir=path.parent)
+    temporary = Path(temporary)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2)
+            f.write('\n')
+        validate(temporary)
+        if check_unchanged and (path.read_bytes() if path.exists() else None) != expected:
+            raise ValueError('Configuration changed during setup. No settings were replaced; run the wizard again.')
+        if path.exists():
+            stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+            backup = path.with_name(path.name+'.backup-'+stamp)
+            backup_fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(backup_fd, 'wb') as f:
+                f.write(path.read_bytes())
+        temporary.replace(path)
+        path.chmod(0o600)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _sniffer_options(config, ask):
+    enabled = config.get('rf_sniffer_enabled', False)
+    choice = ask('Show a separate RF sniffer dashboard? '+('[Y/n] ' if enabled else '[y/N] ')).strip().lower()
+    config['rf_sniffer_enabled'] = choice != 'n' if enabled else choice == 'y'
+    if config['rf_sniffer_enabled']:
+        print('Its private web dashboard must already run behind HTTPS or your same-origin proxy. No software or receiver is started here.')
+        print('Only connect a web page you operate and trust. Keep native ports private and secure the separate controls.')
+        while True:
+            url = ask('Private HTTPS sniffer URL or same-origin path ['+(config.get('rf_sniffer_url') or '/sniffer/')+']: ').strip() or config.get('rf_sniffer_url') or '/sniffer/'
+            try:
+                config['rf_sniffer_url'] = validate_embed_url(url)
+                break
+            except ValueError:
+                print('Use a dedicated /sniffer/ path or an HTTPS URL. Do not enter credentials, query strings or fragments.')
+
+
+def configure_sniffer(path, defaults, validate, ask=input):
+    """Small standalone wizard; preserve existing collector and access settings."""
+    path = Path(path).resolve()
+    original = path.read_bytes() if path.exists() else None
+    config = validate(path)[0] if path.exists() else dict(defaults)
+    print('Optional RF sniffer — the receiver remains an independent private process.')
+    _sniffer_options(config, ask)
+    if ask('Save these display settings? [Y/n] ').strip().lower() == 'n':
+        print('Canceled; no files changed.')
+        return False
+    _save_config(path, config, validate, expected=original, check_unchanged=True)
+    print('Saved. Restart only your dashboard service, then open RF sniffer → Quick setup to check the web page.')
+    return True
 
 
 def configure(path, defaults, validate, ask=input):
@@ -56,27 +112,12 @@ def configure(path, defaults, validate, ask=input):
         config['trusted_hosts']=list(dict.fromkeys(config['trusted_hosts']+[host]))
         config['allowed_networks']=list(dict.fromkeys(config['allowed_networks']+[network]))
         print('Viewing is allowed from that network; write controls remain locked. Use private HTTPS for remembered devices and the iPhone app.')
+    _sniffer_options(config, ask)
     print('Radio controls and external forwarding: OFF. Only explicitly configured networks can access the dashboard.')
     print('Map center, regions, private HTTPS and remote access can be set in JSON later.')
     if ask('Save this configuration? [Y/n] ').strip().lower() == 'n':
         print('Canceled; no files changed.')
         return False
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix='.meshcrap-setup-', suffix='.json', dir=path.parent)
-    temporary = Path(temporary)
-    try:
-        with os.fdopen(fd, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=2)
-            f.write('\n')
-        validate(temporary)
-        if path.exists():
-            stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-            backup = path.with_name(path.name+'.backup-'+stamp)
-            backup.write_bytes(path.read_bytes())
-            backup.chmod(0o600)
-        temporary.replace(path)
-        path.chmod(0o600)
-    finally:
-        temporary.unlink(missing_ok=True)
+    _save_config(path, config, validate)
     print(f'Saved {path}')
     return True

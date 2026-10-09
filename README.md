@@ -22,6 +22,7 @@ Meshcrap is a community project in active development. Expect rough edges and he
 - LNA transition records, noise-floor analysis and observational comparisons.
 - Mesh explorer: observed topology, route changes, multi-node comparisons, delivery evidence and retained summaries. See [usage and limits](docs/MESH-EXPLORER.md).
 - Optional locally served geography on Node map, plus bounded dashboard performance measurements.
+- Optional RF sniffer view and quick setup wizard. The independently operated SDR receiver keeps its process, captures, keys and controls separate; see [setup](docs/RF-SNIFFER.md).
 - Separate What-if software simulator and optional on-demand terrain profiles; see [models and limits](docs/MESH-SIMULATOR.md).
 - Interactive Tropo forecast map loaded only when viewed; see [sources and privacy](docs/TROPO-SOURCES.md).
 - Passive receiver role comparison in Insights, with explicit assumptions and no radio mode changes.
@@ -29,8 +30,11 @@ Meshcrap is a community project in active development. Expect rough edges and he
 - Optional authenticated radio controls through the collector's existing connection.
 - Optional Weather Underground display, configured with your own station and key.
 - Android Bluetooth survey companion source. Automatic traceroutes start after you explicitly enable surveying, with one outstanding request, 30-second minimum spacing and a 30-second timeout.
+- Native iOS dashboard-and-controls source, with private HTTPS connection setup and explicit sign-out. Bluetooth surveying remains Android-only.
 
 The Android companion is a **test build**: compilation and software tests are verified; real-phone Bluetooth/radio testing remains necessary. The dashboard does not claim that a phone GPS point proves RF coverage.
+
+The iOS client is experimental source. Its macOS workflow builds and tests an unsigned simulator app; installing a native app on an iPhone requires your own Apple build/signing setup. No signed iPhone download is provided.
 
 ## Supported setup
 
@@ -128,6 +132,16 @@ Install `app/build/outputs/apk/debug/app-debug.apk` on an Android 8+ phone. Debu
 Stop releases Bluetooth so Meshtastic can reconnect. Collector authorization expires within 30 seconds of lost connectivity. Results queue locally and upload idempotently when connected; unknown relay IDs remain unknown. The current request hop limit is three.
 
 To host a locally built APK on the setup page, copy it to `<data_dir>/dashboard/survey-downloads/meshcrap-survey-test.apk`. No prebuilt APK is shipped here. Full end-to-end physical-radio verification is still a follow-up item.
+
+## Optional RF sniffer
+
+Run your SDR receiver independently, using its own installation instructions and private web interface. Then run `python meshcrap.py sniffer-setup` and restart the dashboard. The short wizard changes only whether the separate **RF sniffer** view is enabled and the operator-owned page to embed. It does not install receiver software, open ports, read channel keys or start a radio.
+
+Use a private HTTPS companion address, or an existing prefix-aware `/sniffer/` page on your dashboard host. Its authentication and control protection remain the separate receiver's responsibility. The view is unloaded when you leave it. See [RF sniffer setup and isolation](docs/RF-SNIFFER.md) for upstream licensing and troubleshooting.
+
+## iPhone dashboard and controls
+
+Open the [iOS source guide](ios/README.md) to generate the Xcode project and build it yourself. Configure your own dashboard's trusted HTTPS address; credentials are entered through the dashboard and stay in that app's web session. **Forget dashboard** clears that session and saved address. No deployment hostname or pairing key is bundled. You can also use the dashboard's installable web app from Safari over private HTTPS.
 
 ## Optional questions assistant
 

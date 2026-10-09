@@ -23,6 +23,8 @@
   "home_lon": 0.0,
   "enable_weather": false,
   "enable_potato": false,
+  "rf_sniffer_enabled": false,
+  "rf_sniffer_url": "",
   "potato_url": "",
   "potato_channel_slot": 0,
   "potato_types": [

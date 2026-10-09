@@ -2866,6 +2866,8 @@ register_relay_activity(app, DB, '@@RECEIVER_ID@@')
 
 from mesh_explorer import register_explorer
 register_explorer(app, DB, '@@RECEIVER_ID@@')
+from rf_sniffer import register_rf_sniffer
+register_rf_sniffer(app, @@RF_SNIFFER_ENABLED@@, @@RF_SNIFFER_URL_PY@@)
 from performance_metrics import register_performance
 register_performance(app)
 
