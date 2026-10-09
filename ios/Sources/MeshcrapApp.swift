@@ -82,7 +82,7 @@ struct DashboardScreen: View {
                     }
                 }
             }
-            .onAppear { if browser.base == nil, let url = DashboardAddress.parse(savedAddress) { browser.connect(url) } }
+            .onAppear { if !forgetting, browser.base == nil, let url = DashboardAddress.parse(savedAddress) { browser.connect(url) } }
         }
     }
 }
@@ -95,6 +95,8 @@ struct DashboardWebView: UIViewRepresentable {
 
 final class DashboardBrowser: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate {
     private(set) var web = WKWebView(frame: .zero)
+    private var resetting = false
+    private var resetCompletions: [() -> Void] = []
     @Published var base: URL?
     @Published var loading = false
     @Published var canGoBack = false
@@ -106,15 +108,26 @@ final class DashboardBrowser: NSObject, ObservableObject, WKNavigationDelegate, 
         web.navigationDelegate = self; web.uiDelegate = self
         web.allowsBackForwardNavigationGestures = true
     }
-    func connect(_ url: URL) { base = url; error = nil; web.load(URLRequest(url: url)) }
+    func connect(_ url: URL) {
+        guard !resetting else { return }
+        base = url; error = nil; web.load(URLRequest(url: url))
+    }
     func forget(completion: @escaping () -> Void) {
+        resetCompletions.append(completion)
+        guard !resetting else { return }
+        resetting = true
         let store = web.configuration.websiteDataStore
         web.navigationDelegate = nil; web.uiDelegate = nil
         web.stopLoading(); base = nil; loading = false; canGoBack = false; error = nil
-        // Replacing the view releases the old page, its navigation history and timers.
-        web = WKWebView(frame: .zero); configureWebView()
         store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {
-            DispatchQueue.main.async { completion() }
+            DispatchQueue.main.async {
+                // Do not attach another page to the default store while its data is being removed.
+                // Replacing the view then releases the old page, navigation history and timers.
+                self.web = WKWebView(frame: .zero); self.configureWebView()
+                self.resetting = false
+                let completions = self.resetCompletions; self.resetCompletions.removeAll()
+                completions.forEach { $0() }
+            }
         }
     }
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) { guard base != nil else { return }; loading = true; error = nil }
