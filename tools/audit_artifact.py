@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import re
 import struct
+import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,7 +19,12 @@ VENDOR_MANIFEST=json.loads((VENDOR/'manifest.json').read_text(encoding='utf-8'))
 ASSET_MANIFEST=json.loads((ROOT/'source/dashboard/static/app-assets/asset-checksums.json').read_text(encoding='utf-8'))
 _spec=importlib.util.spec_from_file_location('meshcrap_release_privacy',ROOT/'tests/privacy_check.py')
 privacy=importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(privacy)
+try:
+    _spec.loader.exec_module(privacy)
+except ValueError as error:
+    if __name__=='__main__':
+        print(str(error),file=sys.stderr);raise SystemExit(2)
+    raise
 
 
 def policy():

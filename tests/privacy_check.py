@@ -5,7 +5,7 @@ untracked files without printing matched values. Build archives receive a
 separate inspection with tools/audit_artifact.py.
 """
 from pathlib import Path
-import re, subprocess, hashlib, json
+import re, subprocess, hashlib, json, os, sys
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -23,7 +23,41 @@ rules={
  'credential in URL':r'''https?://[^\s"'<>]+[?&](?:api[_-]?key|token|access[_-]?token|key)=[A-Za-z0-9_+/=%-]{20,}''',
 }
 
-# Fingerprints avoid republishing private deployment identifiers.
+PRIVATE_POLICY_ENV='MESHCRAP_PRIVATE_PRIVACY_POLICY'
+
+
+def load_private_policy(path=None):
+    """Keep installation-specific markers outside public source and artifacts.
+
+    Deterministic hashes of names are guessable; they are private policy data,
+    not anonymized values that belong in a public default configuration.
+    """
+    if path is None:path=os.environ.get(PRIVATE_POLICY_ENV)
+    if path is None:return set()
+    try:
+        if not isinstance(path,(str,os.PathLike)) or not str(path).strip():raise ValueError()
+        location=Path(path).expanduser()
+        if not location.is_absolute():raise ValueError()
+        location=location.resolve(strict=True)
+        if location.is_relative_to(ROOT.resolve()) or not location.is_file() or location.stat().st_size>65536:
+            raise ValueError()
+        value=json.loads(location.read_text(encoding='utf-8'))
+        if not isinstance(value,dict) or set(value)!={'fingerprints'}:raise ValueError()
+        entries=value['fingerprints']
+        if not isinstance(entries,list) or len(entries)>512 or any(
+            not isinstance(entry,str) or not re.fullmatch(r'[0-9a-f]{64}',entry) for entry in entries):
+            raise ValueError()
+        return set(entries)
+    except (OSError,ValueError,TypeError,UnicodeError,RuntimeError):
+        raise ValueError('Invalid private privacy policy. Use a valid external JSON file.') from None
+
+
+try:
+    denied=load_private_policy()
+except ValueError as error:
+    if __name__=='__main__':
+        print(str(error),file=sys.stderr);raise SystemExit(2)
+    raise
 
 STATE_PARTS={'data','.runtime','.venv','backups','snapshots','.ssh','.tailscale'}
 PRIVATE_NAMES={'authorized_keys','known_hosts','id_rsa','id_ed25519','tailscaled.state',
@@ -35,6 +69,7 @@ PRIVATE_SUFFIXES={'.db','.sqlite','.sqlite3','.pem','.key','.dpapi','.jks','.key
 
 
 def private_label(text):
+    if not denied:return False
     words=re.findall(r'[a-z0-9]+',text.lower())
     joined=re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)+',text.lower())
     candidates=words+joined+[a+sep+b for a,b in zip(words,words[1:]) for sep in ('-',' ')]

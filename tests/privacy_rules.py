@@ -1,5 +1,11 @@
 """Exercise the release gate using synthetic values assembled only in memory."""
 import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 import privacy_check as policy
@@ -62,6 +68,51 @@ class PrivacyPolicyTests(unittest.TestCase):
 
     def test_binary_requires_manifest_review(self):
         self.assertIn('unreviewed binary file',policy.scan_source('asset.bin',b'\xff\xfe'))
+
+    def test_public_default_does_not_contain_installation_markers(self):
+        with patch.dict(os.environ,{},clear=True):self.assertEqual(policy.load_private_policy(),set())
+
+    def test_private_external_policy_and_marker_detection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'policy.json';label='synthetic-owner'
+            digest=hashlib.sha256(label.encode()).hexdigest()
+            path.write_text(json.dumps({'fingerprints':[digest]}),encoding='utf-8')
+            with patch.dict(os.environ,{policy.PRIVATE_POLICY_ENV:str(path)}):
+                loaded=policy.load_private_policy()
+            self.assertEqual(loaded,{digest})
+            with patch.object(policy,'denied',loaded):
+                self.assertEqual(self.issues(label),['personal deployment identifier'])
+
+    def test_requested_invalid_policy_fails_closed_without_echoing_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'policy.json'
+            for value in [[],{}, {'other':[]}, {'fingerprints':'wrong'},
+                          {'fingerprints':['bad']}, {'fingerprints':[1]}]:
+                path.write_text(json.dumps(value),encoding='utf-8')
+                with self.subTest(value=value),self.assertRaises(ValueError):policy.load_private_policy(path)
+            path.write_text('unparseable synthetic policy contents',encoding='utf-8')
+            env=dict(os.environ);env[policy.PRIVATE_POLICY_ENV]=str(path)
+            result=subprocess.run([sys.executable,str(policy.ROOT/'tests/privacy_check.py')],env=env,capture_output=True,text=True)
+            self.assertEqual(result.returncode,2)
+            self.assertIn('Invalid private privacy policy',result.stderr)
+            self.assertNotIn(str(path),result.stderr)
+            self.assertNotIn('synthetic policy contents',result.stderr)
+            result=subprocess.run([sys.executable,str(policy.ROOT/'tools/audit_artifact.py'),'missing.zip','--report','missing.json'],env=env,capture_output=True,text=True)
+            self.assertEqual(result.returncode,2)
+            self.assertIn('Invalid private privacy policy',result.stderr)
+            self.assertNotIn(str(path),result.stderr)
+            self.assertFalse((policy.ROOT/'missing.json').exists())
+
+    def test_private_policy_must_be_external_absolute_and_bounded(self):
+        for path in ['', 'relative.json', policy.ROOT/'config.example.json']:
+            with self.subTest(path=str(path)),self.assertRaises(ValueError):policy.load_private_policy(path)
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'policy.json';path.write_text('x'*65537,encoding='utf-8')
+            with self.assertRaises(ValueError):policy.load_private_policy(path)
+            with self.assertRaises(ValueError):policy.load_private_policy(Path(directory)/'missing.json')
+            with self.assertRaises(ValueError):policy.load_private_policy(Path(directory))
+            with patch.dict(os.environ,{policy.PRIVATE_POLICY_ENV:''}):
+                with self.assertRaises(ValueError):policy.load_private_policy()
 
 
 if __name__=='__main__': unittest.main()
