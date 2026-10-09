@@ -25,7 +25,7 @@ Command-line simulator build: `xcodebuild -project Meshcrap.xcodeproj -scheme Me
 
 ## Validation still required
 
-The `iOS simulator checks` workflow generates the project on a macOS runner, builds without a signing identity and runs the XCTest URL/origin cases. Its result bundle is retained for seven days. Check that workflow on the exact revision being reviewed. No real dashboard credentials, pairing tokens or network hosts are provided to CI.
+The `iOS simulator checks` workflow generates the project on a macOS runner, selects and boots a simulator matching the installed iOS SDK, builds without a signing identity and runs the XCTest URL/origin and session-removal cases. The WebKit test confirms a synthetic cookie exists before removal and is absent afterward, using asynchronous waiting that yields the main actor. Its result bundle is retained for seven days. Check that workflow on the exact revision being reviewed. No real dashboard credentials, pairing tokens or network hosts are provided to CI.
 
 Check iPhone and iPad layouts, VoiceOver, keyboard entry, local-network/Tailscale access, trusted TLS, server-unavailable recovery, session persistence/removal, control confirmations and external-link blocking on a device. Test controls with a synthetic/test collector before real radios. Review privacy disclosures, app icon, signing and distribution requirements before any public release. Simulator compilation, source review and a valid plist are not substitutes for these checks.
 

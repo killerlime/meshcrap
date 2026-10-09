@@ -22,21 +22,35 @@ jobs:
       - name: Generate project
         working-directory: ios
         run: xcodegen generate
-      - name: Select available iPhone simulator
+      - name: Select iPhone simulator matching the installed SDK
         run: |
           xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"
           python3 - <<'PY'
-          import json, os
+          import json, os, subprocess
           from pathlib import Path
           devices = json.loads(Path(os.environ['RUNNER_TEMP'], 'simulators.json').read_text())['devices']
-          choices = [device for runtime, entries in sorted(devices.items(), reverse=True)
-                     if 'iOS' in runtime for device in entries
+          sdk = subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-version'], text=True).strip()
+          runtimes = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'runtimes', '--json'], text=True))['runtimes']
+          compatible = {runtime['identifier'] for runtime in runtimes
+                        if runtime.get('isAvailable') and runtime['name'].startswith('iOS')
+                        and runtime['version'] == sdk}
+          choices = [device for runtime, entries in devices.items()
+                     if runtime in compatible for device in entries
                      if device.get('isAvailable') and device['name'].startswith('iPhone')]
           if not choices:
-              raise SystemExit('No available iPhone simulator on runner')
+              raise SystemExit('No available iPhone simulator matching installed SDK ' + sdk)
           with open(os.environ['GITHUB_ENV'], 'a') as env:
               env.write('IOS_SIMULATOR=' + choices[0]['udid'] + '\n')
+              env.write('IOS_SIMULATOR_BOOTED=' + str(choices[0]['state'] == 'Booted').lower() + '\n')
+          print('Selected ' + choices[0]['name'] + ' with iOS SDK/runtime ' + sdk)
           PY
+      - name: Boot the selected simulator
+        timeout-minutes: 10
+        run: |
+          if [ "$IOS_SIMULATOR_BOOTED" != 'true' ]; then
+            xcrun simctl boot "$IOS_SIMULATOR"
+          fi
+          xcrun simctl bootstatus "$IOS_SIMULATOR" -b
       - name: Build and run URL and origin tests without signing
         working-directory: ios
         run: |

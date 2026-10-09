@@ -3,7 +3,7 @@ import WebKit
 @testable import Meshcrap
 
 final class DashboardBrowserTests: XCTestCase {
-    @MainActor func testForgetRemovesWebsiteSessionAndOldView() {
+    @MainActor func testForgetRemovesWebsiteSessionAndOldView() async {
         let done = expectation(description: "Website data removed")
         let browser = DashboardBrowser()
         let oldView = browser.web
@@ -14,18 +14,22 @@ final class DashboardBrowserTests: XCTestCase {
         ])!
         let store = oldView.configuration.websiteDataStore
         store.httpCookieStore.setCookie(cookie) {
-            browser.forget {
-                XCTAssertNil(browser.base)
-                XCTAssertFalse(browser.loading)
-                XCTAssertFalse(browser.canGoBack)
-                XCTAssertNil(browser.error)
-                XCTAssertFalse(browser.web === oldView)
-                store.httpCookieStore.getAllCookies { cookies in
-                    XCTAssertFalse(cookies.contains { $0.name == "test_session" && $0.domain == "collector.example" })
-                    done.fulfill()
+            store.httpCookieStore.getAllCookies { before in
+                XCTAssertTrue(before.contains { $0.name == "test_session" && $0.domain == "collector.example" })
+                browser.forget {
+                    XCTAssertNil(browser.base)
+                    XCTAssertFalse(browser.loading)
+                    XCTAssertFalse(browser.canGoBack)
+                    XCTAssertNil(browser.error)
+                    XCTAssertFalse(browser.web === oldView)
+                    store.httpCookieStore.getAllCookies { cookies in
+                        XCTAssertFalse(cookies.contains { $0.name == "test_session" && $0.domain == "collector.example" })
+                        done.fulfill()
+                    }
                 }
             }
         }
-        wait(for: [done], timeout: 10)
+        // Yield the main actor while WebKit and the completion handler make progress.
+        await fulfillment(of: [done], timeout: 10)
     }
 }
