@@ -40,4 +40,3 @@
  $('hours').addEventListener('change',load);document.addEventListener('visibilitychange',load);
  RFRefresh.every('comparison',load,30000,{host:'main',label:'Receiver comparison'});load();
 })();
-
