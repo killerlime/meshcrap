@@ -17,7 +17,7 @@
   const daysLabel=el('label','History '),days=el('select');days.setAttribute('aria-label','History duration');for(const d of [7,30,90,180,365,730,3650]){const o=el('option',d===3650?'All retained summaries':d+' days');o.value=d;days.append(o);}days.value=90;daysLabel.append(days);
   controls.append(rootLabel,details,metricLabel,search,pick,daysLabel);const output=el('div'),note=el('p',null,'muted');
   tools.append(mode,windowSelect,refresh);panel.append(title,description,tools,controls,status,output,note);main.append(panel);nav.append(tab);
-  let nodes=[],charts=[],generation=0,graphData=null,lastBody=new Map(),etags=new Map(),busy=false,queued=false,loadedNodes=false;
+  let nodes=[],charts=[],generation=0,graphData=null,lastBody=new Map(),etags=new Map(),busy=false,queued=false,loadedNodes=false,graphInitialized=false;
   const names=new Map(),selection=new Set();
   const name=id=>names.get(id)||id;const local=t=>new Date(typeof t==='number'?t*1000:t).toLocaleString(undefined,{timeZoneName:'short'});
   const dated=t=>({display:local(t),sort:new Date(typeof t==='number'?t*1000:t).getTime()});
