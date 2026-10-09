@@ -5,6 +5,12 @@
   "receiver_id": "!00000000",
   "radio_idle_timeout": 0,
   "enable_radio_controls": false,
+  "secondary_enabled": false,
+  "secondary_radio_host": "",
+  "secondary_radio_port": 4403,
+  "secondary_receiver_id": "!00000000",
+  "secondary_label": "Secondary",
+  "secondary_enable_controls": false,
   "bind_host": "127.0.0.1",
   "web_port": 8080,
   "trusted_hosts": [

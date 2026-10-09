@@ -23,6 +23,7 @@ Meshcrap is a community project in active development. Expect rough edges and he
 - Mesh explorer: observed topology, route changes, multi-node comparisons, delivery evidence and retained summaries. See [usage and limits](docs/MESH-EXPLORER.md).
 - Optional locally served geography on Node map, plus bounded dashboard performance measurements.
 - Optional RF sniffer view and quick setup wizard. The independently operated SDR receiver keeps its process, captures, keys and controls separate; see [setup](docs/RF-SNIFFER.md).
+- Optional second receiver with separate history, shared reception and paired signal comparisons; see [setup and interpretation](docs/RECEIVER-COMPARISON.md).
 - Separate What-if software simulator and optional on-demand terrain profiles; see [models and limits](docs/MESH-SIMULATOR.md).
 - Interactive Tropo forecast map loaded only when viewed; see [sources and privacy](docs/TROPO-SOURCES.md).
 - Passive receiver role comparison in Insights, with explicit assumptions and no radio mode changes.
@@ -138,6 +139,17 @@ To host a locally built APK on the setup page, copy it to `<data_dir>/dashboard/
 Run your SDR receiver independently, using its own installation instructions and private web interface. Then run `python meshcrap.py sniffer-setup` and restart the dashboard. The short wizard changes only whether the separate **RF sniffer** view is enabled and the operator-owned page to embed. It does not install receiver software, open ports, read channel keys or start a radio.
 
 Use a private HTTPS companion address, or an existing prefix-aware `/sniffer/` page on your dashboard host. Its authentication and control protection remain the separate receiver's responsibility. The view is unloaded when you leave it. See [RF sniffer setup and isolation](docs/RF-SNIFFER.md) for upstream licensing and troubleshooting.
+
+## Optional receiver comparison
+
+Run `python meshcrap.py receiver-setup` to configure a second dedicated TCP radio.
+Restart the dashboard and explicitly start `python meshcrap.py collect-secondary`.
+The second receiver keeps its own history and shares its collector connection
+with optional locked controls. **Receiver comparison** shows overlap, paired
+signal readings, hops and activity within the same time window. It excludes
+startup backlog and requires shared history before drawing conclusions.
+See [receiver comparison](docs/RECEIVER-COMPARISON.md). The setup wizard does not
+connect to either radio or change its settings.
 
 ## iPhone dashboard and controls
 

@@ -13,7 +13,7 @@ with tempfile.TemporaryDirectory() as temporary:
     path = Path(temporary) / 'config.json'
     defaults = json.loads((ROOT / 'config.example.json').read_text())
     answers = iter(['<img src=x onerror=alert(1)> {{7*7}}', '', '', 'y', 'pi',
-                    'bridge.example', '4403', '!12345678', 'n', 'n', 'n', 'y'])
+                    'bridge.example', '4403', '!12345678', 'n', 'n', 'n', 'n', 'y'])
     assert configure(path, defaults, meshcrap.load_config, lambda _: next(answers))
     config, data = meshcrap.load_config(path)
     assert config['radio_host'] == 'bridge.example'

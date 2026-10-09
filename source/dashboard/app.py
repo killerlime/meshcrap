@@ -13,9 +13,18 @@ from system_health import host_health, reception_health
 
 app = Flask(__name__)
 app.config['RADIO_CONTROLS_ENABLED'] = @@ENABLE_RADIO_CONTROLS@@
+app.config['SECONDARY_RECEIVER_ENABLED'] = @@SECONDARY_ENABLED@@
+app.config['SECONDARY_CONTROLS_ENABLED'] = @@ENABLE_RADIO_CONTROLS@@ and @@SECONDARY_ENABLE_CONTROLS@@
 @app.before_request
 def optional_features():
-    if request.path.startswith(('/api/secondary-control','/api/lcd-control','/api/pki/')):
+    if request.path.startswith('/api/secondary-control'):
+        if not app.config['SECONDARY_RECEIVER_ENABLED']:
+            return jsonify(error='Optional secondary receiver is not configured'), 501
+        if request.method == 'POST' and request.path.endswith('/action') and not app.config['SECONDARY_CONTROLS_ENABLED']:
+            body = request.get_json(silent=True)
+            if not isinstance(body, dict) or body.get('action') not in ('lock', 'revoke_devices'):
+                return jsonify(error='Enable secondary radio controls in local configuration first'), 403
+    if request.path.startswith(('/api/lcd-control','/api/pki/')):
         return jsonify(error='This hardware integration is unavailable in the portable distribution'), 501
     if request.path.startswith(('/api/msp-ingestors','/api/msp-heard-by')):
         return jsonify(error='External mesh lookup is disabled in the portable distribution'), 501
@@ -2868,6 +2877,9 @@ from mesh_explorer import register_explorer
 register_explorer(app, DB, '@@RECEIVER_ID@@')
 from rf_sniffer import register_rf_sniffer
 register_rf_sniffer(app, @@RF_SNIFFER_ENABLED@@, @@RF_SNIFFER_URL_PY@@)
+from receiver_comparison import register_receiver_comparison
+register_receiver_comparison(app, DB, @@SECONDARY_ENABLED@@, '@@SECONDARY_RECEIVER_ID@@', @@SECONDARY_LABEL_PY@@,
+                             app.config['SECONDARY_CONTROLS_ENABLED'])
 from performance_metrics import register_performance
 register_performance(app)
 

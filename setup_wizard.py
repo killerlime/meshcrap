@@ -64,6 +64,54 @@ def configure_sniffer(path, defaults, validate, ask=input):
     return True
 
 
+def _secondary_options(config, ask):
+    enabled = config.get('secondary_enabled', False)
+    choice = ask('Compare reception with a second dedicated radio? '+('[Y/n] ' if enabled else '[y/N] ')).strip().lower()
+    config['secondary_enabled'] = choice != 'n' if enabled else choice == 'y'
+    if not config['secondary_enabled']:
+        config['secondary_enable_controls'] = False
+        return
+    print('Use a different radio and one collector connection. Stop competing TCP clients before starting it.')
+    print('This setup saves settings only; it does not connect, probe nodes or change radio settings.')
+
+    def field(label, default, valid, convert=str):
+        while True:
+            value = ask(f'{label} [{default}]: ').strip() or str(default)
+            try:
+                value = convert(value)
+                if valid(value):
+                    return value
+            except (ValueError, TypeError):
+                pass
+            print('Please enter a valid value.')
+
+    config['secondary_radio_host'] = field('Second radio or TCP bridge hostname/IP', config.get('secondary_radio_host', ''),
+                                          lambda v: bool(re.fullmatch(r'[A-Za-z0-9_.:\-]+', v)))
+    config['secondary_radio_port'] = field('Second radio port', config.get('secondary_radio_port', 4403), lambda v: 1 <= v <= 65535, int)
+    config['secondary_receiver_id'] = field('Second receiver ID (! plus 8 hex digits)', config.get('secondary_receiver_id', ''),
+                                            lambda v: bool(re.fullmatch(r'![0-9a-fA-F]{8}', v)) and int(v[1:], 16) not in (0, 0xffffffff)).lower()
+    config['secondary_label'] = field('Second receiver display name', config.get('secondary_label', 'Secondary'),
+                                      lambda v: bool(v.strip()) and len(v) <= 80 and not any(ord(c) < 32 for c in v))
+    # A receiver setup never silently grants permission to transmit or administer.
+    config['secondary_enable_controls'] = False
+
+
+def configure_secondary(path, defaults, validate, ask=input):
+    """Opt-in second receiver; preserve first receiver and private access settings."""
+    path = Path(path).resolve()
+    original = path.read_bytes() if path.exists() else None
+    config = validate(path)[0] if path.exists() else dict(defaults)
+    print('Optional receiver comparison — separate history, one connection per radio.')
+    _secondary_options(config, ask)
+    if ask('Save these receiver settings? [Y/n] ').strip().lower() == 'n':
+        print('Canceled; no files changed.')
+        return False
+    _save_config(path, config, validate, expected=original, check_unchanged=True)
+    print('Saved. Restart the dashboard to show the comparison. Start collect-secondary explicitly when ready.')
+    print('Secondary controls remain OFF. Read the receiver comparison guide before enabling them in JSON.')
+    return True
+
+
 def configure(path, defaults, validate, ask=input):
     path = Path(path).resolve()
     print('Meshcrap setup — press Enter to accept a default.')
@@ -113,6 +161,7 @@ def configure(path, defaults, validate, ask=input):
         config['allowed_networks']=list(dict.fromkeys(config['allowed_networks']+[network]))
         print('Viewing is allowed from that network; write controls remain locked. Use private HTTPS for remembered devices and the iPhone app.')
     _sniffer_options(config, ask)
+    _secondary_options(config, ask)
     print('Radio controls and external forwarding: OFF. Only explicitly configured networks can access the dashboard.')
     print('Map center, regions, private HTTPS and remote access can be set in JSON later.')
     if ask('Save this configuration? [Y/n] ').strip().lower() == 'n':

@@ -35,17 +35,30 @@ def load_config(path):
     title=config['app_title']
     if not isinstance(title,str) or not title.strip() or len(title)>80 or any(ord(c)<32 for c in title):
         raise ValueError('app_title must contain 1–80 printable characters')
-    for key in ('radio_port','web_port'):
+    for key in ('radio_port','secondary_radio_port','web_port'):
         if type(config[key]) is not int or not 1 <= config[key] <= 65535:
             raise ValueError(key+' must be a TCP port')
     if not re.fullmatch(r'![0-9a-fA-F]{8}', config['receiver_id']):
         raise ValueError('receiver_id must be ! followed by eight hexadecimal digits')
     config['receiver_id'] = config['receiver_id'].lower()
-    for key in ('radio_host','bind_host','https_host','weather_station'):
+    if not isinstance(config['secondary_receiver_id'], str) or not re.fullmatch(r'![0-9a-fA-F]{8}', config['secondary_receiver_id']):
+        raise ValueError('secondary_receiver_id must be ! followed by eight hexadecimal digits')
+    config['secondary_receiver_id'] = config['secondary_receiver_id'].lower()
+    label = config['secondary_label']
+    if not isinstance(label, str) or not label.strip() or len(label) > 80 or any(ord(c) < 32 for c in label):
+        raise ValueError('secondary_label must contain 1–80 printable characters')
+    for key in ('radio_host','secondary_radio_host','bind_host','https_host','weather_station'):
         if not isinstance(config[key],str) or not re.fullmatch(r'[A-Za-z0-9_.:\-]*',config[key]):
             raise ValueError('Invalid '+key)
-    for key in ('enable_radio_controls','enable_weather','enable_potato','rf_sniffer_enabled'):
+    for key in ('enable_radio_controls','enable_weather','enable_potato','rf_sniffer_enabled','secondary_enabled','secondary_enable_controls'):
         if type(config[key]) is not bool: raise ValueError(key+' must be boolean')
+    if config['secondary_enabled']:
+        if not config['secondary_radio_host'] or int(config['secondary_receiver_id'][1:], 16) in (0, 0xffffffff):
+            raise ValueError('Set a secondary host and actual receiver ID before enabling collection')
+        if config['secondary_receiver_id'] == config['receiver_id']:
+            raise ValueError('Primary and secondary receivers must be different radios')
+        if config['radio_host'].lower().rstrip('.') == config['secondary_radio_host'].lower().rstrip('.') and config['radio_port'] == config['secondary_radio_port']:
+            raise ValueError('Primary and secondary receivers must use different endpoints')
     config['rf_sniffer_url'] = validate_embed_url(config['rf_sniffer_url'])
     if config['rf_sniffer_enabled'] and not config['rf_sniffer_url']:
         raise ValueError('Set rf_sniffer_url before enabling the RF sniffer view')
@@ -110,7 +123,8 @@ def load_config(path):
 def render(config,data):
     runtime = data/'.runtime'
     tokens={key.upper():repr(value) if isinstance(value,(bool,int,float,list,dict)) else str(value) for key,value in config.items()}
-    tokens.update(RF_SNIFFER_URL_PY=repr(config['rf_sniffer_url']),APP_TITLE_HTML=html.escape(config['app_title']).replace('{','&#123;').replace('}','&#125;'),DATA_DIR=data.as_posix(),RECEIVER_NUM=str(int(config['receiver_id'][1:],16)),
+    tokens.update(SECONDARY_RADIO_HOST_PY=repr(config['secondary_radio_host']),SECONDARY_LABEL_PY=repr(config['secondary_label']),SECONDARY_RECEIVER_NUM=str(int(config['secondary_receiver_id'][1:],16)),
+        RF_SNIFFER_URL_PY=repr(config['rf_sniffer_url']),APP_TITLE_HTML=html.escape(config['app_title']).replace('{','&#123;').replace('}','&#125;'),DATA_DIR=data.as_posix(),RECEIVER_NUM=str(int(config['receiver_id'][1:],16)),
         NODE_PREFIX_LOWER=config['node_prefix'].lower(),AREAS=repr(config['regions']),
         AREA_IDS=json.dumps(list(config['regions'])),
         AREA_OPTIONS=''.join('<option value="'+k+'">'+html.escape(v['name'])+'</option>' for k,v in config['regions'].items()),
@@ -169,11 +183,15 @@ def _initialize(config,data):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config',default=str(ROOT/'config.json'))
-    parser.add_argument('command',choices=('setup','sniffer-setup','init','serve','collect','check','feed'))
+    parser.add_argument('command',choices=('setup','sniffer-setup','receiver-setup','init','serve','collect','collect-secondary','check','feed'))
     args=parser.parse_args()
     if args.command=='sniffer-setup':
         from setup_wizard import configure_sniffer
         configure_sniffer(args.config,json.loads((ROOT/'config.example.json').read_text()),load_config)
+        return
+    if args.command=='receiver-setup':
+        from setup_wizard import configure_secondary
+        configure_secondary(args.config,json.loads((ROOT/'config.example.json').read_text()),load_config)
         return
     if args.command=='setup':
         from setup_wizard import configure
@@ -187,14 +205,16 @@ def main():
     config,data=load_config(args.config)
     if args.command=='collect' and (not config['radio_host'] or int(config['receiver_id'][1:],16) in (0,0xffffffff)):
         raise ValueError('Set radio_host and the actual receiver_id before starting collection')
-    if args.command in ('serve','collect','feed') and sys.platform!='linux':
+    if args.command=='collect-secondary' and not config['secondary_enabled']:
+        raise ValueError('Secondary collection is disabled. Run receiver-setup to configure a dedicated radio first.')
+    if args.command in ('serve','collect','collect-secondary','feed') and sys.platform!='linux':
         raise ValueError('The collector/dashboard currently require Linux. Use Linux, a Raspberry Pi, or WSL2.')
     runtime=initialize(config,data)
     if args.command in ('init','check'):
         with closing(sqlite3.connect(data/'mesh.db')) as db:assert db.execute('PRAGMA quick_check').fetchone()[0]=='ok'
         print('Configuration, source compilation and database integrity OK')
         return
-    program=runtime/({'serve':'dashboard/app.py','collect':'collector.py','feed':'potato_feed.py'}[args.command])
+    program=runtime/({'serve':'dashboard/app.py','collect':'collector.py','collect-secondary':'secondary_collector.py','feed':'potato_feed.py'}[args.command])
     env=dict(os.environ,PYTHONPATH=str(runtime)+os.pathsep+str(runtime/'dashboard'),PYTHONUNBUFFERED='1')
     os.execve(sys.executable,[sys.executable,str(program)],env)
 

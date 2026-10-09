@@ -22,6 +22,9 @@ Run `python meshcrap.py setup` in the activated virtual environment. Choose:
 - **RF sniffer:** optional and off by default. Link an independently installed
   sniffer through [its setup guide](RF-SNIFFER.md); the dashboard does not install
   or start an SDR receiver.
+- **Second receiver:** optional reception comparison with a different radio.
+  Setup saves its connection and display name; collection starts only when you
+  explicitly run `collect-secondary`. Its history stays separate.
 
 Review the prompts before saving. Replacing an existing configuration creates a
 backup. Canceling keeps it unchanged. JSON users can copy `config.example.json` to
@@ -57,6 +60,14 @@ and viewing permissions distinct. The Android survey app needs compatible server
 support; review its matching version and device-test limitations before an outing.
 The [iOS source preview](../ios/README.md) provides dashboard and controls; Bluetooth
 surveying currently requires Android.
+
+For a second dedicated radio, run `python meshcrap.py receiver-setup`, restart
+the dashboard, and start `python meshcrap.py collect-secondary` in another
+terminal. Use **Receiver comparison** to compare shared reception and paired
+signal measurements. Startup history is excluded from RF comparisons. Each radio
+has one connection owner; secondary controls, when explicitly enabled, reuse
+that connection. See [receiver comparison](RECEIVER-COMPARISON.md) for setup,
+interpretation and service installation.
 
 Weather, external forwarding, terrain requests and receiver journal access have
 separate opt-in configuration. See [terrain and Tropo sources](TROPO-SOURCES.md)

@@ -23,6 +23,10 @@ jobs:
       - run: python tests/role_comparison.py
       - run: python tests/efficiency.py
       - run: python tests/setup_labels.py
+      - run: python tests/secondary_setup.py
+      - run: python tests/collector_ownership.py
+      - run: python tests/message_channels.py
+      - run: python tests/receiver_comparison.py
       - run: python tests/heywhatsthat_test.py
       - run: python tests/receiver_diagnostics_test.py
       - run: python tests/error_privacy.py

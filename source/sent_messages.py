@@ -27,7 +27,7 @@ def recent(database, channel, limit=100):
             return []
         rows = conn.execute('''SELECT s.*, n.long_name, n.short_name
             FROM web_sent_messages s LEFT JOIN nodes n ON n.node_num=s.sender_num
-            WHERE (CASE WHEN s.sender_num=@@RECEIVER_NUM@@ AND s.channel IN (2,3) THEN 5-s.channel ELSE s.channel END)=? AND s.destination_num=4294967295
+            WHERE s.channel=? AND s.destination_num=4294967295
             AND NOT EXISTS (SELECT 1 FROM packets p WHERE p.from_num=s.sender_num
                 AND p.packet_id=s.packet_id AND p.portnum='TEXT_MESSAGE_APP')
             ORDER BY s.submitted_at DESC, s.packet_id DESC LIMIT ?''', (channel,limit)).fetchall()

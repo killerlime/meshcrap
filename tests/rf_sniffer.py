@@ -61,7 +61,7 @@ class OptionalSnifferTests(unittest.TestCase):
                 meshcrap.load_config(self.path)
 
     def test_default_new_install_is_off_without_connecting(self):
-        answers = iter(['', '', '', 'n', 'n', 'n', '', 'y'])
+        answers = iter(['', '', '', 'n', 'n', 'n', '', 'n', 'y'])
         with patch('urllib.request.urlopen', side_effect=AssertionError('Must not connect')):
             self.assertTrue(configure(self.path, self.defaults, meshcrap.load_config,
                                       lambda _: next(answers)))
