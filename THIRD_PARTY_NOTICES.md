@@ -25,6 +25,10 @@ The original `ios/` source uses the repository license. It imports Apple SwiftUI
 
 When incorporating or redistributing upstream code or assets, retain their applicable license, copyright and notices, identify modifications, and record the source revision. Link to PotatoMesh in relevant integration documentation and user-facing views; do not imply upstream authorship or endorsement of Meshcrap-specific features.
 
+## Optional independent RF sniffer
+
+[meshtastic-sniffer](https://github.com/alphafox02/meshtastic-sniffer) is an optional external application, copyright CEMAXECUTER LLC, licensed [GPL-3.0-or-later](https://github.com/alphafox02/meshtastic-sniffer/blob/main/LICENSE). No upstream code or binary is bundled here. Meshcrap's independently written iframe integration displays an operator-configured page; the receiver remains a separate process with its own configuration and data. If redistributing that application or its dependencies, preserve their notices and fulfill their corresponding-source obligations for the actual build. See [RF sniffer setup](docs/RF-SNIFFER.md).
+
 ## Source and license index
 
 The root Unlicense applies to original Meshcrap material only. Third-party files keep their own licenses. The Android companion is GPL-3.0. The Python application imports GPL-3.0-only Meshtastic; distributing a combined runtime requires reviewing GPL obligations for that combination, not labeling the entire artifact Unlicense.
@@ -75,4 +79,4 @@ For each release, retain exact application source, build scripts, dependency inv
 
 For GPL-containing binaries, provide the corresponding source for the exact components/build under an applicable GPL distribution method, including required build/install materials. A link to a moving upstream branch or a Meshcrap-only source archive is not by itself a complete corresponding-source bundle for all bundled dependencies. OS image source obligations extend to the included OS packages.
 
-Audit status (2026-10-04): bundled browser notices and Android license texts are present. Exact upstream revision provenance for the ten copied Meshtastic proto files has not yet been established. Earlier published binary/container releases have not been certified as complete corresponding-source distributions by this audit; retain them for review and supplement their source materials as needed. New inventories do not retroactively change existing artifacts. Do not describe this project as universally cleared or entirely Unlicense.
+Audit status (2026-10-09): bundled browser notices and Android license texts are present. The ten copied Meshtastic proto files are byte-for-byte copies from revision `ad0bf31e82886d794334dcc62abb80da862a8ec7`; immutable source URLs and SHA-256 checksums are recorded in `android/proto-sources.json`. Earlier published binary/container releases have not been certified as complete corresponding-source distributions by this audit; retain them for review and supplement their source materials as needed. New inventories do not retroactively change existing artifacts. Do not describe this project as universally cleared or entirely Unlicense.

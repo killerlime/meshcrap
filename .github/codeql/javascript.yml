@@ -1,0 +1,9 @@
+name: Rendered portable dashboard and JavaScript tests
+paths:
+  - codeql-generated/runtime
+  - tests
+  - tools
+  - demo
+paths-ignore:
+  - codeql-generated/runtime/dashboard/static/vendor
+  - '**/node_modules/**'

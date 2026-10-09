@@ -1,0 +1,10 @@
+name: Rendered portable Python and installation tools
+paths:
+  - codeql-generated/runtime
+  - meshcrap.py
+  - setup_wizard.py
+  - tests
+  - tools
+  - deploy
+paths-ignore:
+  - '**/__pycache__/**'

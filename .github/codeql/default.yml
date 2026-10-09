@@ -1,0 +1,6 @@
+name: Meshcrap source analysis
+paths-ignore:
+  - data
+  - dist
+  - '**/build/**'
+  - '**/.gradle/**'

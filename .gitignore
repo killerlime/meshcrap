@@ -42,3 +42,4 @@ config.json.backup-*
 heywhatsthat-config.json
 heywhatsthat-usage.sqlite3*
 receiver-log-access.json
+codeql-generated/

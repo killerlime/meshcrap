@@ -26,6 +26,7 @@ jobs:
       - run: python tests/heywhatsthat_test.py
       - run: python tests/receiver_diagnostics_test.py
       - run: python tests/survey_phone_test.py
+      - run: python tests/survey_evidence_test.py
       - run: python tests/environment_evidence.py
       - run: python tests/tropo_evidence.py
       - run: python tests/public_weather_cache.py
@@ -44,6 +45,9 @@ jobs:
       - run: python tests/first_heard.py
       - run: python tests/frontend.py
       - run: python tests/privacy_check.py
+      - run: python tests/privacy_rules.py
+      - run: python tests/privacy_artifact.py
+      - run: python tests/rf_sniffer.py
       - run: python tests/licenses.py
       - run: python tools/license_inventory.py dist/licenses
       - uses: actions/upload-artifact@v4
