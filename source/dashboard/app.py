@@ -2864,6 +2864,11 @@ register_receiver_diagnostics(app, DB)
 from relay_activity import register_relay_activity
 register_relay_activity(app, DB, '@@RECEIVER_ID@@')
 
+from mesh_explorer import register_explorer
+register_explorer(app, DB, '@@RECEIVER_ID@@')
+from performance_metrics import register_performance
+register_performance(app)
+
 if __name__ == "__main__":
     if @@ENABLE_WEATHER@@: start_weather()
     import sys

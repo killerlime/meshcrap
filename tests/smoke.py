@@ -20,7 +20,10 @@ with tempfile.TemporaryDirectory(prefix='meshcrap-test-') as directory:
         for route in ('/','/api/summary','/api/map','/api/coverage','/api/coverage-survey','/api/noc',
                       '/api/channel-messages','/api/rf-environment','/api/rf-health-hourly','/api/lna-experiment',
                       '/api/lna-analysis','/api/hq-weather','/api/recovery-health','/survey-companion',
-                      '/api/node-control/session','/api/mobile-access','/api/potato-feed/status','/api/role-comparison?hours=24'):
+                      '/api/node-control/session','/api/mobile-access','/api/potato-feed/status','/api/role-comparison?hours=24',
+                      '/api/explorer/nodes','/api/explorer/topology','/api/explorer/routes',
+                      '/api/explorer/telemetry?nodes=!23456789','/api/explorer/history',
+                      '/api/explorer/delivery','/api/explorer/performance','/api/explorer/map-pack'):
             try:
                 response=client.get(route,base_url='http://localhost')
                 assert response.status_code==200,(route,response.status_code,response.get_json(silent=True))

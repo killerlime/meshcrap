@@ -55,6 +55,13 @@ Version ranges in requirements.txt can resolve differently between builds. Run t
 
 ## External services and reference material
 
+- Natural Earth country geometry: public domain, https://www.naturalearthdata.com/about/terms-of-use/.
+  `source/dashboard/static/offline-geography.json` is derived from the 110m country FeatureCollection at
+  https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson
+  (retrieved 2026-10-08; original SHA-256 `6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f`).
+  Transformation: retain all 177 feature geometries; remove properties. Coarse boundaries do not provide street detail or imply endorsement of disputed boundaries.
+- Meshyface (https://github.com/jaronmcd/meshyface, GPL-3.0) was reviewed for functional workflow ideas. No Meshyface code, assets or runtime dependency is included in Mesh explorer; its implementation is independently written.
+
 - OpenStreetMap contributors supply map data under ODbL: https://www.openstreetmap.org/copyright. Preserve visible attribution and the license link. Tile and geocoding services also have usage policies: https://operations.osmfoundation.org/policies/tiles/ and https://operations.osmfoundation.org/policies/nominatim/.
 - Weather Underground / The Weather Company observations: https://www.wunderground.com/ and https://www.weathercompany.com/. Retain displayed provider attribution; data and service access are governed by provider terms, not the root license.
 - HeyWhatsThat terrain profiles: https://www.heywhatsthat.com/. Optional external service; do not infer redistribution rights for its data from this repository's license.

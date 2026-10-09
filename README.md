@@ -20,6 +20,8 @@ Meshcrap is a community project in active development. Expect rough edges and he
 - Dashboard, node details, messages, charts, coverage regions and survey reports.
 - Relative activity, direct/relayed RF statistics, local-transmission filtering and 30-day coverage aging.
 - LNA transition records, noise-floor analysis and observational comparisons.
+- Mesh explorer: observed topology, route changes, multi-node comparisons, delivery evidence and retained summaries. See [usage and limits](docs/MESH-EXPLORER.md).
+- Optional locally served geography on Node map, plus bounded dashboard performance measurements.
 - Separate What-if software simulator and optional on-demand terrain profiles; see [models and limits](docs/MESH-SIMULATOR.md).
 - Interactive Tropo forecast map loaded only when viewed; see [sources and privacy](docs/TROPO-SOURCES.md).
 - Passive receiver role comparison in Insights, with explicit assumptions and no radio mode changes.

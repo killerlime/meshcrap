@@ -40,9 +40,12 @@ def read_messages(database, channel, limit=100, before=None):
         sender_id = row['from_id'] or (f"!{row['from_num']:08x}" if row['from_num'] is not None else 'Unknown')
         messages.append(dict(id=row['row_id'], received_at=row['collector_time'],
                              sender_id=sender_id, sender=row['long_name'] or row['short_name'] or sender_id,
-                             text=text, snr=row['rx_snr'], hops=row['hops_used']))
+                             packet_id=row['packet_id'], text=text, snr=row['rx_snr'], hops=row['hops_used']))
     from sent_messages import recent
-    return dict(messages=messages, sent_messages=recent(database, channel) if before is None else [],
+    from message_evidence import enrich
+    pending=recent(database, channel) if before is None else []
+    enrich(database,messages+pending)
+    return dict(messages=messages, sent_messages=pending,
                 next_before=rows[limit-1]['row_id'] if more else None)
 
 

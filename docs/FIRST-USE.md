@@ -61,6 +61,12 @@ the wizard does not yet cover every optional integration.
 
 ## If something does not work
 
+For recorded connections, route comparisons and multi-node history, open
+**Mesh explorer**. Empty evidence tables are normal on a new installation. The
+long-term summary backfill runs in small batches. **Node map → Offline geography**
+uses local outlines without external street tiles. See [the explorer guide](MESH-EXPLORER.md)
+for interpretation, limits, storage and optional custom map packs.
+
 | Symptom | Check first |
 |---|---|
 | Page will not open | Server terminal errors, selected port, and whether you are browsing on the server or another device. |

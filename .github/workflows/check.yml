@@ -36,9 +36,11 @@ jobs:
       - run: node tests/role-model.cjs
       - run: node tests/refresh-controls.cjs
       - run: node tests/dashboard-refresh.cjs
+      - run: node tests/conditional-read.cjs
       - run: node tests/traffic-simulation.cjs
       - run: node tests/map-report.cjs
       - run: python tests/relay_activity.py
+      - run: python tests/mesh_explorer.py
       - run: python tests/first_heard.py
       - run: python tests/frontend.py
       - run: python tests/privacy_check.py

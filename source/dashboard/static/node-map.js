@@ -20,7 +20,7 @@
   async function load(){
    if(panel.hidden||document.hidden||busy)return;busy=true;status.textContent='Loading nodes…';
    try{
-    if(!map){map=L.map(canvas,{scrollWheelZoom:true,renderer:L.svg()});L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,referrerPolicy:'strict-origin-when-cross-origin',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);layer=L.layerGroup().addTo(map);map.setView([0,0],2);}
+    if(!map){map=L.map(canvas,{scrollWheelZoom:true,renderer:L.svg()});MeshOfflineMap.attach(map);layer=L.layerGroup().addTo(map);map.setView([0,0],2);}
     const response=await fetch('/api/map',{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!response.ok)throw Error('HTTP '+response.status);const data=await response.json();if(panel.hidden)return;
     rows=data.filter(n=>typeof n.latitude==='number'&&typeof n.longitude==='number'&&Math.abs(n.latitude)<=90&&Math.abs(n.longitude)<=180&&(n.latitude!==0||n.longitude!==0));const present=new Set();
     for(const n of rows){const id=n.node_id||String(n.node_num),signature=JSON.stringify(n);present.add(id);const previous=markers.get(id);if(previous?.signature===signature)continue;if(previous)layer.removeLayer(previous.marker);
