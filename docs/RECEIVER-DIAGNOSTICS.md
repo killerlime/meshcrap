@@ -34,6 +34,11 @@ known_hosts (absolute pinned host-key file path). Never commit this file, keys,
 trust material, captured logs or station-specific configuration. Verify the
 receiver host-key fingerprint out of band; never use accept-new or disable checking.
 
+Use a literal hostname/IP and username, plus existing absolute key/trust paths
+without spaces, control characters or OpenSSH percent expansions. This integration
+does not load the user's SSH configuration or accept connection options in these
+fields; its pinned connection options and remote journal command remain fixed.
+
 Back up current dashboard files and compare them with the fetched baseline before
 installing changed files. Register receiver_diagnostics in app.py and load its JS
 as provided in source. Preserve existing dashboard access controls. Reload only

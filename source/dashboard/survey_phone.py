@@ -6,25 +6,31 @@ from contextlib import contextmanager,closing
 from datetime import datetime,timezone
 from flask import request,jsonify,g,render_template,send_from_directory
 
+class SurveyValidationError(ValueError):
+    """Only application-authored validation guidance is safe to send to a phone."""
+    def __init__(self, public_message):
+        super().__init__(public_message)
+        self.public_message=public_message
+
 def epoch(value):
     stamp=datetime.fromisoformat(value.replace('Z','+00:00'))
     return (stamp if stamp.tzinfo else stamp.replace(tzinfo=timezone.utc)).timestamp()
 
 def integer(value,low,high):
-    if type(value) is not int or not low<=value<=high:raise ValueError('Invalid integer field')
+    if type(value) is not int or not low<=value<=high:raise SurveyValidationError('Invalid integer field')
     return value
 
 def validate_position(p,now,allow_unknown_time=False):
-    if not isinstance(p,dict):raise ValueError('Position required')
+    if not isinstance(p,dict):raise SurveyValidationError('Position required')
     lat,lon=p.get('lat'),p.get('lon')
-    if any(type(v) not in (int,float) or not math.isfinite(v) for v in (lat,lon)) or not -90<=lat<=90 or not -180<=lon<=180 or (lat==lon==0):raise ValueError('Invalid position')
+    if any(type(v) not in (int,float) or not math.isfinite(v) for v in (lat,lon)) or not -90<=lat<=90 or not -180<=lon<=180 or (lat==lon==0):raise SurveyValidationError('Invalid position')
     stamp=integer(p.get('time'),0 if allow_unknown_time else 1,int(now+120))
     source=p.get('source')
-    if source not in ('phone_gps','radio_position'):raise ValueError('Invalid position source')
+    if source not in ('phone_gps','radio_position'):raise SurveyValidationError('Invalid position source')
     out=dict(lat=lat,lon=lon,time=stamp,source=source)
     if source=='phone_gps':
         accuracy=p.get('accuracy_m')
-        if type(accuracy) not in (int,float) or not math.isfinite(accuracy) or not 0<=accuracy<=804.672:raise ValueError('Invalid GPS accuracy')
+        if type(accuracy) not in (int,float) or not math.isfinite(accuracy) or not 0<=accuracy<=804.672:raise SurveyValidationError('Invalid GPS accuracy')
         out['accuracy_m']=accuracy
     return out
 
@@ -36,7 +42,7 @@ def validate_destination_position(target,observed_at,now):
     position['last_heard']=integer(target.get('last_heard',0),0,int(now+120))
     age=observed_at-position['time']
     if position['time'] and (age<0 or (position['source'] in (2,3) and age>7*86400)):
-        raise ValueError('Destination GPS position is outside the discovery window')
+        raise SurveyValidationError('Destination GPS position is outside the discovery window')
     return position
 
 class SurveyPhone:
@@ -86,17 +92,17 @@ class SurveyPhone:
         try:
             source=integer(data.get('source'),0,0xfffffffe)
             events=data.get('events',[])
-            if not isinstance(events,list) or len(events)>10:raise ValueError('Maximum ten records per upload')
+            if not isinstance(events,list) or len(events)>10:raise SurveyValidationError('Maximum ten records per upload')
             with self.meshdb() as mesh, self.db() as permits:
                 known={r[0] for r in mesh.execute("SELECT node_num FROM nodes WHERE lower(trim(coalesce(short_name,''))) LIKE '@@NODE_PREFIX_LOWER@@%' OR lower(trim(coalesce(long_name,''))) LIKE '@@NODE_PREFIX_LOWER@@ %'")}
                 active=mesh.execute('SELECT * FROM coverage_surveys WHERE ended_at IS NULL ORDER BY survey_id DESC LIMIT 1').fetchone()
                 normalized=[];local_outings={}
                 for event in events:
-                    if not isinstance(event,dict):raise ValueError('Invalid record')
+                    if not isinstance(event,dict):raise SurveyValidationError('Invalid record')
                     event_id=str(uuid.UUID(event.get('id','')))
                     outing=event.get('outing')
                     if outing is not None:
-                        if not isinstance(outing,dict):raise ValueError('Invalid phone outing')
+                        if not isinstance(outing,dict):raise SurveyValidationError('Invalid phone outing')
                         outing_id=str(uuid.UUID(outing.get('id','')))
                         started=integer(outing.get('started_at'),1,int(now+120))
                         local_outings[event_id]=(outing_id,started)
@@ -105,11 +111,11 @@ class SurveyPhone:
                     else:
                         survey_id=integer(event.get('survey_id'),1,2147483647)
                         survey=mesh.execute('SELECT * FROM coverage_surveys WHERE survey_id=?',(survey_id,)).fetchone()
-                    if survey is None:raise ValueError('Unknown survey')
+                    if survey is None:raise SurveyValidationError('Unknown survey')
                     node=integer(event.get('source'),1,0xfffffffe)
-                    if node not in known:raise ValueError('Source is not a known local-prefix node')
+                    if node not in known:raise SurveyValidationError('Source is not a known local-prefix node')
                     stamp=integer(event.get('time'),1,int(now+120))
-                    if stamp<epoch(survey['started_at'])-120:raise ValueError('Record predates survey')
+                    if stamp<epoch(survey['started_at'])-120:raise SurveyValidationError('Record predates survey')
                     kind=event.get('kind')
                     clean=dict(id=event_id,kind=kind,survey_id=survey_id,source=node,time=stamp)
                     if outing is not None:clean['outing']=dict(id=outing_id,started_at=started)
@@ -119,60 +125,60 @@ class SurveyPhone:
                     offline=False
                     permit=event.get('offline_permit')
                     if permit is not None:
-                        if not isinstance(permit,str) or len(permit)>128:raise ValueError('Invalid offline permit')
+                        if not isinstance(permit,str) or len(permit)>128:raise SurveyValidationError('Invalid offline permit')
                         grant=permits.execute('SELECT * FROM offline_permits WHERE token=?',(permit,)).fetchone()
                         reference=event.get('requested_at',stamp)
-                        if not grant or grant['survey']!=survey_id or grant['source']!=node or type(reference) is not int or not grant['issued']-120<=reference<=grant['expires']:raise ValueError('Offline observation outside authorization')
+                        if not grant or grant['survey']!=survey_id or grant['source']!=node or type(reference) is not int or not grant['issued']-120<=reference<=grant['expires']:raise SurveyValidationError('Offline observation outside authorization')
                         offline=True
                         clean['offline_authorized']=True
                     p=event.get('position')
                     if p is not None:
                         clean['position']=validate_position(p,now)
                         reference=event.get('requested_at',stamp)
-                        if type(reference) is not int or not -120<=reference-clean['position']['time']<=86400:raise ValueError('Position was not fresh at observation')
+                        if type(reference) is not int or not -120<=reference-clean['position']['time']<=86400:raise SurveyValidationError('Position was not fresh at observation')
                     if kind in ('outing_start','outing_end'):
-                        if outing is None:raise ValueError('Phone outing required')
+                        if outing is None:raise SurveyValidationError('Phone outing required')
                     elif kind=='position':
-                        if p is None:raise ValueError('Missing position')
-                        if not offline and survey['ended_at'] and stamp>epoch(survey['ended_at'])+30:raise ValueError('Position outside survey')
+                        if p is None:raise SurveyValidationError('Missing position')
+                        if not offline and survey['ended_at'] and stamp>epoch(survey['ended_at'])+30:raise SurveyValidationError('Position outside survey')
                     elif kind=='reception':
-                        if not offline and survey['ended_at'] and stamp>epoch(survey['ended_at'])+30:raise ValueError('Reception outside survey')
+                        if not offline and survey['ended_at'] and stamp>epoch(survey['ended_at'])+30:raise SurveyValidationError('Reception outside survey')
                         sender=integer(event.get('sender'),1,0xfffffffe)
-                        if sender==node:raise ValueError('Local transmission is not received RF')
+                        if sender==node:raise SurveyValidationError('Local transmission is not received RF')
                         rx=integer(event.get('rx_time'),1,stamp)
-                        if stamp-rx>120 or event.get('via_mqtt') is not False:raise ValueError('Not a current radio reception')
+                        if stamp-rx>120 or event.get('via_mqtt') is not False:raise SurveyValidationError('Not a current radio reception')
                         rssi=integer(event.get('rssi'),-200,-1)
                         snr=event.get('snr')
-                        if type(snr) not in (int,float) or not math.isfinite(snr) or not -100<=snr<=100:raise ValueError('Invalid SNR')
+                        if type(snr) not in (int,float) or not math.isfinite(snr) or not -100<=snr<=100:raise SurveyValidationError('Invalid SNR')
                         clean.update(sender=sender,packet_id=integer(event.get('packet_id'),1,0xffffffff),channel=integer(event.get('channel'),0,7),rx_time=rx,rssi=rssi,snr=snr,via_mqtt=False)
                     elif kind=='trace':
                         dest=integer(event.get('destination'),1,0xfffffffe)
-                        if dest==node:raise ValueError('Destination equals source')
+                        if dest==node:raise SurveyValidationError('Destination equals source')
                         at=integer(event.get('requested_at'),1,int(now+120))
-                        if at<epoch(survey['started_at'])-120 or stamp<at-120 or (not offline and survey['ended_at'] and at>epoch(survey['ended_at'])+30):raise ValueError('Request outside survey')
+                        if at<epoch(survey['started_at'])-120 or stamp<at-120 or (not offline and survey['ended_at'] and at>epoch(survey['ended_at'])+30):raise SurveyValidationError('Request outside survey')
                         status=event.get('status')
-                        if status not in ('requested','success','late_success','timeout','routing_error','transport_error','stopped'):raise ValueError('Unknown result status')
+                        if status not in ('requested','success','late_success','timeout','routing_error','transport_error','stopped'):raise SurveyValidationError('Unknown result status')
                         clean.update(destination=dest,requested_at=at,packet_id=integer(event.get('packet_id'),1,0xffffffff),channel=integer(event.get('channel'),0,7),status=status,test=event.get('test') is True)
                         target=event.get('destination_position')
                         if target is not None:
-                            if not isinstance(target,dict):raise ValueError('Invalid destination position')
+                            if not isinstance(target,dict):raise SurveyValidationError('Invalid destination position')
                             position=validate_destination_position(target,at,now)
                             clean['destination_position']=position
                         details=event.get('details',{})
-                        if not isinstance(details,dict):raise ValueError('Invalid response details')
+                        if not isinstance(details,dict):raise SurveyValidationError('Invalid response details')
                         if status in ('success','late_success'):
-                            if details.get('response_from')!=dest or details.get('response_to')!=node:raise ValueError('Response identity mismatch')
+                            if details.get('response_from')!=dest or details.get('response_to')!=node:raise SurveyValidationError('Response identity mismatch')
                             parsed={}
                             for key in ('route','route_back','snr_towards_quarter_db','snr_back_quarter_db'):
                                 values=details.get(key,[])
-                                if not isinstance(values,list) or len(values)>16:raise ValueError('Invalid route')
+                                if not isinstance(values,list) or len(values)>16:raise SurveyValidationError('Invalid route')
                                 parsed[key]=[integer(v,0,0xffffffff) if key.startswith('route') else integer(v,-1000,1000) for v in values]
                             parsed.update(response_from=dest,response_to=node,response_packet_id=integer(details.get('response_packet_id'),0,0xffffffff))
                             clean['details']=parsed
                         elif status=='routing_error':clean['details']={'routing_error':str(details.get('routing_error','Unknown'))[:64]}
-                    else:raise ValueError('Unknown record kind')
+                    else:raise SurveyValidationError('Unknown record kind')
                     normalized.append(clean)
-            if source and source not in known:raise ValueError('Connected source is not a known local-prefix node')
+            if source and source not in known:raise SurveyValidationError('Connected source is not a known local-prefix node')
             status=dict(source=source,ready=data.get('ready') is True,armed=data.get('armed') is True,channel=integer(data.get('channel',0),0,7),nearby=integer(data.get('nearby',0),0,10000))
             offline_permit='';offline_until=0
             with self.db() as db:
@@ -186,9 +192,9 @@ class SurveyPhone:
                         outing_id,started=local_outings[event['id']]
                         old_outing=db.execute('SELECT * FROM meshdata.phone_outings WHERE id=?',(outing_id,)).fetchone()
                         if old_outing:
-                            if old_outing['source']!=event['source'] or old_outing['started']!=started:raise ValueError('Conflicting phone outing')
+                            if old_outing['source']!=event['source'] or old_outing['started']!=started:raise SurveyValidationError('Conflicting phone outing')
                             event['survey_id']=old_outing['survey']
-                            if old_outing['ended'] and event.get('requested_at',event['time'])>old_outing['ended']:raise ValueError('Observation after phone outing ended')
+                            if old_outing['ended'] and event.get('requested_at',event['time'])>old_outing['ended']:raise SurveyValidationError('Observation after phone outing ended')
                         else:
                             start_iso=datetime.fromtimestamp(started,timezone.utc).isoformat()
                             event['survey_id']=db.execute("INSERT INTO meshdata.coverage_surveys(started_at,ended_at,start_row_id,end_row_id,area_id,notes) VALUES(?,?,0,0,'roaming','Phone outing — upload in progress')",(start_iso,start_iso)).lastrowid
@@ -202,7 +208,7 @@ class SurveyPhone:
                     encoded=json.dumps(event,sort_keys=True,separators=(',',':'))
                     old=db.execute('SELECT client,body FROM events WHERE id=?',(event['id'],)).fetchone()
                     # Re-pairing rotates credentials but retains this phone's idempotent outbox.
-                    if old and old['body']!=encoded:raise ValueError('Conflicting record identifier')
+                    if old and old['body']!=encoded:raise SurveyValidationError('Conflicting record identifier')
                     db.execute('INSERT OR IGNORE INTO events VALUES(?,?,?,?,?,?,?)',(event['id'],client['id'],event['survey_id'],event['source'],event['kind'],now,encoded))
                 db.execute('UPDATE clients SET last_seen=?,status=? WHERE id=?',(now,json.dumps(status),client['id']))
                 if active and source in known and status['ready']:
@@ -215,16 +221,17 @@ class SurveyPhone:
             return jsonify(ok=True,accepted=[e['id'] for e in normalized],survey_id=active['survey_id'] if active else 0,
                            phone_controls=True, reception_records=True,local_outings=True,offline_permit=offline_permit,offline_until=offline_until,
                            area_name=('Roaming survey' if active['area_id']=='roaming' else AREAS[active['area_id']]['name']) if active else '',lease_seconds=30 if source in known and status['ready'] else 0)
-        except (ValueError,TypeError,KeyError,AttributeError,OverflowError) as e:return jsonify(error=str(e)),400
+        except SurveyValidationError as error:return jsonify(error=error.public_message),400
+        except (ValueError,TypeError,KeyError,AttributeError,OverflowError):return jsonify(error='Invalid survey record. Check its identifiers and fields.'),400
     def control(self):
         """Survey-only controls; replay protection is committed with the survey change."""
         from coverage_areas import AREAS
         data=request.get_json(silent=True)
         try:
-            if not isinstance(data,dict):raise ValueError('Expected object')
+            if not isinstance(data,dict):raise SurveyValidationError('Expected object')
             command=str(uuid.UUID(data.get('id','')))
             action=data.get('action')
-            if action not in ('start','stop'):raise ValueError('Choose start or stop')
+            if action not in ('start','stop'):raise SurveyValidationError('Choose start or stop')
             area='roaming'
             wanted=integer(data.get('survey_id',0),0,2147483647)
             payload=json.dumps(dict(action=action,area_id=area,survey_id=wanted),sort_keys=True)
@@ -234,7 +241,7 @@ class SurveyPhone:
                 db.execute('CREATE TABLE IF NOT EXISTS survey_phone_commands(id TEXT PRIMARY KEY,client INTEGER NOT NULL,payload TEXT NOT NULL,result TEXT NOT NULL)')
                 old=db.execute('SELECT * FROM survey_phone_commands WHERE id=?',(command,)).fetchone()
                 if old:
-                    if old['client']!=g.survey_phone_client['id'] or old['payload']!=payload:raise ValueError('Conflicting command identifier')
+                    if old['client']!=g.survey_phone_client['id'] or old['payload']!=payload:raise SurveyValidationError('Conflicting command identifier')
                     return jsonify(json.loads(old['result']))
                 active=db.execute('SELECT * FROM coverage_surveys WHERE ended_at IS NULL ORDER BY survey_id DESC LIMIT 1').fetchone()
                 now=datetime.now(timezone.utc).isoformat()

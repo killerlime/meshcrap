@@ -4,11 +4,22 @@ from contextlib import closing
 from pathlib import Path
 from flask import jsonify,request,session
 
+class NodeValidationError(ValueError):
+    """Safe guidance, kept separate from database or parser exception details."""
+    def __init__(self, public_message):
+        super().__init__(public_message)
+        self.public_message=public_message
+
+def request_fields():
+    fields=request.get_json(silent=True)
+    if not isinstance(fields,dict):raise NodeValidationError('Expected a node request object')
+    return fields
+
 def node_number(value):
     if not isinstance(value,str) or not re.fullmatch(r'![0-9a-fA-F]{8}',value):
-        raise ValueError('Choose a canonical node ID such as !00000000')
+        raise NodeValidationError('Choose a canonical node ID such as !00000000')
     num=int(value[1:],16)
-    if not 3<num<0xffffffff:raise ValueError('Choose a valid node ID')
+    if not 3<num<0xffffffff:raise NodeValidationError('Choose a valid node ID')
     return num
 
 def attach_feed(c,database):
@@ -71,8 +82,8 @@ def purge(database,num,request_token=None):
         c.execute('BEGIN IMMEDIATE')
         try:
             c.execute('CREATE TABLE IF NOT EXISTS node_purge_requests(token TEXT PRIMARY KEY,completed_at REAL NOT NULL)')
-            if request_token and c.execute('SELECT 1 FROM node_purge_requests WHERE token=?',(request_token,)).fetchone():raise ValueError('This purge was already performed; preview again')
-            if not c.execute('SELECT 1 FROM nodes WHERE node_num=?',(num,)).fetchone():raise ValueError('Node no longer exists; refresh the list')
+            if request_token and c.execute('SELECT 1 FROM node_purge_requests WHERE token=?',(request_token,)).fetchone():raise NodeValidationError('This purge was already performed; preview again')
+            if not c.execute('SELECT 1 FROM nodes WHERE node_num=?',(num,)).fetchone():raise NodeValidationError('Node no longer exists; refresh the list')
             with closing(sqlite3.connect(database,timeout=15)) as source, closing(sqlite3.connect(backup/'mesh.db')) as dest:source.backup(dest)
             feed=root/'potato-feed'/'outbox.db'
             if feed.exists():
@@ -102,23 +113,25 @@ def register_utilities(app,database):
     @app.post('/api/utilities/purge-preview')
     def preview():
         try:
-            num=node_number(request.json.get('node_id'))
+            fields=request_fields();num=node_number(fields.get('node_id'))
             with closing(sqlite3.connect(database)) as c:
                 attach_feed(c,database)
-                if not c.execute('SELECT 1 FROM nodes WHERE node_num=?',(num,)).fetchone():raise ValueError('Node no longer exists')
+                if not c.execute('SELECT 1 FROM nodes WHERE node_num=?',(num,)).fetchone():raise NodeValidationError('Node no longer exists')
                 rows,sites=plan(c,num)
             token=secrets.token_hex(24);session['node_purge']={'num':num,'token':token,'expires':time.time()+600}
             return jsonify(token=token,counts={k:len(v) for k,v in rows.items() if v},sites_detached=len(sites))
-        except ValueError as e:return jsonify(error=str(e)),400
+        except NodeValidationError as error:return jsonify(error=error.public_message),400
+        except (ValueError,TypeError,KeyError,AttributeError):return jsonify(error='Invalid node request. Refresh and preview again.'),400
 
     @app.post('/api/utilities/purge-node')
     def remove():
         try:
-            num=node_number(request.json.get('node_id'));pending=session.get('node_purge') or {}
-            if pending.get('num')!=num or pending.get('expires',0)<time.time() or not secrets.compare_digest(str(pending.get('token','')),str(request.json.get('token',''))):raise ValueError('Preview this node again before deleting')
-            if request.json.get('confirmation')!=f'!{num:08x}':raise ValueError('Type the exact node ID to confirm')
+            fields=request_fields();num=node_number(fields.get('node_id'));pending=session.get('node_purge') or {}
+            if pending.get('num')!=num or pending.get('expires',0)<time.time() or not secrets.compare_digest(str(pending.get('token','')),str(fields.get('token',''))):raise NodeValidationError('Preview this node again before deleting')
+            if fields.get('confirmation')!=f'!{num:08x}':raise NodeValidationError('Type the exact node ID to confirm')
             session.pop('node_purge',None)
             result=purge(database,num,pending['token'])
             return jsonify(**result,message='Node and its local collector history purged. It may reappear when observed again.')
-        except ValueError as e:return jsonify(error=str(e)),400
+        except NodeValidationError as error:return jsonify(error=error.public_message),400
+        except (ValueError,TypeError,KeyError,AttributeError):return jsonify(error='Invalid node request. Refresh and preview again.'),400
         except sqlite3.Error:return jsonify(error='Database busy or unavailable. Refresh and preview again.'),503
