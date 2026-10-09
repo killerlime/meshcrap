@@ -20,7 +20,7 @@ jobs:
           docker compose build
       - name: Configure empty installation and start
         run: |
-          printf '\n\n\nn\nn\nn\nn\n\n' | docker compose run -T --rm dashboard setup
+          printf '\n\n\nn\nn\nn\nn\nn\n\n' | docker compose run -T --rm dashboard setup
           docker compose up -d --wait dashboard
           curl --fail --silent http://localhost:8080/api/summary > /tmp/summary.json
           python -c 'import json; assert isinstance(json.load(open("/tmp/summary.json")), dict)'
