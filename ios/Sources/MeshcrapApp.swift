@@ -12,6 +12,8 @@ struct DashboardScreen: View {
     @State private var editing = false
     @State private var address = ""
     @State private var invalid = false
+    @State private var confirmForget = false
+    @State private var forgetting = false
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -50,8 +52,12 @@ struct DashboardScreen: View {
                         }
                         Section {
                             Text("Unlock controls inside the dashboard with your existing key. This app does not bypass dashboard permissions or issue commands on its own.")
-                            Text("Website sessions persist on this device. Use the dashboard’s lock/sign-out controls before sharing your phone.")
+                            Text("Website sessions stay on this device. Lock controls before sharing your phone, or forget the dashboard to remove its saved website data.")
                             if let base = browser.base { Link("Open dashboard in Safari", destination: base) }
+                            if !savedAddress.isEmpty {
+                                Button("Forget dashboard and sign out", role: .destructive) { confirmForget = true }
+                                    .disabled(forgetting)
+                            }
                         }
                     }
                     .navigationTitle("Connection")
@@ -61,12 +67,22 @@ struct DashboardScreen: View {
                             Button("Connect") {
                                 guard let url = DashboardAddress.parse(address) else { invalid = true; return }
                                 savedAddress = url.absoluteString; invalid = false; editing = false; browser.connect(url)
+                            }.disabled(forgetting)
+                        }
+                    }
+                    .confirmationDialog("Remove this app's saved dashboard address and all website data?", isPresented: $confirmForget, titleVisibility: .visible) {
+                        Button("Forget and sign out", role: .destructive) {
+                            forgetting = true
+                            browser.forget {
+                                savedAddress = ""; address = ""; invalid = false; forgetting = false; editing = false
                             }
                         }
+                    } message: {
+                        Text("This clears this app's cookies and saved website sessions. It does not change the collector, other phones or Safari.")
                     }
                 }
             }
-            .onAppear { if browser.base == nil, let url = DashboardAddress.parse(savedAddress) { browser.connect(url) } }
+            .onAppear { if !forgetting, browser.base == nil, let url = DashboardAddress.parse(savedAddress) { browser.connect(url) } }
         }
     }
 }
@@ -78,21 +94,48 @@ struct DashboardWebView: UIViewRepresentable {
 }
 
 final class DashboardBrowser: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate {
-    let web = WKWebView(frame: .zero)
+    private(set) var web = WKWebView(frame: .zero)
+    private var resetting = false
+    private var resetCompletions: [() -> Void] = []
     @Published var base: URL?
     @Published var loading = false
     @Published var canGoBack = false
     @Published var error: String?
     override init() {
-        super.init(); web.navigationDelegate = self; web.uiDelegate = self
+        super.init(); configureWebView()
+    }
+    private func configureWebView() {
+        web.navigationDelegate = self; web.uiDelegate = self
         web.allowsBackForwardNavigationGestures = true
     }
-    func connect(_ url: URL) { base = url; error = nil; web.load(URLRequest(url: url)) }
-    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) { loading = true; error = nil }
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { loading = false; canGoBack = webView.canGoBack }
+    func connect(_ url: URL) {
+        guard !resetting else { return }
+        base = url; error = nil; web.load(URLRequest(url: url))
+    }
+    func forget(completion: @escaping () -> Void) {
+        resetCompletions.append(completion)
+        guard !resetting else { return }
+        resetting = true
+        let store = web.configuration.websiteDataStore
+        web.navigationDelegate = nil; web.uiDelegate = nil
+        web.stopLoading(); base = nil; loading = false; canGoBack = false; error = nil
+        store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {
+            DispatchQueue.main.async {
+                // Do not attach another page to the default store while its data is being removed.
+                // Replacing the view then releases the old page, navigation history and timers.
+                self.web = WKWebView(frame: .zero); self.configureWebView()
+                self.resetting = false
+                let completions = self.resetCompletions; self.resetCompletions.removeAll()
+                completions.forEach { $0() }
+            }
+        }
+    }
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) { guard base != nil else { return }; loading = true; error = nil }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { guard base != nil else { return }; loading = false; canGoBack = webView.canGoBack }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { failed(error) }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { failed(error) }
     private func failed(_ failure: Error) {
+        guard base != nil else { return }
         loading = false
         if (failure as NSError).code != NSURLErrorCancelled { error = "Unable to load your dashboard. Check its address, certificate and private-network connection, then reload." }
     }

@@ -25,3 +25,12 @@ header h1:before{color:var(--rf-caution);text-shadow:none}html[data-collection-s
 @media(max-width:600px){.rf-refresh-controls .rf-refresh-state{flex-basis:65%}.rf-refresh-controls button,.rf-refresh-controls select{min-height:44px}}
 
 [data-state=gray]>.rf-status-light{color:#9bada4}#debugLogPanel .muted{text-transform:none;letter-spacing:normal;font-size:13px}
+
+/* Compact, consistent data refresh controls. */
+.rf-refresh-controls{gap:8px 14px;padding:4px 0;margin:8px 0 14px;border:0;border-radius:0;background:transparent}
+.rf-refresh-controls label{display:inline-flex;align-items:center;gap:7px;min-height:44px;margin:0;font-size:13px;cursor:pointer;white-space:nowrap}
+.rf-refresh-controls input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--mesh,var(--rf-good))}
+.rf-refresh-controls .rf-refresh-state{min-width:0;font-size:12px;color:var(--muted,#aab5ae)}
+.rf-refresh-controls button{min-height:44px;padding:8px 14px}
+.rf-refresh-controls[data-state=red] .rf-refresh-state{color:var(--rf-fault)}
+@media(max-width:600px){.rf-refresh-controls{gap:4px 10px}.rf-refresh-controls .rf-refresh-state{flex:1;flex-basis:auto}.rf-refresh-controls button{margin-left:auto!important}}

@@ -32,8 +32,10 @@ def catalog():
             [dict(id=k,label=v[0],local=k in LOCAL,confirm=k in DANGEROUS) for k,v in ADMIN.items()])
 
 class RadioActions:
-    def __init__(self,get_interface,log):
+    def __init__(self,get_interface,log,base_dir=None,feed_enabled=True):
         self.get_interface=get_interface;self.log=log;self.lock=threading.RLock();self.jobs={};self.last_sent=-100
+        self.base=Path(base_dir) if base_dir is not None else Path('@@DATA_DIR@@')
+        self.feed_enabled=feed_enabled
         pub.subscribe(self.receive,'meshtastic.receive')
 
     def history(self):
@@ -53,7 +55,7 @@ class RadioActions:
         if not known and (operation in REQUESTS or operation in METRICS):
             import re, sqlite3
             if isinstance(destination, str) and re.fullmatch(r'![0-9a-f]{8}', destination) and 0 < int(destination[1:], 16) < 0xffffffff:
-                with sqlite3.connect('file:' + str(Path('@@DATA_DIR@@') / 'mesh.db') + '?mode=ro', uri=True, timeout=2) as db:
+                with sqlite3.connect((self.base / 'mesh.db').resolve().as_uri() + '?mode=ro', uri=True, timeout=2) as db:
                     known = db.execute('SELECT 1 FROM nodes WHERE node_num=? AND node_id=? LIMIT 1', (int(destination[1:], 16), destination)).fetchone() is not None
         if not known:raise ValueError('Choose a known destination node')
         if operation in LOCAL and destination!=own:raise ValueError('This maintenance action applies only to Receiver')
@@ -82,13 +84,14 @@ class RadioActions:
                     else:value=True
                     setattr(admin,field,value)
                     if operation in ('reboot','shutdown','reset_nodes','reset_config','factory_reset'):
-                        import mf_feed
                         if operation in ('reset_nodes','reset_config','factory_reset'):
-                            backup=Path('@@DATA_DIR@@')/'backups'/'radio-control';backup.mkdir(exist_ok=True,parents=True,mode=0o700)
+                            backup=self.base/'backups'/'radio-control';backup.mkdir(exist_ok=True,parents=True,mode=0o700)
                             path=backup/(str(time.time_ns())+'-'+operation+'.json')
                             fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
                             with os.fdopen(fd,'w') as f:json.dump({'config':MessageToDict(iface.localNode.localConfig),'modules':MessageToDict(iface.localNode.moduleConfig),'channels':[MessageToDict(c) for c in iface.localNode.channels]},f)
-                        if operation!='reset_nodes':mf_feed.pause()
+                        if operation!='reset_nodes' and self.feed_enabled:
+                            import mf_feed
+                            mf_feed.pause()
                     job['response_from']=iface.localNode.nodeNum
                     job['expected']='ADMIN_APP' if operation in ('metadata','connection') else 'ROUTING_APP'
                     packet=iface.localNode._sendAdmin(admin,wantResponse=operation in ('metadata','connection'))

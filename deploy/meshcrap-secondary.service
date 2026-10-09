@@ -1,0 +1,18 @@
+[Unit]
+Description=Meshcrap optional secondary receiver collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=meshcrap
+WorkingDirectory=/opt/meshcrap
+ExecStart=/opt/meshcrap/.venv/bin/python /opt/meshcrap/meshcrap.py --config /opt/meshcrap/config.json collect-secondary
+Restart=on-failure
+RestartSec=30
+RestartPreventExitStatus=78
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

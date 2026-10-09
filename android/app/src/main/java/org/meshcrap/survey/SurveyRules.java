@@ -4,6 +4,7 @@ package org.meshcrap.survey;
 public final class SurveyRules {
     public static final long SPACING_MS=30_000, TIMEOUT_MS=30_000, LEASE_MS=30_000;
     public static final long POSITION_MAX_AGE_SECONDS=86400;
+    public static final long CANDIDATE_GPS_MAX_AGE_SECONDS=7*86400;
     public static final double POSITION_MAX_ACCURACY_METRES=804.672;
     private SurveyRules() {}
     public static boolean repeatEligible(long previous,long now) {
@@ -44,12 +45,28 @@ public final class SurveyRules {
         return lastEpoch>0 && (nowEpoch<lastEpoch || nowEpoch-lastEpoch<SPACING_MS/1000);
     }
     public static boolean candidateFresh(long positionTime,long heardTime,long now,int source) {
-        long age=source==1?86400:43200; // Manual/installed coordinates are not live GPS.
-        return positionTime>0 && positionTime<=now && now-positionTime<=age;
+        // Discovery uses advertised coordinates, not proof of a current location.
+        // Fixed/manual and unknown-source coordinates do not expire with node activity.
+        // Zero means the radio did not provide the original position time.
+        if(source<0||source>3||positionTime<0||positionTime>now)return false;
+        return positionTime==0||source==0||source==1||now-positionTime<=CANDIDATE_GPS_MAX_AGE_SECONDS;
     }
     public static boolean automaticCandidate(int source,int precisionBits) {
-        // Missing precision is unknown, not an assurance of full accuracy.
-        return source>=1 && source<=3 && precisionBits>=20 && precisionBits<=32;
+        // Resolution/source are disclosed in the UI and recorded with the request.
+        // Missing or coarse metadata must not suppress otherwise usable discovery.
+        return source>=0 && source<=3 && precisionBits>=0 && precisionBits<=32;
+    }
+    public static String candidateAgeLabel(long positionTime,long now) {
+        if(positionTime<=0)return "position age unknown";
+        long age=Math.max(0,now-positionTime);
+        if(age<60)return "position "+age+"s old";
+        if(age<3600)return "position "+(age/60)+" min old";
+        if(age<86400)return "position "+(age/3600)+" hr old";
+        return "position "+(age/86400)+" days old";
+    }
+    public static boolean traceStorageAvailable(int queued,int limit) {
+        // Reserve room for request/result records and late responses near capacity.
+        return queued>=0&&limit>10&&queued<limit-10;
     }
     public static void validateAcknowledgments(java.util.Set<String> submitted,java.util.List<String> accepted) {
         java.util.Set<String> seen=new java.util.HashSet<>();

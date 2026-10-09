@@ -83,11 +83,11 @@ def register_node_control(app, root=None):
         if body.get('action') not in ('state', 'send', 'save','operation','operations'):
             return jsonify(error='Unsupported action'), 400
         if request.path.startswith('/api/secondary-control/'):
-            from secondary_control_connection import dispatch
             try:
+                from secondary_control_connection import dispatch
                 result = dict(ok=True, data=dispatch(body))
-            except ValueError as error:
-                return jsonify(ok=False, error=str(error)), 400
+            except ValueError:
+                return jsonify(ok=False, error='Invalid secondary-radio action. Check the node, channel and fields.'), 400
             except Exception:
                 return jsonify(ok=False, error='Secondary radio control connection failed. Refresh to reconnect; actions are not automatically retried.'), 503
             response = jsonify(result)

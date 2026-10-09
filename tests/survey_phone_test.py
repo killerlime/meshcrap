@@ -145,11 +145,23 @@ class PhoneSurveyTests(unittest.TestCase):
             report=namespace['_survey_metrics'](db,row)
         self.assertEqual(report['area_id'],'roaming');self.assertEqual(report['gps_samples'],1)
         self.assertEqual(report['routes'][0]['segments'][0][0],[1.5,2.5]);self.assertNotIn('cells_proven_this_survey',report)
-    def test_twelve_hour_destination_and_no_last_heard_requirement(self):
+    def test_seven_day_destination_and_no_last_heard_requirement(self):
         survey=self.start();event=self.event(survey)
-        event.update(kind='trace',destination=591751049,packet_id=42,requested_at=self.now,channel=0,status='requested',destination_position=dict(lat=3.5,lon=4.5,time=self.now-43200,last_heard=0,source=2,precision_bits=24))
+        event.update(kind='trace',destination=591751049,packet_id=42,requested_at=self.now,channel=0,status='requested',destination_position=dict(lat=3.5,lon=4.5,time=self.now-7*86400,last_heard=0,source=2,precision_bits=13))
         self.assertEqual(self.sync([event]).status_code,200)
         event['id']=str(uuid.uuid4());event['destination_position']['time']-=1
+        self.assertEqual(self.sync([event]).status_code,400)
+
+    def test_discovery_fixed_unknown_age_and_precision(self):
+        survey=self.start();event=self.event(survey)
+        event.update(kind='trace',destination=591751049,packet_id=42,requested_at=self.now,channel=0,status='requested',destination_position=dict(lat=3.5,lon=4.5,time=self.now-90*86400,last_heard=0,source=1,precision_bits=0))
+        self.assertEqual(self.sync([event]).status_code,200)
+        for source in (0,1,2,3):
+            event['id']=str(uuid.uuid4());event['destination_position'].update(time=0,source=source)
+            self.assertEqual(self.sync([event]).status_code,200)
+        event['id']=str(uuid.uuid4());event['destination_position']['time']=self.now+1
+        self.assertEqual(self.sync([event]).status_code,400)
+        event=self.event(survey);event['position']['time']=0
         self.assertEqual(self.sync([event]).status_code,400)
 
     def test_trace_destination_snapshot_survives_late_reply(self):

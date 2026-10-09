@@ -10,8 +10,8 @@
   const tab=el('button','Insights');tab.type='button';tab.id='dashboard-tab-insights';tab.setAttribute('role','tab');tab.setAttribute('aria-selected','false');tab.setAttribute('aria-controls','dashboard-panel-insights');tab.tabIndex=-1;
   const panel=el('section',null,'dashboard-panel insights');panel.id='dashboard-panel-insights';panel.hidden=true;panel.tabIndex=0;panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby',tab.id);
   nav.append(tab);main.append(panel);
-  const head=el('div',null,'insight-heading');head.append(el('h2','Your mesh, with a little perspective'),el('p','A field guide to what changed, who showed up, and the records your mesh has set.'));
-  const toolbar=el('div',null,'insight-toolbar');const refresh=el('button','Refresh insights');refresh.type='button';refresh.hidden=true;const status=el('span','Open this tab to load your briefing.');status.setAttribute('role','status');toolbar.append(refresh,status);
+  const head=el('div',null,'insight-heading');head.append(el('h2','Your mesh, with a little perspective'),el('p','Changes, active nodes and mesh records.'));
+  const toolbar=el('div',null,'insight-toolbar');const refresh=el('button','Refresh insights');refresh.type='button';refresh.hidden=true;const status=el('span','Open to load insights.');status.setAttribute('role','status');toolbar.append(refresh,status);
   const jumps=el('nav',null,'insight-jumps');jumps.setAttribute('aria-label','Insights sections');
   for(const [id,title] of [['mesh','Mesh briefing'],['improve','Improve the mesh'],['reduce','Reduce traffic'],['voices','The regulars'],['coverage','Coverage quest'],['diary','Receiver diary']]){const a=el('a',title);a.href='#insight-'+id;jumps.append(a);}
   panel.append(head,toolbar,jumps);
@@ -33,8 +33,8 @@
   const terrainScript=el('script');terrainScript.src='/static/heywhatsthat.js';document.body.append(terrainScript);
   const tropoScript=el('script');tropoScript.src='/static/tropo-view.js';document.body.append(tropoScript);
   function block(id,title,sub){const section=el('section',null,'card insight-section');section.id='insight-'+id;section.append(el('h3',title),el('p',sub,'insight-sub'));const content=el('div');section.append(content);panel.append(section);blocks[id]=content;return content;}
-  block('mesh','The mesh briefing','Activity in the selected time range, compared with the same length of time before it.');
-  block('improve','What can improve the mesh?','Priorities based on reception at HQ. Review one change at a time, then compare the same time range.');
+  block('mesh','The mesh briefing','This window versus the previous window.');
+  block('improve','What can improve the mesh?','Based on HQ reception. Change one thing, then compare equal windows.');
   block('reduce','How to reduce unnecessary data','Find traffic worth reviewing without treating useful reports or acknowledgments as waste.');
   block('voices','Meet the regulars','Originating nodes heard by Receiver. A relayed packet’s signal belongs to the last radio hop, so direct-link comparisons stand on their own.');
   block('coverage','The coverage quest','A separate, cumulative coverage survey—not limited by the time-window buttons.');
@@ -127,10 +127,10 @@
   }
   function renderCoverage(d){const box=clear('coverage');const pct=Number(d.demonstrated_pct||0);const track=el('div',null,'insight-coverage');track.setAttribute('role','progressbar');track.setAttribute('aria-label','Demonstrated coverage toward 90 percent target');track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax','100');track.setAttribute('aria-valuenow',String(pct));const fill=el('div');fill.style.width=Math.min(100,pct)+'%';track.append(fill);box.append(track);
    const metrics=el('div',null,'insight-metrics');metrics.append(metric('Demonstrated',fmt(pct)+'%','Target: 90%'),metric('Proven cells',fmt(d.counts?.PROVEN||0,0),`${d.cell_miles}-mile grid`),metric('Untested territory',fmt(d.counts?.UNTESTED||0,0),'Untested is not failed'),metric('Evidence packets',fmt(d.evidence_packets||0,0),'Fixed and mobile nodes both count'));box.append(metrics);
-   note(box,pct>=90?'Target reached!':'Room for the next field trip',pct>=90?'The survey has reached its 90% demonstrated-coverage target. Untested cells can still be worth exploring.':`${fmt(Math.max(0,90-pct))} percentage points remain to the survey target. An empty cell means no qualifying evidence here—not proof that a radio cannot work there.`);
+   note(box,pct>=90?'Target reached!':'Room for the next field trip',pct>=90?'90% coverage target reached. Untested cells remain.':`${fmt(Math.max(0,90-pct))} percentage points remain to the survey target. An empty cell means no qualifying evidence here—not proof that a radio cannot work there.`);
    const button=el('button','Explore the coverage map');button.type='button';button.addEventListener('click',()=>document.getElementById('dashboard-tab-map')?.click());box.append(button);
   }
-  function renderDiary(d){const box=clear('diary');if(!d.events.length){note(box,'No recorded connection events','No collector start, stop, reconnect, or dashboard configuration events were recorded within this window. This does not rule out unrecorded radio or physical changes.');return;}
+  function renderDiary(d){const box=clear('diary');if(!d.events.length){note(box,'No recorded connection events','No connection or configuration events recorded in this window. Unrecorded changes are still possible.');return;}
    const list=el('ol',null,'insight-diary');for(const ev of d.events){const item=el('li');const time=el('time',stamp(ev.event_time));time.dateTime=ev.event_time;item.append(time,el('strong',({CONNECTED:'Receiver connection established',CONNECTION_ERROR:'Radio connection interrupted',START:'Collector started',STOP:'Collector stopped',WEB_CONFIG_SUBMITTED:'Radio settings submitted',CHANNEL_ORDER_CHANGED:'Channel order changed'})[ev.event_type]||ev.event_type),el('p',ev.message));list.append(item);}box.append(list);
   }
   async function get(url){const r=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(25000)});if(!r.ok)throw Error(`Data unavailable (${r.status})`);return r.json();}
@@ -143,7 +143,7 @@
     if(good(0)){renderMesh(results[0].value);renderAdvice(results[0].value,good(1)?results[1].value:null);renderVoices(results[0].value);renderDiary(results[0].value);}else{failed++;for(const id of ['mesh','improve','reduce','voices','diary'])clear(id).append(el('p','The logbook could not be read. Use Refresh insights to try again.'));}
     if(good(1))renderCoverage(results[1].value);else{failed++;clear('coverage').append(el('p','Coverage data is unavailable right now.'));}
     panel.querySelectorAll('details').forEach(d=>{if(openDetails.has(d.querySelector('summary')?.textContent))d.open=true;});loadedHours=hours;status.textContent=`Last ${windowName(hours)} · ${failed?'Some sections unavailable':'Updated'} ${new Date().toLocaleTimeString()}`;panel.classList.add('insight-loaded');
-   }catch(e){status.textContent='Unable to refresh insights. Please try again.';console.error('Insights',e);}finally{busy=false;refresh.disabled=false;panel.setAttribute('aria-busy','false');if(pending)load();}}
+   }catch(e){status.textContent='Refresh failed. Try again.';console.error('Insights',e);}finally{busy=false;refresh.disabled=false;panel.setAttribute('aria-busy','false');if(pending)load();}}
   refresh.addEventListener('click',load);
   function activate(){main.querySelectorAll('.dashboard-panel').forEach(p=>p.hidden=p!==panel);nav.querySelectorAll('[role=tab]').forEach(b=>{b.setAttribute('aria-selected',String(b===tab));b.tabIndex=b===tab?0:-1;});load();}
   tab.addEventListener('click',activate);

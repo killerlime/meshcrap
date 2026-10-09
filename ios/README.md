@@ -2,7 +2,7 @@
 
 Dashboard and controls first. This SwiftUI app hosts the existing dashboard in Apple's WKWebView, preserving the dashboard's permissions, confirmation dialogs and current features. Bluetooth surveying is not included.
 
-**Status: source prepared, not compiled or device-tested. No signed IPA or App Store release exists.** The development workspace is Windows and has no Xcode. Use the existing Safari Add to Home Screen option today; this native project is for a Mac/Xcode contributor to build and validate.
+**Status: native source preview with unsigned simulator build and URL/origin tests configured in CI. No signed IPA, physical-device validation or App Store release exists.** The development workspace is Windows and has no Xcode. A green **iOS simulator checks** result on the exact commit is the evidence for compilation and XCTest success; configuring the workflow alone does not establish either. Use the existing Safari Add to Home Screen option today, or build this project on a Mac.
 
 ## Build on a Mac
 
@@ -18,14 +18,16 @@ Command-line simulator build: `xcodebuild -project Meshcrap.xcodeproj -scheme Me
 
 - Only HTTPS dashboard origins are accepted; embedded credentials are rejected. Navigation stays on the configured origin. External links/download flows can be handled by opening the dashboard in Safari through Settings.
 - Default system TLS verification remains intact. No certificate bypass, ATS exception, JavaScript-to-native command bridge or hardcoded dashboard address/key.
-- Only the dashboard address is stored by the shell. WebKit retains the website's own sessions/cookies, separately from Safari. Use dashboard lock/sign-out controls before sharing a phone. Switching addresses does not erase existing website sessions.
+- Only the dashboard address is stored by the shell. WebKit retains the website's own sessions/cookies, separately from Safari. Use dashboard lock/sign-out controls before sharing a phone. Switching addresses does not erase existing website sessions; **Settings → Forget dashboard and sign out** removes the saved address and all website data in this app, including sessions retained from previous addresses. It also releases the old page and its navigation history. Safari and other devices are unaffected.
 - Refresh is user-triggered; SwiftUI updates do not reload the page. The dashboard retains its normal polling. No native background polling or radio commands are added.
 - iOS local-network permission may be requested for LAN access. No Bluetooth or location permission is requested by the native shell.
 - The privacy manifest declares app-local UserDefaults use. No analytics SDK or app-operated tracking service is included. A deployment's dashboard and optional providers have their own network/privacy behavior; review that before distribution.
 
 ## Validation still required
 
-Compile and run the XCTest URL/origin cases. Check iPhone and iPad layouts, VoiceOver, keyboard entry, local-network/Tailscale access, trusted TLS, server-unavailable recovery, session persistence, control confirmations and external-link blocking. Test controls with a synthetic/test collector before real radios. Review privacy disclosures, app icon, signing and distribution requirements before any public release. Source review and a valid plist are not substitutes for these checks.
+The `iOS simulator checks` workflow generates the project on a macOS runner, selects and boots a simulator matching the installed iOS SDK, builds without a signing identity and runs the XCTest URL/origin and session-removal cases. The WebKit test confirms a synthetic cookie exists before removal and is absent afterward, using asynchronous waiting that yields the main actor. Its result bundle is retained for seven days. Check that workflow on the exact revision being reviewed. No real dashboard credentials, pairing tokens or network hosts are provided to CI.
+
+Check iPhone and iPad layouts, VoiceOver, keyboard entry, local-network/Tailscale access, trusted TLS, server-unavailable recovery, session persistence/removal, control confirmations and external-link blocking on a device. Test controls with a synthetic/test collector before real radios. Review privacy disclosures, app icon, signing and distribution requirements before any public release. Simulator compilation, source review and a valid plist are not substitutes for these checks.
 
 ## Sources and licensing
 

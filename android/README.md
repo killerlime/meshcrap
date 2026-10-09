@@ -18,7 +18,7 @@ This is a debug-signed test build. Build, unit tests and Android lint pass. Real
 
 Use Java 17, Android SDK 35 and Gradle 8.9. Set `ANDROID_HOME`, then run `gradle assembleDebug testDebugUnitTest lintDebug` in this directory. The APK appears in `app/build/outputs/apk/debug/`. Dependencies download from the configured official repositories.
 
-Source is GPL-3.0; see LICENSE. Meshtastic protocol definitions under `app/src/main/proto` come from the Meshtastic protobufs project. No private pairing tokens or radio keys are included.
+Source is GPL-3.0; see LICENSE. Meshtastic protocol definitions under `app/src/main/proto` match [Meshtastic protobufs revision ad0bf31e82886d794334dcc62abb80da862a8ec7](https://github.com/meshtastic/protobufs/tree/ad0bf31e82886d794334dcc62abb80da862a8ec7) byte for byte. Their GPL-3.0 license and Protocol Buffers Java Lite's BSD-3-Clause notice are included in the app's **Licenses and source** screen. No private pairing tokens or radio keys are included.
 
 ## Everyday use
 
@@ -33,7 +33,7 @@ Requests start at least 30 seconds apart and time out after 30 seconds. Late res
 
 The travelling fix may be up to 24 hours old. Phone fixes must report accuracy within half a mile (804.672 metres). The app also checks the last-known GPS fix when connecting, applying the same limits; cached timestamps are never rewritten to look current. Older/approximate fixes are explicitly labelled. The fallback is the travelling radio's internal GPS, never its manual/installed position. The actual GPS solution timestamp is preferred when present. A radio fix still has unknown horizontal accuracy in the displayed record.
 
-Last-heard time does not filter or order candidates. Their GPS or unknown-source coordinates must be at most 12 hours old; explicitly manual/fixed advertisements may be up to 24 hours old and are labelled accordingly. Future timestamps are rejected for selection. Automatic selection requires a known source and at least 20 advertised precision bits; missing/coarse precision remains available only for manual tests. Precision describes coordinate resolution, not guaranteed real-world GPS accuracy. No request is sent to refresh a candidate's coordinates.
+Last-heard time does not filter or order candidates. Advertised GPS coordinates may be up to seven days old. Explicitly manual/fixed or unknown-source coordinates do not expire; missing position time is retained as unknown age. Valid coordinates with missing or coarse precision can be tested automatically. Older, unknown-source or coarse coordinates are labelled approximate, and all distances are estimates. Future timestamps, invalid coordinates and malformed source/precision values are rejected. Precision describes coordinate resolution, not guaranteed real-world GPS accuracy. No request is sent to refresh a candidate's coordinates.
 
 Each trace retains the travelling fix and the destination's advertised coordinates, source, timestamp, last-heard time and precision at request time. MQTT-delivered packets do not qualify as RF test replies or candidates. A relayed reply does not prove a direct link or coverage along the full phone route.
 
@@ -41,7 +41,7 @@ Each trace retains the travelling fix and the destination's advertised coordinat
 
 - **Start survey unavailable:** wait for Bluetooth configuration, a local-prefix radio and an eligible travelling fix. First-time pairing needs HTTPS collector access; each outing does not. Install the matching collector update before uploading these outings.
 - **Collector unavailable:** check phone Internet/private-network access, Tailscale and the configured HTTPS hostname. Pairing remains saved; do not generate a new code just because the network is down.
-- **No automatic candidates:** wait for fresh position advertisements or review the optional manual candidate list. Wider radius cannot make stale coordinates accurate.
+- **No automatic candidates:** review the Nearby counts for nodes outside the radius, without coordinates, with expired GPS positions or in cooldown. Try a wider radius when appropriate. Broader discovery does not make old coordinates accurate or guarantee reachability.
 - **Bluetooth lost:** disconnect/reconnect explicitly. Automatic requests remain paused; uncertain sends are not retried automatically. Test real-device reconnection and background behavior before relying on field collection.
 - **Offline:** start, continue and end phone outings without the collector. GPS, receptions and traceroutes queue persistently. Upload resumes automatically when available. Reconnecting after a service/radio restart restores the outing but leaves automatic requests paused until you explicitly resume. Radio and foreground service must remain running to record.
 - **Start/end response lost:** the app refreshes status and does not blindly resend the command. The server deduplicates command IDs and will not let an old end command close a newer session.
@@ -49,7 +49,7 @@ Each trace retains the travelling fix and the destination's advertised coordinat
 
 Existing pairing stays encrypted with Android Keystore, app backups remain disabled, and revocation blocks uploads immediately. An offline phone learns about revocation only on reconnection; stopping it remotely cannot guarantee immediate radio silence. The collector permits only survey uploads and start/end operations with this credential. App updates must use the same signing identity to preserve installed data; uninstalling clears app data.
 
-The iPhone option remains the HTTPS dashboard added to the Home Screen. Bluetooth surveys are not supported; native dashboard/control source is also available under `ios/`, pending Mac/Xcode validation. The web app does not queue offline control commands.
+The iPhone option includes the HTTPS dashboard added to the Home Screen and native dashboard/control source under [`ios/`](../ios/README.md). Bluetooth surveys are not supported. The native shell has unsigned simulator checks in CI; physical-device testing and signing remain separate requirements. The web app does not queue offline control commands.
 
 ## Live verification
 
@@ -106,3 +106,13 @@ An older collector-started session can continue under a server-issued, radio-sco
 The outing card shows Radio ↔ Phone → Collector. Green pulses follow actual incoming radio packets and acknowledged collector uploads; blue pulses follow completed Bluetooth traceroute writes, which do not establish successful RF delivery. Pulses display recent activity for four seconds, not packet travel speed or throughput. The phone shows its queued-record count and a logarithmic buffer fill indicator. Offline links stay still while the phone retains the queue; idle connections do not simulate traffic. Upload attempts without acknowledgment are labelled “Sending” rather than successful transfer.
 
 Animation is display-only: no polling requests, RF traffic or new dependencies. It stops off-screen or when the activity is paused, respects Android's animator setting, and has a saved motion toggle. Text and accessibility descriptions explain direction/status without relying on motion or color. Large system fonts switch the diagram to a vertical layout. Physical-device visual/background validation remains required.
+
+## Broader discovery — 0.6.2-test
+
+The previous automatic gate required known location source and at least 20 precision bits. Many useful node advertisements omit those fields or use 13–15 bits, which removed them from automatic surveys. This version allows their valid advertised coordinates for discovery and labels uncertainty. GPS targets remain bounded to seven days; explicitly fixed/manual and unknown-source coordinates have no age cutoff. Missing age stays unknown rather than becoming a fabricated fresh timestamp. The collector must support these relaxed destination rules before accepting the new records.
+
+Nearby counts separate candidates ready to test from those cooling down, and show why other known radio nodes were not listed. A zero count can mean missing coordinates or the configured radius rather than a lack of reachable radios. Only the attached radio's node list is searched; this update does not download remote node lists or refresh coordinates over RF. Tests use the advertised point; they do not estimate unknown node locations or claim a current destination position.
+
+The travelling fix still requires the existing 24-hour and half-mile limits. Precise coverage evidence still requires recent accurate phone GPS; target discovery and coverage quality remain separate. The 30-second cadence, one outstanding request, three total failed attempts and eight-hour cooldown are unchanged. The queue-full guard now follows its actual 100,000-record capacity, reserving ten records for results rather than stopping at the former 10,000-record limit. No queue schema or saved pairing changes are needed.
+
+Version code 13 preserves the application ID. The displayed version now comes from the installed package. Upgrade with the existing signing identity; retain queued observations and pairing by installing the update over the current app. Local software checks cannot establish real-phone Bluetooth or background operation.

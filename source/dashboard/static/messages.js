@@ -16,7 +16,7 @@
       if(day!==key){content.append(element('h2',date.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric',year:'numeric'}),'console-day'));day=key;}
       const article=element('article',''),meta=element('div','','meta'),stamp=element('time',date.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit',second:'2-digit'}),'muted');stamp.dateTime=msg.received_at;stamp.title=date.toLocaleString();
       meta.append(element('span',msg.sender,'sender'),stamp);article.append(meta,element('p',msg.text,'message'));
-      const detail=[msg.sender_id];if(msg.direction==='sent')detail.push('Submitted to Receiver · delivery not confirmed');if(msg.snr!=null)detail.push('SNR '+msg.snr+' dB');if(msg.hops!=null)detail.push(msg.hops===0?'Direct':msg.hops+' hops');
+      const detail=[msg.sender_id];if(msg.direction==='sent')detail.push(msg.delivery?.detail||'Submitted to radio · delivery unconfirmed');if(msg.snr!=null)detail.push('SNR '+msg.snr+' dB');if(msg.hops!=null)detail.push(msg.hops===0?'Direct':msg.hops+' hops');
       article.append(element('div',detail.join(' · '),'muted details'));content.append(article);
     }
     if(!visible.length&&loaded.messages.length)content.append(element('p','No messages match this search.','muted'));

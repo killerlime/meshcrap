@@ -12,7 +12,8 @@
    const timer=setTimeout(cancel,15000);
    try{
      const response=await originalFetch(input,{...options,signal:controller.signal,cache:'no-store'});
-     if(!response.ok)throw new Error(`Dashboard read unavailable (${response.status})`);
+     // A conditional reader handles 304 using its retained response body.
+     if(!response.ok&&response.status!==304)throw new Error(`Dashboard read unavailable (${response.status})`);
      return response;
    }finally{clearTimeout(timer);callerSignal?.removeEventListener('abort',cancel);}
  };

@@ -7,7 +7,10 @@ import signal
 import sys
 import threading
 import socket
+import os
+from contextlib import contextmanager
 from recovery_runtime import watchdog, recovery_sleep, configure_socket
+from receiver_provenance import observation_type, radio_profile
 import mf_feed
 from node_roles import reported_role
 from datetime import datetime, timezone
@@ -25,9 +28,64 @@ DB_FILE = BASE_DIR / "mesh.db"
 
 running = True
 interface = None
+receiver_ready = False
+session_started = None
+receiver_profile = None
+last_status_write = 0
+interface_lock = threading.RLock()
 db = None
 db_lock = threading.Lock()
 last_receive_monotonic = time.monotonic()
+
+
+class ReceiverIdentityMismatch(ConnectionError):
+    """A verified different radio must not be repeatedly claimed by this collector."""
+
+
+@contextmanager
+def collector_lock():
+    """One primary collector per installation; retain the lock inode on exit."""
+    import fcntl
+    BASE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with (BASE_DIR / '.collector.lock').open('a') as lock:
+        os.fchmod(lock.fileno(), 0o600)
+        try:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise ValueError('The primary collector is already running for this installation') from None
+        try:
+            yield
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
+def current_interface():
+    """Expose controls only after the active connection's identity is verified."""
+    with interface_lock:
+        if (receiver_ready and interface is not None and interface.isConnected.is_set()
+                and interface.localNode.nodeNum == @@RECEIVER_NUM@@
+                and not getattr(interface, 'failure', None) and not getattr(interface, '_wantExit', False)):
+            return interface
+    return None
+
+
+def publish_status(heartbeat_only=False):
+    """Bound passive comparison intervals even if collection stops abruptly."""
+    global last_status_write
+    if heartbeat_only and time.monotonic() - last_status_write < 10:
+        return
+    with interface_lock:
+        status = dict(receiver_id='@@RECEIVER_ID@@', connected=current_interface() is not None,
+                      heartbeat=now_iso(), session_started_epoch=session_started,
+                      session_started=datetime.fromtimestamp(session_started, timezone.utc).isoformat()
+                      if session_started is not None else None, profile=receiver_profile)
+    temporary = BASE_DIR / ('receiver-status.' + str(os.getpid()) + '.tmp')
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, 'w', encoding='utf-8') as output:
+        os.fchmod(output.fileno(), 0o600)
+        json.dump(status, output)
+    temporary.replace(BASE_DIR / 'receiver-status.json')
+    last_status_write = time.monotonic()
 
 
 # ------------------------------------------------------------
@@ -154,6 +212,8 @@ def open_database():
     );
     """)
 
+    if 'observation_type' not in {row[1] for row in conn.execute('PRAGMA table_info(packets)')}:
+        conn.execute("ALTER TABLE packets ADD COLUMN observation_type TEXT DEFAULT 'LIVE'")
     conn.commit()
     return conn
 
@@ -367,6 +427,15 @@ def update_node_from_packet(packet, decoded):
 
 
 def on_receive(packet, interface):
+    # Pubsub is process-wide. Never accept another client, handshake replay or an old connection.
+    with interface_lock:
+        active = current_interface()
+        if active is None or not isinstance(packet, dict) or interface is not active:
+            return
+        store_received_packet(packet, interface)
+
+
+def store_received_packet(packet, interface):
     global last_receive_monotonic
     last_receive_monotonic = time.monotonic()
     try:
@@ -380,6 +449,7 @@ def on_receive(packet, interface):
 
         packet = dict(packet)
         packet["_collectorReceiverId"] = f"!{interface.localNode.nodeNum:08x}"
+        packet["_collectorObservationType"] = observation_type(packet, session_started, time.time())
         collector_time = now_iso()
 
         rx_time = packet.get("rxTime")
@@ -460,7 +530,8 @@ def on_receive(packet, interface):
                     air_util_tx,
                     uptime_seconds,
 
-                    raw_json
+                    raw_json,
+                    observation_type
                 )
                 VALUES (
                     ?, ?, ?,
@@ -471,7 +542,7 @@ def on_receive(packet, interface):
                     ?,
                     ?, ?, ?,
                     ?, ?, ?, ?, ?,
-                    ?
+                    ?, ?
                 )
             """, (
                 collector_time,
@@ -505,7 +576,8 @@ def on_receive(packet, interface):
                 air_util_tx,
                 uptime,
 
-                raw_json
+                raw_json,
+                packet["_collectorObservationType"]
             ))
 
             db.commit()
@@ -556,7 +628,7 @@ class RecoveringTCPInterface(meshtastic.tcp_interface.TCPInterface):
 
 
 def connect():
-    global interface, last_receive_monotonic
+    global interface, receiver_ready, session_started, receiver_profile, last_receive_monotonic
     last_receive_monotonic = time.monotonic()
 
     log_event(
@@ -565,36 +637,57 @@ def connect():
     )
 
     watchdog()
-    interface = RecoveringTCPInterface(
+    candidate = RecoveringTCPInterface(
         hostname=HOST,
         portNumber=PORT,
-        timeout=45
+        timeout=45,
+        connectNow=False
     )
+    with interface_lock:
+        receiver_ready = False
+        session_started = None
+        receiver_profile = None
+        interface = candidate
+    publish_status()
+    candidate.connect()
 
-    if interface.localNode.nodeNum != @@RECEIVER_NUM@@:
-        raise ConnectionError("Expected Receiver @@RECEIVER_ID@@ at receiver address")
+    actual = candidate.localNode.nodeNum
+    if not candidate.isConnected.is_set() or not isinstance(actual, int) or not 0 < actual < 0xffffffff:
+        raise ConnectionError('Receiver configuration handshake is incomplete')
+    if actual != @@RECEIVER_NUM@@:
+        raise ReceiverIdentityMismatch('Connected radio does not match the configured receiver; collection and controls are blocked')
     log_event("CONNECTED", "Connected to Receiver @@RECEIVER_ID@@")
 
     # Give Meshtastic a moment to populate the node DB.
     time.sleep(3)
 
-    snapshot_nodes(interface)
-    allowed = mf_feed.connected(interface) if interface.localNode.nodeNum == mf_feed.RECEIVER_NUM else False
+    snapshot_nodes(candidate)
+    allowed = mf_feed.connected(candidate) if candidate.localNode.nodeNum == mf_feed.RECEIVER_NUM else False
     if not allowed: mf_feed.pause()
     log_event("POTATO_POLICY", "Public MediumFast capture ready" if allowed else "Capture paused: channel identity did not match")
+    with interface_lock:
+        receiver_profile = radio_profile(candidate)
+        session_started = time.time()
+        receiver_ready = True
+    publish_status()
 
 
 def close_interface():
-    global interface
-    mf_feed.pause()
-
-    if interface is not None:
-        try:
-            interface.close()
-        except Exception:
-            pass
-
+    global interface, receiver_ready
+    with interface_lock:
+        receiver_ready = False
+        old = interface
         interface = None
+    try:
+        mf_feed.pause()
+        publish_status()
+    finally:
+        if old is not None:
+            try:
+                old.close()
+            except Exception:
+                pass
+
 
 
 def signal_handler(signum, frame):
@@ -603,7 +696,7 @@ def signal_handler(signum, frame):
     print("\nStopping collector...", flush=True)
     running = False
 
-    close_interface()
+    # The main loop closes transport and storage together; avoid joining a callback in a signal handler.
 
 
 # ------------------------------------------------------------
@@ -623,6 +716,15 @@ def connection_problem(radio, idle_seconds):
 
 
 def main():
+    with collector_lock():
+        try:
+            run_collector()
+        except ReceiverIdentityMismatch as error:
+            print(str(error), file=sys.stderr, flush=True)
+            raise SystemExit(78) from None
+
+
+def run_collector():
     global db
     global running
 
@@ -639,39 +741,41 @@ def main():
     )
 
     import node_control_bridge
-    control_server = node_control_bridge.start(lambda: interface, log_event) if @@ENABLE_RADIO_CONTROLS@@ else None
+    control_server = node_control_bridge.start(current_interface, log_event) if @@ENABLE_RADIO_CONTROLS@@ else None
 
     pub.subscribe(on_receive, "meshtastic.receive")
 
-    while running:
-
-        try:
-            connect()
-
-            while running:
-                recovery_sleep(5)
-                problem = connection_problem(interface, time.monotonic() - last_receive_monotonic)
-                if problem:
-                    raise ConnectionError(problem + "; reconnecting")
-
-        except Exception as e:
-            log_event("CONNECTION_ERROR", repr(e))
-
-        finally:
-            close_interface()
-
-        if running:
-            log_event(
-                "RECONNECT",
-                "Retrying Receiver connection in 10 seconds"
-            )
-
-            recovery_sleep(10)
-
-    log_event("STOP", "Collector stopped")
-
-    if db is not None:
-        db.close()
+    try:
+        while running:
+            try:
+                connect()
+                while running:
+                    recovery_sleep(5)
+                    problem = connection_problem(interface, time.monotonic() - last_receive_monotonic)
+                    if problem:
+                        raise ConnectionError(problem + "; reconnecting")
+                    publish_status(heartbeat_only=True)
+            except ReceiverIdentityMismatch:
+                log_event('IDENTITY_MISMATCH', 'Wrong configured radio; collection stopped until setup is corrected')
+                raise
+            except Exception as e:
+                log_event("CONNECTION_ERROR", repr(e))
+            finally:
+                close_interface()
+            if running:
+                log_event("RECONNECT", "Retrying Receiver connection in 10 seconds")
+                recovery_sleep(10)
+    finally:
+        close_interface()
+        pub.unsubscribe(on_receive, "meshtastic.receive")
+        if control_server is not None:
+            control_server.shutdown()
+            control_server.server_close()
+            node_control_bridge.SOCKET.unlink(missing_ok=True)
+        log_event("STOP", "Collector stopped")
+        if db is not None:
+            db.close()
+            db = None
 
 
 if __name__ == "__main__":

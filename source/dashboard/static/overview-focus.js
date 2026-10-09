@@ -19,7 +19,7 @@
     const go = id => byId('dashboard-tab-' + id)?.click();
 
     const pages = [
-      ['overview','Overview'], ['map','Map & coverage'], ['survey','Survey'], ['nodes','Nodes'],
+      ['overview','Overview'], ['nodemap','Node map'], ['map','Map & coverage'], ['survey','Survey'], ['nodes','Nodes'], ['relays','Relays'], ['graphs','Graphs'],
       ['messages','Messages'], ['insights','Insights'], ['control','Node control'],
       ['filter','LNA test'], ['heardby','Heard by'], ['role','HQ role comparison'], ['whatif','What-if'],
       ['tropo','Tropo'], ['ask','Ask questions'], ['ingestors','MSP ingestors'],
@@ -190,7 +190,7 @@
     const heading = overview.querySelector('.console-panel-heading');
     if (heading) {
       heading.querySelector('h2').textContent = 'Reception at Receiver';
-      heading.querySelector('p').textContent = 'Current activity and changes in the selected window';
+      heading.querySelector('p').textContent = 'Activity in the selected window';
     }
 
     const briefing = el('section', null, 'rf-briefing'); briefing.id = 'rfBriefing';
@@ -233,7 +233,7 @@
       const history = el('section', null, 'rf-stored-history');
       history.setAttribute('aria-labelledby', 'rfStoredHistoryTitle');
       const title = el('h2', 'Stored History'); title.id = 'rfStoredHistoryTitle';
-      const description = el('p', 'Saved collector records and known nodes, separate from the reception window above.');
+      const description = el('p', 'Saved records · separate from the window above.');
       history.append(title, description, storedStats);
       briefing.after(history);
     }
@@ -253,13 +253,13 @@
     const wrap=el('div',null,'rf-recent-table-wrap');wrap.tabIndex=0;wrap.setAttribute('role','region');wrap.setAttribute('aria-label','Sortable recently heard nodes');
     const table=el('table',null,'rf-recent-table'),caption=el('caption','Recently heard nodes');caption.className='rf-sr-only';table.append(caption);
     const thead=el('thead'),headrow=el('tr'),tbody=el('tbody');thead.append(headrow);table.append(thead,tbody);wrap.append(table);
-    const help=el('p','Sort any column by its heading. Signal describes the last radio hop; it is not an end-to-end reading. Power is the latest report found in the recent packet sample.','rf-recent-help');
+    const help=el('p','Click a heading to sort. Signal is the last radio hop; power is the latest sampled report.','rf-recent-help');
     recentBox.replaceChildren(toolbar,recentNote,wrap,help);
     const numeric=value=>typeof value==='number'&&Number.isFinite(value)?value:null;
     const timestamp=value=>Number.isFinite(Date.parse(value))?Date.parse(value):null;
     const packetLabel=p=>({TELEMETRY_APP:'Telemetry',POSITION_APP:'Position',NODEINFO_APP:'Node info',TEXT_MESSAGE_APP:'Message',TRACEROUTE_APP:'Traceroute',ROUTING_APP:'Routing',NEIGHBORINFO_APP:'Neighbors'}[p]||p||'Update');
     const columns=[
-      ['name','Node','asc'],['heard','Last heard','desc'],['snr','SNR (dB)','desc'],['rssi','RSSI (dBm)','desc'],
+      ['name','Node','asc'],['heard','Last heard','desc'],['distance','Distance','asc'],['snr','SNR (dB)','desc'],['rssi','RSSI (dBm)','desc'],
       ['hops','Hops','asc'],['updates','Updates','desc'],['direct','Direct %','desc'],['battery','Battery','desc'],
       ['voltage','Volts','desc'],['hardware','Hardware','asc'],['role','Role','asc'],['types','Packet types','asc']
     ];
@@ -296,6 +296,7 @@
           }else{
             let text=row[key]==null||row[key]===''?'—':String(row[key]);
             if(key==='heard'){text=row.heard==null?'—':age(new Date(row.heard).toISOString())+' ago';if(row.heard!=null)td.title=new Date(row.heard).toLocaleString();}
+            if(key==='distance'){text=row.distance==null?'—':row.distance.toFixed(1)+' mi';td.title='Straight-line distance from the receiver to the installed or latest advertised position; location may be old.';}
             if(key==='snr'&&row.snr!=null)text=row.snr.toFixed(1);
             if(key==='hops'&&row.hops===0)text='Direct';
             if(key==='direct'&&row.direct!=null)text=row.direct.toFixed(1)+'%';
@@ -323,7 +324,7 @@
         if(!groups.has(id))groups.set(id,{p,types:new Set(),power:null});const g=groups.get(id);g.types.add(packetLabel(p.portnum));
         if(!g.power&&(numeric(p.battery_level)!=null||numeric(p.voltage)!=null))g.power=p;
       }
-      rows=[...groups].map(([id,{p,types,power}])=>({id,name:p.node||id,short:p.short_name||'',heard:timestamp(p.collector_time),snr:numeric(p.rx_snr),rssi:numeric(p.rx_rssi),hops:numeric(p.hops_used),updates:numeric(p.window_packets),direct:numeric(p.window_direct_pct),battery:power&&numeric(power.battery_level)!=null&&power.battery_level>=0&&power.battery_level<=101?power.battery_level:null,voltage:power?numeric(power.voltage):null,powerTime:power?.collector_time,hardware:p.hw_model||'',role:p.role||'',types:[...types].sort().join(', ')}));
+      rows=[...groups].map(([id,{p,types,power}])=>({id,name:p.node||id,short:p.short_name||'',heard:timestamp(p.collector_time),distance:numeric(p.distance_miles),snr:numeric(p.rx_snr),rssi:numeric(p.rx_rssi),hops:numeric(p.hops_used),updates:numeric(p.window_packets),direct:numeric(p.window_direct_pct),battery:power&&numeric(power.battery_level)!=null&&power.battery_level>=0&&power.battery_level<=101?power.battery_level:null,voltage:power?numeric(power.voltage):null,powerTime:power?.collector_time,hardware:p.hw_model||'',role:p.role||'',types:[...types].sort().join(', ')}));
       renderRecentTable();
     };
     search.addEventListener('input',renderRecentTable);limit.addEventListener('change',()=>{save('rf-recent-limit',limit.value);renderRecentTable();});
@@ -351,7 +352,7 @@
         const a=d.current,b=d.previous;
         metrics[0].value.textContent=count(a.packets); metrics[0].note.textContent=`${count(b.packets)} in previous ${windowLabel(h)}`;
         metrics[1].value.textContent=count(a.nodes); metrics[1].note.textContent=`${count(b.nodes)} in previous ${windowLabel(h)}`;
-        metrics[2].value.textContent=count(a.direct); metrics[2].note.textContent=`${count(a.unknown_hops)} packets have unknown hops`;
+        metrics[2].value.textContent=count(a.direct); metrics[2].note.textContent=`${count(a.unknown_hops)} packets with unknown hops`;
         metrics[3].value.textContent=Number.isFinite(a.observed_pct)?`${a.observed_pct.toLocaleString(undefined,{maximumFractionDigits:1})}%`:'—';
         metrics[3].note.textContent='Based on HQ self updates';
         metrics.forEach(m => m.button.setAttribute('aria-label', `${m.label.textContent}: ${m.value.textContent}. ${m.note.textContent}. Open details.`));
@@ -365,13 +366,13 @@
           trendTitle.textContent=`${Math.round(Math.abs(pct))}% ${pct>=0?'more':'fewer'} packets than the previous ${windowWords(h)}`;
           trendText.textContent=`${count(d.newly_heard_count)} nodes heard only in this window; ${count(d.quiet_count)} previously active nodes not heard here. Reception at HQ does not measure total mesh traffic.`;
         } else {
-          trendTitle.textContent='More history is needed for a meaningful trend';
+          trendTitle.textContent='Not enough history to compare';
           trendText.textContent=`The previous window has ${count(b.packets)} qualifying packets. Current counts describe reception at HQ.`;
         }
         lastHours=h;loadedAt=Date.now();
-        stamp.textContent=`Last ${windowLabel(h)} · updated ${new Date(loadedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})} · ordinary remote packets; self-traffic and diagnostic traffic excluded`;
+        stamp.textContent=`Last ${windowLabel(h)} · updated ${new Date(loadedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})} · Remote packets only · excludes self and diagnostics`;
       } catch(error) {
-        stamp.textContent=lastHours===h?'Summary could not refresh. Previous readings remain visible; retrying automatically.':'Reception summary unavailable. Retrying automatically; live node details remain below.';
+        stamp.textContent=lastHours===h?'Refresh failed · showing previous readings. Retrying…':'Summary unavailable. Retrying… Node details are below.';
         if (lastHours!==h) {metrics.forEach(m=>m.note.textContent='Unavailable');trendTitle.textContent='Waiting for reception summary';}
       } finally {
         busy=false;briefing.setAttribute('aria-busy','false');

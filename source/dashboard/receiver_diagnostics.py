@@ -1,6 +1,8 @@
 """On-demand diagnostics over pinned SSH, never the radio API."""
 import base64
+import ipaddress
 import json
+import re
 import sqlite3
 import subprocess
 import threading
@@ -10,15 +12,60 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from flask import jsonify
 
+def journal_command(request):
+    """Validate the restricted reader protocol before constructing an SSH command."""
+    if not isinstance(request,dict):raise ValueError('Invalid journal request')
+    if request!={'action':'summary'}:
+        if (set(request)-{'action','window','level','limit','before'} or request.get('action')!='logs'
+                or request.get('window') not in ('hour','day','week')
+                or request.get('level') not in ('all','warning')
+                or type(request.get('limit')) is not int or request['limit'] not in (100,200,500)):
+            raise ValueError('Invalid journal request')
+        before=request.get('before')
+        if before is not None and (not isinstance(before,str) or not re.fullmatch(r'[A-Za-z0-9_=;.-]{1,1024}',before)):
+            raise ValueError('Invalid journal cursor')
+    payload=base64.urlsafe_b64encode(json.dumps(request,separators=(',',':'),sort_keys=True).encode('ascii')).decode('ascii')
+    # Encoding alone is not the trust boundary: assert the remote shell grammar.
+    if not re.fullmatch(r'[A-Za-z0-9_-]+={0,2}',payload) or len(payload)>4096:
+        raise ValueError('Invalid journal command')
+    return 'journal-read:'+payload
+
+
+def ssh_connection(config):
+    if not isinstance(config,dict) or set(config)!={'host','user','identity','known_hosts'}:
+        raise ValueError('Invalid journal connection')
+    if any(not isinstance(v,str) for v in config.values()):raise ValueError('Invalid journal connection')
+    host,user=config['host'],config['user']
+    if not host or len(host)>253:raise ValueError('Invalid journal host')
+    if ':' in host:
+        if not re.fullmatch(r'[0-9a-fA-F:]+',host):raise ValueError('Invalid journal host')
+        ipaddress.IPv6Address(host)
+    elif not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*',host):raise ValueError('Invalid journal host')
+    if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.-]{0,63}',user):raise ValueError('Invalid journal user')
+    paths=[]
+    for field in ('identity','known_hosts'):
+        value=config[field]
+        if len(value)>1024 or not re.fullmatch(r'[A-Za-z0-9_./:\\-]+',value):raise ValueError('Invalid journal path')
+        path=Path(value)
+        if not path.is_absolute() or not path.is_file():raise ValueError('Invalid journal path')
+        resolved=str(path.resolve(strict=True))
+        if not re.fullmatch(r'[A-Za-z0-9_./:\\-]+',resolved):raise ValueError('Invalid journal path')
+        paths.append(resolved)
+    return host,user,*paths
+
+
 def remote_read(root, request):
     try:
-        config = json.loads((Path(root)/'receiver-log-access.json').read_text())
-        command = ['ssh', '-T', '-oBatchMode=yes', '-oStrictHostKeyChecking=yes',
+        remote_command=journal_command(request)
+        settings=Path(root)/'receiver-log-access.json'
+        if settings.stat().st_size>8192:raise ValueError('Invalid journal connection')
+        config = json.loads(settings.read_text(encoding='utf-8'))
+        host,user,identity,known_hosts=ssh_connection(config)
+        command = ['ssh', '-F', '/dev/null', '-T', '-oBatchMode=yes', '-oStrictHostKeyChecking=yes',
                    '-oConnectTimeout=4', '-oServerAliveInterval=5', '-oServerAliveCountMax=1',
                    '-oIdentitiesOnly=yes', '-oPasswordAuthentication=no', '-oKbdInteractiveAuthentication=no',
-                   '-oUserKnownHostsFile='+config['known_hosts'], '-i', config['identity'],
-                   '-l', config['user'], config['host'],
-                   'journal-read:'+base64.urlsafe_b64encode(json.dumps(request).encode()).decode()]
+                   '-oUserKnownHostsFile='+known_hosts, '-i', identity,
+                   '-l', user, '--', host, remote_command]
         result = subprocess.run(command, capture_output=True, text=True, timeout=18)
         if result.returncode: raise RuntimeError('Receiver journal unavailable')
         data = json.loads(result.stdout)

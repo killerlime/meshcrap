@@ -13,9 +13,18 @@ from system_health import host_health, reception_health
 
 app = Flask(__name__)
 app.config['RADIO_CONTROLS_ENABLED'] = @@ENABLE_RADIO_CONTROLS@@
+app.config['SECONDARY_RECEIVER_ENABLED'] = @@SECONDARY_ENABLED@@
+app.config['SECONDARY_CONTROLS_ENABLED'] = @@ENABLE_RADIO_CONTROLS@@ and @@SECONDARY_ENABLE_CONTROLS@@
 @app.before_request
 def optional_features():
-    if request.path.startswith(('/api/secondary-control','/api/lcd-control','/api/pki/')):
+    if request.path.startswith('/api/secondary-control'):
+        if not app.config['SECONDARY_RECEIVER_ENABLED']:
+            return jsonify(error='Optional secondary receiver is not configured'), 501
+        if request.method == 'POST' and request.path.endswith('/action') and not app.config['SECONDARY_CONTROLS_ENABLED']:
+            body = request.get_json(silent=True)
+            if not isinstance(body, dict) or body.get('action') not in ('lock', 'revoke_devices'):
+                return jsonify(error='Enable secondary radio controls in local configuration first'), 403
+    if request.path.startswith(('/api/lcd-control','/api/pki/')):
         return jsonify(error='This hardware integration is unavailable in the portable distribution'), 501
     if request.path.startswith(('/api/msp-ingestors','/api/msp-heard-by')):
         return jsonify(error='External mesh lookup is disabled in the portable distribution'), 501
@@ -369,6 +378,17 @@ def history():
 # Telemetry
 # ------------------------------------------------------------
 
+def first_radio_heard(conn, node_num):
+    # Only retained local radio receipts qualify; metadata/snapshots do not.
+    return conn.execute("""SELECT MIN(collector_time) FROM packets
+        WHERE from_num=? AND COALESCE(observation_type,'LIVE')='LIVE'
+        AND COALESCE(transport,'') NOT IN ('TRANSPORT_MQTT','TRANSPORT_INTERNAL')
+        AND (rx_snr IS NOT NULL OR rx_rssi IS NOT NULL)
+        AND CASE WHEN json_valid(raw_json) THEN COALESCE(json_extract(raw_json,'$.viaMqtt'),0) ELSE 0 END=0
+        AND COALESCE(from_id,printf('!%08x',from_num)) !=
+            COALESCE(json_extract(CASE WHEN json_valid(raw_json) THEN raw_json ELSE NULL END,'$._collectorReceiverId'),'@@RECEIVER_ID@@')
+        """, (node_num,)).fetchone()[0]
+
 @app.route("/api/telemetry")
 def telemetry():
 
@@ -388,6 +408,9 @@ def telemetry():
         SELECT
             n.node_num,
             n.node_id,
+            COALESCE(s.latitude,n.latitude) AS latitude,
+            COALESCE(s.longitude,n.longitude) AS longitude,
+            CASE WHEN s.latitude IS NOT NULL AND s.longitude IS NOT NULL THEN 'installed' ELSE 'advertised' END AS location_source,
             n.long_name,
             n.short_name,
             n.hw_model,
@@ -522,6 +545,7 @@ def telemetry():
             identity["node_id"]
         )).fetchone()
 
+    first_heard = first_radio_heard(conn, identity["node_num"]) if identity else None
     details = {}
     if identity:
         import json
@@ -541,6 +565,7 @@ def telemetry():
     conn.close()
 
     return jsonify({
+        "first_heard": first_heard,
         "details": details,
         "node":
             dict(identity)
@@ -1722,11 +1747,16 @@ def noc():
     recent=[dict(x) for x in conn.execute(f"""SELECT p.collector_time,COALESCE(NULLIF(TRIM(n.long_name),''),NULLIF(p.from_id,''),CASE WHEN p.from_num IS NOT NULL THEN printf('!%08x',p.from_num) ELSE 'Unknown node' END) node,
         p.portnum,p.rx_snr,p.rx_rssi,p.hops_used,p.battery_level,p.voltage,
         p.from_num,n.short_name,n.hw_model,n.role,
+        COALESCE(s.latitude,n.latitude,p.latitude) distance_latitude, COALESCE(s.longitude,n.longitude,p.longitude) distance_longitude,
         COALESCE(NULLIF(p.from_id,''),printf('!%08x',p.from_num)) node_id
-        FROM packets p LEFT JOIN nodes n ON p.from_num=n.node_num
+        FROM packets p LEFT JOIN nodes n ON p.from_num=n.node_num LEFT JOIN sites s ON s.node_long_name=n.long_name
         WHERE p.collector_time >= ? AND p.from_num IS NOT NULL AND p.from_num != CASE WHEN COALESCE(json_extract(CASE WHEN json_valid(p.raw_json) THEN p.raw_json ELSE NULL END,'$._collectorReceiverId'),'@@RECEIVER_ID@@')='@@RECEIVER_ID@@' THEN @@RECEIVER_NUM@@ ELSE @@RECEIVER_NUM@@ END AND COALESCE(p.observation_type,'LIVE')='LIVE' AND ({filt}) ORDER BY p.row_id DESC LIMIT 200""",params).fetchall()]
     window_activity = {r['from_num']:r for r in rr}
+    origin=conn.execute("SELECT COALESCE(s.latitude,n.latitude),COALESCE(s.longitude,n.longitude) FROM nodes n LEFT JOIN sites s ON s.node_long_name=n.long_name WHERE n.node_id=? LIMIT 1", ('@@RECEIVER_ID@@',)).fetchone()
     for packet in recent:
+        lat=packet.pop('distance_latitude');lon=packet.pop('distance_longitude')
+        def located(a,b):return isinstance(a,(int,float)) and isinstance(b,(int,float)) and -90<=a<=90 and -180<=b<=180 and (a,b)!=(0,0)
+        packet['distance_miles']=_survey_haversine(origin[0],origin[1],lat,lon) if origin and located(*origin) and located(lat,lon) else None
         activity = window_activity.get(packet['from_num'], {})
         packet['window_packets'] = activity.get('packets', 0)
         packet['window_direct_pct'] = activity.get('direct_pct')
@@ -2068,6 +2098,14 @@ def rf_health_hourly():
 
     hours = max(1, min(hours, 720))
 
+    device_mode = request.args.get('device_mode', 'ALL').strip().upper()
+    import re
+    if not re.fullmatch(r'[A-Z][A-Z0-9_]{0,49}', device_mode):
+        return jsonify(error='Invalid device mode'), 400
+    node_group = request.args.get('node_group', 'all')
+    if node_group not in ('all', 'only_local', 'exclude_local'):
+        return jsonify(error='Invalid node group'), 400
+
     RECEIVER_ID = "@@RECEIVER_ID@@"
 
     experiment = json.loads((DB.parent / "reports" / "lna-experiment.json").read_text())
@@ -2078,6 +2116,15 @@ def rf_health_hourly():
     start = max(experiment_start, now - timedelta(hours=hours))
 
     conn = db()
+
+    # Keep receiver observation time and local stats independent of this
+    # originating-node filter. Roles are latest metadata, not historical roles.
+    known_nodes = conn.execute('SELECT node_num, role, long_name, short_name FROM nodes').fetchall()
+    node_modes = {r['node_num']: (r['role'] or 'UNKNOWN').strip().upper() or 'UNKNOWN'
+                  for r in known_nodes}
+    local_nodes = {r['node_num'] for r in known_nodes
+                if any((r[k] or '').strip().lower().startswith('@@NODE_PREFIX_LOWER@@') for k in ('long_name', 'short_name'))}
+    device_modes = sorted(set(node_modes.values()))
 
     rows = conn.execute("""
         SELECT
@@ -2185,7 +2232,9 @@ def rf_health_hourly():
         except (ValueError, TypeError):
             diagnostic_reply = False
         # Mesh reception metrics exclude Receiver self telemetry and known PKI poll replies.
-        if r["from_id"] != RECEIVER_ID and not diagnostic_reply:
+        if (r["from_id"] != RECEIVER_ID and not diagnostic_reply
+                and (device_mode == 'ALL' or node_modes.get(r['from_num'], 'UNKNOWN') == device_mode)
+                and (node_group == 'all' or (r['from_num'] in local_nodes) == (node_group == 'only_local'))):
 
             b["packets"] += 1
 
@@ -2528,6 +2577,9 @@ def rf_health_hourly():
         "fixed_setup": experiment["fixed_setup"],
         "current_lna_state": transitions[-1][1],
         "hours": hours,
+        "device_mode": device_mode,
+        "device_modes": device_modes,
+        "node_group": node_group,
         "generated":
             now.isoformat(),
         "timeline":
@@ -2817,6 +2869,19 @@ register_heywhatsthat(app, DB)
 
 from receiver_diagnostics import register_receiver_diagnostics
 register_receiver_diagnostics(app, DB)
+
+from relay_activity import register_relay_activity
+register_relay_activity(app, DB, '@@RECEIVER_ID@@')
+
+from mesh_explorer import register_explorer
+register_explorer(app, DB, '@@RECEIVER_ID@@')
+from rf_sniffer import register_rf_sniffer
+register_rf_sniffer(app, @@RF_SNIFFER_ENABLED@@, @@RF_SNIFFER_URL_PY@@)
+from receiver_comparison import register_receiver_comparison
+register_receiver_comparison(app, DB, @@SECONDARY_ENABLED@@, '@@SECONDARY_RECEIVER_ID@@', @@SECONDARY_LABEL_PY@@,
+                             app.config['SECONDARY_CONTROLS_ENABLED'])
+from performance_metrics import register_performance
+register_performance(app)
 
 if __name__ == "__main__":
     if @@ENABLE_WEATHER@@: start_weather()

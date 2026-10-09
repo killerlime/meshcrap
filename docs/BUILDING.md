@@ -51,7 +51,11 @@ python -m http.server 8765 --bind 127.0.0.1 --directory dist/demo
 
 Open `http://127.0.0.1:8765`. Demo data is synthetic. Map tiles and optional location search still use external services.
 
-The immediately usable iPhone option is the dashboard’s installable web app over private HTTPS. Native dashboard-and-controls source is now available under [ios](../ios/README.md), with an XcodeGen project recipe and XCTest cases. It has not been compiled, signed or device-tested; no native binary is provided. Bluetooth surveys remain Android-only.
+The immediately usable iPhone option is the dashboard’s installable web app over private HTTPS. Native dashboard-and-controls source is available under [ios](../ios/README.md), with an XcodeGen project recipe and XCTest cases. The macOS CI workflow builds and tests an unsigned simulator app. A native iPhone installation requires your own Apple signing setup; no signed native binary or physical-device validation is provided. Bluetooth surveys remain Android-only.
+
+## Optional RF sniffer
+
+The separate SDR receiver is not installed with Meshcrap. Build or install it using its own upstream instructions and licenses. After its protected web interface works, run `python meshcrap.py sniffer-setup` to configure its display in this dashboard. Meshcrap's own integration has no SDR dependency and sends no backend requests to that receiver. See [RF sniffer](RF-SNIFFER.md).
 
 ## Appliance scope
 

@@ -10,6 +10,7 @@ WorkingDirectory=/opt/meshcrap
 ExecStart=/opt/meshcrap/.venv/bin/python /opt/meshcrap/meshcrap.py --config /opt/meshcrap/config.json collect
 Restart=on-failure
 RestartSec=10
+RestartPreventExitStatus=78
 UMask=0077
 NoNewPrivileges=true
 

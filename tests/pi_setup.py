@@ -23,7 +23,7 @@ with tempfile.TemporaryDirectory(prefix='meshcrap-pi-test-') as temporary:
         probe.bind(('127.0.0.1', 0))
         port = probe.getsockname()[1]
     command = ['runuser', '-u', 'meshcrap', '--', python, str(root/'meshcrap.py'), '--config', str(config)]
-    subprocess.run(command+['setup'], input=f'\n\n{port}\nn\nn\nn\n\n', text=True, check=True)
+    subprocess.run(command+['setup'], input=f'\n\n{port}\nn\nn\nn\nn\nn\n\n', text=True, check=True)
     settings = json.loads(config.read_text())
     assert settings['radio_host'] == '' and not settings['enable_potato']
     assert config.stat().st_mode & 0o777 == 0o600

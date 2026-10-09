@@ -19,6 +19,12 @@ Run `python meshcrap.py setup` in the activated virtual environment. Choose:
 - **Labels:** optional display labels do not change radio channels or keys.
 - **Private network access:** leave off for a first local test. If enabled, enter
   the server name used in the browser and the specific trusted client network.
+- **RF sniffer:** optional and off by default. Link an independently installed
+  sniffer through [its setup guide](RF-SNIFFER.md); the dashboard does not install
+  or start an SDR receiver.
+- **Second receiver:** optional reception comparison with a different radio.
+  Setup saves its connection and display name; collection starts only when you
+  explicitly run `collect-secondary`. Its history stays separate.
 
 Review the prompts before saving. Replacing an existing configuration creates a
 backup. Canceling keeps it unchanged. JSON users can copy `config.example.json` to
@@ -52,6 +58,16 @@ remembered devices. HTTPS is required for those persistent browser credentials.
 Do not expose the dashboard directly to the public Internet. Keep control unlocks
 and viewing permissions distinct. The Android survey app needs compatible server
 support; review its matching version and device-test limitations before an outing.
+The [iOS source preview](../ios/README.md) provides dashboard and controls; Bluetooth
+surveying currently requires Android.
+
+For a second dedicated radio, run `python meshcrap.py receiver-setup`, restart
+the dashboard, and start `python meshcrap.py collect-secondary` in another
+terminal. Use **Receiver comparison** to compare shared reception and paired
+signal measurements. Startup history is excluded from RF comparisons. Each radio
+has one connection owner; secondary controls, when explicitly enabled, reuse
+that connection. See [receiver comparison](RECEIVER-COMPARISON.md) for setup,
+interpretation and service installation.
 
 Weather, external forwarding, terrain requests and receiver journal access have
 separate opt-in configuration. See [terrain and Tropo sources](TROPO-SOURCES.md)
@@ -60,6 +76,12 @@ issues. Maps, regions and advanced connection options remain JSON settings;
 the wizard does not yet cover every optional integration.
 
 ## If something does not work
+
+For recorded connections, route comparisons and multi-node history, open
+**Mesh explorer**. Empty evidence tables are normal on a new installation. The
+long-term summary backfill runs in small batches. **Node map → Offline geography**
+uses local outlines without external street tiles. See [the explorer guide](MESH-EXPLORER.md)
+for interpretation, limits, storage and optional custom map packs.
 
 | Symptom | Check first |
 |---|---|

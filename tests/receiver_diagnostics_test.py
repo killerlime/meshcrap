@@ -1,4 +1,7 @@
 import sys
+import base64
+import json
+import subprocess
 import tempfile
 import unittest
 import sqlite3
@@ -18,6 +21,55 @@ def row(i,message,priority='6'):
     return {'us':BASE_US+i, '__CURSOR':'s=abc;i='+str(i), 'message':message,'PRIORITY':priority}
 
 class DiagnosticsTests(unittest.TestCase):
+    def saved_connection(self,folder):
+        root=Path(folder);identity=root/'reader-key';known=root/'reader-known-hosts'
+        identity.write_text('synthetic restricted key');known.write_text('synthetic pinned host')
+        return dict(host='receiver.example',user='meshcrap',identity=str(identity),known_hosts=str(known))
+
+    def test_remote_request_is_fixed_protocol_not_a_command(self):
+        cursor='s=abc;i=10;b=1234'
+        request=dict(action='logs',window='day',level='warning',limit=100,before=cursor)
+        encoded=diagnostics.journal_command(request)
+        self.assertRegex(encoded,r'^journal-read:[A-Za-z0-9_-]+={0,2}$')
+        self.assertEqual(json.loads(base64.urlsafe_b64decode(encoded.split(':',1)[1])),request)
+        for invalid in [dict(action='restart'),dict(action='summary',unit='other.service'),
+                        dict(action='logs',window='day',level='all',limit=100,before='; touch /tmp/bad'),
+                        dict(action='logs',window='day',level='all',limit=True),
+                        dict(action='logs',window='day',level='all',limit=100,before='x'*1025)]:
+            with self.subTest(request=invalid),patch.object(diagnostics.subprocess,'run') as run:
+                with self.assertRaises(RuntimeError):diagnostics.remote_read('/missing',invalid)
+                run.assert_not_called()
+
+    def test_ssh_options_are_fixed_and_host_arguments_terminated(self):
+        with tempfile.TemporaryDirectory() as folder:
+            config=self.saved_connection(folder)
+            (Path(folder)/'receiver-log-access.json').write_text(json.dumps(config))
+            result=subprocess.CompletedProcess([],0,stdout='{"counts":{}}',stderr='')
+            with patch.object(diagnostics.subprocess,'run',return_value=result) as run:
+                self.assertEqual(diagnostics.remote_read(folder,{'action':'summary'}),{'counts':{}})
+            command=run.call_args.args[0]
+            self.assertEqual(command[:4],['ssh','-F','/dev/null','-T'])
+            self.assertEqual(command[-3:-1],['--','receiver.example'])
+            self.assertIn('-oStrictHostKeyChecking=yes',command)
+            self.assertIn('-oIdentitiesOnly=yes',command)
+            self.assertEqual(run.call_args.kwargs['timeout'],18)
+            self.assertNotIn('shell',run.call_args.kwargs)
+            config['host']='::1'
+            self.assertEqual(diagnostics.ssh_connection(config)[0],'::1')
+
+    def test_saved_connection_cannot_inject_ssh_options(self):
+        with tempfile.TemporaryDirectory() as folder:
+            config=self.saved_connection(folder);settings=Path(folder)/'receiver-log-access.json'
+            attacks=[('host','-oProxyCommand=touch /tmp/bad'),('host','receiver.example;bad'),
+                     ('host','receiver.example\nProxyCommand=bad'),('user','-oProxyCommand=bad'),
+                     ('identity','relative-key'),('known_hosts','/tmp/known%h'),
+                     ('known_hosts',str(Path(folder)/'not-present'))]
+            for field,value in attacks:
+                bad=dict(config);bad[field]=value;settings.write_text(json.dumps(bad))
+                with self.subTest(field=field,value=value),patch.object(diagnostics.subprocess,'run') as run:
+                    with self.assertRaises(RuntimeError):diagnostics.remote_read(folder,{'action':'summary'})
+                    run.assert_not_called()
+
     def test_summary_separates_causes_and_excludes_private_data(self):
         data=reader.summary([row(1,'ERROR | 1 [RadioIf] Ignore rx packet, error=-7 (fr=0x12345678)'),row(2,"ERROR | 1 [Router] Can't decode protobuf reason='wire'"),row(3,'Node database full: 200 nodes, 100 bytes free. Erase oldest'),row(4,'Client dropped connection'),row(5,'Disconnect from phone')])
         self.assertEqual(data['counts']['crc_errors'],1)

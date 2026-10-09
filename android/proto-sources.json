@@ -1,0 +1,48 @@
+{
+  "repository": "https://github.com/meshtastic/protobufs",
+  "revision": "ad0bf31e82886d794334dcc62abb80da862a8ec7",
+  "license": "GPL-3.0",
+  "modifications": "None; files are byte-for-byte upstream copies.",
+  "files": {
+    "atak.proto": {
+      "sha256": "afcdd96c5e5082053cc6839e37c6cc9b2f4ef267546bc24f21c0e315e2ba6aa5",
+      "source": "https://github.com/meshtastic/protobufs/blob/ad0bf31e82886d794334dcc62abb80da862a8ec7/meshtastic/atak.proto"
+    },
+    "channel.proto": {
+      "sha256": "3e0cc5f95a5852db30585302321e671318c453519945625dcebc1cac21b6187e",
+      "source": "https://github.com/meshtastic/protobufs/blob/ad0bf31e82886d794334dcc62abb80da862a8ec7/meshtastic/channel.proto"
+    },
+    "config.proto": {
+      "sha256": "4a60459c4bf05636735c93207feb0bf5b0a1fd2e1d4cbbe16ed5449119f3e063",
+      "source": "https://github.com/meshtastic/protobufs/blob/ad0bf31e82886d794334dcc62abb80da862a8ec7/meshtastic/config.proto"
+    },
+    "device_ui.proto": {
+      "sha256": "d434360fecdd12ae3ea6a1199b5ae330153456f5cb5771e1d93d2b7ef391e138",
+      "source": "https://github.com/meshtastic/protobufs/blob/ad0bf31e82886d794334dcc62abb80da862a8ec7/meshtastic/device_ui.proto"
+    },
+    "field_metadata.proto": {
+      "sha256": "618171c0c80c5047ea5e867b19c32fb04e58da339e5d47e382e48894e081dc4e",
+      "source": "https://github.com/meshtastic/protobufs/blob/ad0bf31e82886d794334dcc62abb80da862a8ec7/meshtastic/field_metadata.proto"
+    },
+    "mesh.proto": {
+      "sha256": "003b5cd4db968385ffe4ce3267023647cab1bac65b9a04b8164237f541921b7d",
+      "source": "https://github.com/meshtastic/protobufs/blob/ad0bf31e82886d794334dcc62abb80da862a8ec7/meshtastic/mesh.proto"
+    },
+    "module_config.proto": {
+      "sha256": "4a0680b88b8966f447dcecd6825c282379ca470c7edc3fcefde7f2a82c67f2e9",
+      "source": "https://github.com/meshtastic/protobufs/blob/ad0bf31e82886d794334dcc62abb80da862a8ec7/meshtastic/module_config.proto"
+    },
+    "portnums.proto": {
+      "sha256": "0e765c6ae283ba866047c0579d3820e28b60b56187cc9f55c4d78bd15440440a",
+      "source": "https://github.com/meshtastic/protobufs/blob/ad0bf31e82886d794334dcc62abb80da862a8ec7/meshtastic/portnums.proto"
+    },
+    "telemetry.proto": {
+      "sha256": "981123786f03879daebaabe372d748919539ff1c7bd2fc7f92d27b6b94f06663",
+      "source": "https://github.com/meshtastic/protobufs/blob/ad0bf31e82886d794334dcc62abb80da862a8ec7/meshtastic/telemetry.proto"
+    },
+    "xmodem.proto": {
+      "sha256": "202012d9ae7642b1599cf269d03d41c6d18f28602f6e65976f0c6e954e3b9ea0",
+      "source": "https://github.com/meshtastic/protobufs/blob/ad0bf31e82886d794334dcc62abb80da862a8ec7/meshtastic/xmodem.proto"
+    }
+  }
+}

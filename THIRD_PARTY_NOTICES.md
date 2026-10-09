@@ -25,6 +25,10 @@ The original `ios/` source uses the repository license. It imports Apple SwiftUI
 
 When incorporating or redistributing upstream code or assets, retain their applicable license, copyright and notices, identify modifications, and record the source revision. Link to PotatoMesh in relevant integration documentation and user-facing views; do not imply upstream authorship or endorsement of Meshcrap-specific features.
 
+## Optional independent RF sniffer
+
+[meshtastic-sniffer](https://github.com/alphafox02/meshtastic-sniffer) is an optional external application, copyright CEMAXECUTER LLC, licensed [GPL-3.0-or-later](https://github.com/alphafox02/meshtastic-sniffer/blob/main/LICENSE). No upstream code or binary is bundled here. Meshcrap's independently written iframe integration displays an operator-configured page; the receiver remains a separate process with its own configuration and data. If redistributing that application or its dependencies, preserve their notices and fulfill their corresponding-source obligations for the actual build. See [RF sniffer setup](docs/RF-SNIFFER.md).
+
 ## Source and license index
 
 The root Unlicense applies to original Meshcrap material only. Third-party files keep their own licenses. The Android companion is GPL-3.0. The Python application imports GPL-3.0-only Meshtastic; distributing a combined runtime requires reviewing GPL obligations for that combination, not labeling the entire artifact Unlicense.
@@ -55,6 +59,13 @@ Version ranges in requirements.txt can resolve differently between builds. Run t
 
 ## External services and reference material
 
+- Natural Earth country geometry: public domain, https://www.naturalearthdata.com/about/terms-of-use/.
+  `source/dashboard/static/offline-geography.json` is derived from the 110m country FeatureCollection at
+  https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson
+  (retrieved 2026-10-08; original SHA-256 `6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f`).
+  Transformation: retain all 177 feature geometries; remove properties. Coarse boundaries do not provide street detail or imply endorsement of disputed boundaries.
+- Meshyface (https://github.com/jaronmcd/meshyface, GPL-3.0) was reviewed for functional workflow ideas. No Meshyface code, assets or runtime dependency is included in Mesh explorer; its implementation is independently written.
+
 - OpenStreetMap contributors supply map data under ODbL: https://www.openstreetmap.org/copyright. Preserve visible attribution and the license link. Tile and geocoding services also have usage policies: https://operations.osmfoundation.org/policies/tiles/ and https://operations.osmfoundation.org/policies/nominatim/.
 - Weather Underground / The Weather Company observations: https://www.wunderground.com/ and https://www.weathercompany.com/. Retain displayed provider attribution; data and service access are governed by provider terms, not the root license.
 - HeyWhatsThat terrain profiles: https://www.heywhatsthat.com/. Optional external service; do not infer redistribution rights for its data from this repository's license.
@@ -68,4 +79,4 @@ For each release, retain exact application source, build scripts, dependency inv
 
 For GPL-containing binaries, provide the corresponding source for the exact components/build under an applicable GPL distribution method, including required build/install materials. A link to a moving upstream branch or a Meshcrap-only source archive is not by itself a complete corresponding-source bundle for all bundled dependencies. OS image source obligations extend to the included OS packages.
 
-Audit status (2026-10-04): bundled browser notices and Android license texts are present. Exact upstream revision provenance for the ten copied Meshtastic proto files has not yet been established. Earlier published binary/container releases have not been certified as complete corresponding-source distributions by this audit; retain them for review and supplement their source materials as needed. New inventories do not retroactively change existing artifacts. Do not describe this project as universally cleared or entirely Unlicense.
+Audit status (2026-10-09): bundled browser notices and Android license texts are present. The ten copied Meshtastic proto files are byte-for-byte copies from revision `ad0bf31e82886d794334dcc62abb80da862a8ec7`; immutable source URLs and SHA-256 checksums are recorded in `android/proto-sources.json`. Earlier published binary/container releases have not been certified as complete corresponding-source distributions by this audit; retain them for review and supplement their source materials as needed. New inventories do not retroactively change existing artifacts. Do not describe this project as universally cleared or entirely Unlicense.

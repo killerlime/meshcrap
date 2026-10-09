@@ -10,4 +10,13 @@ for name in ['licenses/Leaflet-LICENSE','android/LICENSE','android/app/src/main/
     assert len((root/name).read_bytes())>100,name
 assert (root/'licenses/Leaflet-LICENSE').read_text().strip()==(vendor/'Leaflet-LICENSE').read_text().strip()
 assert (root/'source/dashboard/static/lcd-leaflet.js').read_text().strip()==(vendor/'leaflet-1.9.4.js').read_text().strip()
-print('PASS: vendored hashes, source URLs and required license files')
+protos=json.loads((root/'android/proto-sources.json').read_text(encoding='utf-8'))
+assert protos['repository']=='https://github.com/meshtastic/protobufs'
+assert len(protos['revision'])==40 and all(c in '0123456789abcdef' for c in protos['revision'])
+assert protos['license']=='GPL-3.0'
+folder=root/'android/app/src/main/proto/meshtastic'
+assert set(protos['files'])=={p.name for p in folder.glob('*.proto')}
+for name,entry in protos['files'].items():
+    assert entry['source']==f"https://github.com/meshtastic/protobufs/blob/{protos['revision']}/meshtastic/{name}"
+    assert hashlib.sha256((folder/name).read_bytes()).hexdigest()==entry['sha256'],name
+print('PASS: vendored hashes, immutable protocol sources and required license files')

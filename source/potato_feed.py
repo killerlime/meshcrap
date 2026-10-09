@@ -11,11 +11,36 @@ def iso(timestamp):
     return datetime.fromtimestamp(timestamp,timezone.utc).isoformat()
 
 
+def omit_zero_sensor_readings(records):
+    """Omit numeric zero metrics at export; retain reception and identity fields."""
+    from meshtastic.protobuf import telemetry_pb2
+    families={field.name:field.message_type for field in telemetry_pb2.Telemetry.DESCRIPTOR.fields if field.message_type}
+    sensor_names={field.name for descriptor in families.values() for field in descriptor.fields}
+    sensor_names.update(field.json_name for descriptor in families.values() for field in descriptor.fields)
+    def clean(value):
+        if isinstance(value,dict):
+            return {k:clean(v) for k,v in value.items() if not (type(v) in (int,float) and v==0)}
+        if isinstance(value,list):return [clean(v) for v in value]
+        return value
+    for record in records:
+        record['telemetry']=dict(record.get('telemetry',{}))
+        for key in list(record):
+            if key in sensor_names and type(record[key]) in (int,float) and record[key]==0:
+                del record[key]
+            elif key in families:
+                record[key]=clean(record[key])
+        for field in telemetry_pb2.Telemetry.DESCRIPTOR.fields:
+            if field.message_type:
+                for key in (field.name,field.json_name):
+                    if key in record.get('telemetry',{}):record['telemetry'][key]=clean(record['telemetry'][key])
+    return records
+
+
 def wire_payload(payloads):
     if not payloads or not all(validate_payload(p) for p in payloads): raise ValueError('Invalid public payload')
     port=payloads[0]['portnum']
     if any(p['portnum']!=port for p in payloads): raise ValueError('Mixed types')
-    records=[dict(p, modem_preset='MediumFast',rx_iso=iso(p['rx_time'])) for p in payloads]
+    records=[dict(p,modem_preset='MediumFast',rx_iso=iso(p['rx_time'])) for p in payloads]
     if port=='TELEMETRY_APP':
         from meshtastic.protobuf import telemetry_pb2
         from google.protobuf.json_format import ParseDict, MessageToDict
@@ -27,8 +52,7 @@ def wire_payload(payloads):
             for family,kind in families.items():
                 if family in metrics:
                     record['telemetry_type']=kind
-                    # Keep every supported sensor value, including valid zeros;
-                    # omit absent readings instead of sending null replacements.
+                    # Preserve supported sensor fields before applying export filtering.
                     record[family]=metrics[family]
                     if family in ('device_metrics','environment_metrics'):
                         record.update(metrics[family])
@@ -56,6 +80,7 @@ def wire_payload(payloads):
             if 'nodeBroadcastIntervalSecs' in section:record['node_broadcast_interval_secs']=section['nodeBroadcastIntervalSecs']
             if section.get('lastSentById',0)>0:record['last_sent_by_id']=f"!{section['lastSentById']:08x}"
             records.append(record)
+    if port=='TELEMETRY_APP':records=omit_zero_sensor_readings(records)
     return records
 
 

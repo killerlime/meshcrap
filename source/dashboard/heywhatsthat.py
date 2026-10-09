@@ -61,7 +61,7 @@ def register_heywhatsthat(app, main_db):
         data=request.get_json(silent=True)
         if not isinstance(data,dict):return jsonify(error='Expected terrain parameters.'),400
         try:params=profile_query(data)
-        except ValueError as exc:return jsonify(error=str(exc)),400
+        except ValueError:return jsonify(error='Choose two different locations with valid coordinates (latitude -54 to 60) and antenna heights (0–1000 m).'),400
         query=urllib.parse.urlencode(params);key=hashlib.sha256(query.encode()).hexdigest();now=time.time();day=int(now//86400)
         with connect() as db:
             db.execute('BEGIN IMMEDIATE')

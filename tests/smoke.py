@@ -20,7 +20,10 @@ with tempfile.TemporaryDirectory(prefix='meshcrap-test-') as directory:
         for route in ('/','/api/summary','/api/map','/api/coverage','/api/coverage-survey','/api/noc',
                       '/api/channel-messages','/api/rf-environment','/api/rf-health-hourly','/api/lna-experiment',
                       '/api/lna-analysis','/api/hq-weather','/api/recovery-health','/survey-companion',
-                      '/api/node-control/session','/api/mobile-access','/api/potato-feed/status','/api/role-comparison?hours=24'):
+                      '/api/node-control/session','/api/mobile-access','/api/potato-feed/status','/api/role-comparison?hours=24',
+                      '/api/explorer/nodes','/api/explorer/topology','/api/explorer/routes',
+                      '/api/explorer/telemetry?nodes=!23456789','/api/explorer/history',
+                      '/api/explorer/delivery','/api/explorer/performance','/api/explorer/map-pack'):
             try:
                 response=client.get(route,base_url='http://localhost')
                 assert response.status_code==200,(route,response.status_code,response.get_json(silent=True))
@@ -37,15 +40,20 @@ with tempfile.TemporaryDirectory(prefix='meshcrap-test-') as directory:
         from types import SimpleNamespace
         collector.db=collector.open_database()
         try:
+            radio=SimpleNamespace(localNode=SimpleNamespace(nodeNum=0x12345678),
+                                  isConnected=SimpleNamespace(is_set=lambda:True))
+            collector.interface=radio;collector.receiver_ready=True;collector.session_started=time.time()
             collector.on_receive({'from':0x23456789,'fromId':'!23456789','to':0xffffffff,
                 'toId':'^all','id':123,'channel':0,'rxTime':int(time.time()),'rxSnr':3.0,'rxRssi':-95,
                 'decoded':{'portnum':'NODEINFO_APP','user':{'id':'!23456789','longName':'Synthetic receiver','shortName':'TEST'}}},
-                SimpleNamespace(localNode=SimpleNamespace(nodeNum=0x12345678)))
+                radio)
             assert collector.db.execute('SELECT count(*) FROM packets').fetchone()[0]==1
             assert collector.db.execute('SELECT node_id FROM nodes WHERE node_num=?',(0x23456789,)).fetchone()[0]=='!23456789'
             assert json.loads(collector.db.execute('SELECT raw_json FROM packets').fetchone()[0])['decoded']['user']['longName']=='Synthetic receiver'
             assert client.get('/api/summary').status_code==200
             assert client.get('/api/map').status_code==200
-        finally:collector.db.close()
+        finally:
+            collector.receiver_ready=False;collector.interface=None
+            collector.db.close();collector.db=None
         assert not failures,failures
     print('PASS: empty-database dashboard, coverage, messages, surveys, LNA, auth defaults; no imported nodes or packets')

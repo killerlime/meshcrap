@@ -66,50 +66,55 @@ def merge(original, changes):
 
 
 
-def reply_target(row_id, channel, destination):
+def reply_target(row_id, channel, destination, base=BASE):
     import sqlite3
     if type(row_id) is not int or row_id < 1 or destination != '^all':
         raise ValueError('Select a channel message to reply to')
-    with sqlite3.connect('file:'+str(BASE/'mesh.db')+'?mode=ro', uri=True) as db:
-        row=db.execute("SELECT packet_id,channel,rx_time,to_num,portnum,raw_json FROM packets WHERE row_id=?",(row_id,)).fetchone()
+    with sqlite3.connect((Path(base)/'mesh.db').resolve().as_uri()+'?mode=ro', uri=True) as db:
+        row=db.execute("SELECT packet_id,channel,to_num,portnum FROM packets WHERE row_id=?",(row_id,)).fetchone()
     if not row:
         raise ValueError('The original message is no longer available')
-    packet_id,original_channel,received,to_num,port,raw_json=row
-    receiver_id=json.loads(raw_json or "{}").get("_collectorReceiverId", "@@RECEIVER_ID@@")
-    # Protobuf omits channel zero; normalize before applying historical slot mapping.
+    packet_id,original_channel,to_num,port=row
+    # Protobuf omits channel zero. Channel slots belong to this receiver.
     original_channel = 0 if original_channel is None else original_channel
-    cutoff=__import__('mf_feed').POLICY_STARTED
-    if cutoff <= 0:
-        raise ValueError('Channel history is unavailable')
-    logical_channel=1-original_channel if received and received < cutoff and original_channel in (0,1) else original_channel
 
-    if logical_channel != channel or to_num != 0xffffffff or port != 'TEXT_MESSAGE_APP' or type(packet_id) is not int or not 0 < packet_id <= 0xffffffff:
+    if original_channel != channel or to_num != 0xffffffff or port != 'TEXT_MESSAGE_APP' or type(packet_id) is not int or not 0 < packet_id <= 0xffffffff:
         raise ValueError('Choose a broadcast message on the selected channel')
     return packet_id
 
 class Control:
-    def __init__(self, get_interface, log):
+    def __init__(self, get_interface, log, base_dir=None, feed_enabled=True, expected_receiver_id=None):
         self.get_interface = get_interface
         self.log = log
         self.lock = threading.Lock()
         self.results = {}
+        self.base = Path(base_dir) if base_dir is not None else BASE
+        self.feed_enabled = feed_enabled
+        self.expected_receiver_id = expected_receiver_id
         from radio_actions import RadioActions
-        self.actions = RadioActions(get_interface,log)
+        self.actions = RadioActions(get_interface,log,base_dir=self.base,feed_enabled=feed_enabled)
 
     def iface(self):
         iface = self.get_interface()
         if iface is None or not iface.isConnected.is_set():
             raise ValueError('Receiver is unavailable. The collector may be reconnecting or the mobile gateway may own the radio.')
+        if self.expected_receiver_id is not None and iface.localNode.nodeNum != self.expected_receiver_id:
+            raise ValueError('Receiver identity does not match configuration')
         return iface
 
     def section(self, iface, kind, name):
         if kind == 'owner':
+            if name != 'identity':
+                raise ValueError('Unknown identity settings group')
             owner = mesh_pb2.User()
             data = (iface.nodesByNum or {}).get(iface.localNode.nodeNum, {}).get('user', {})
             ParseDict(data, owner, ignore_unknown_fields=True)
             return owner
         if kind == 'channel':
-            index = int(name)
+            try:
+                index = int(name)
+            except (TypeError, ValueError):
+                raise ValueError('Unknown channel') from None
             if not 0 <= index < len(iface.localNode.channels or []):
                 raise ValueError('Unknown channel')
             return iface.localNode.channels[index]
@@ -145,7 +150,7 @@ class Control:
             if user.get('id'):
                 nodes.append(dict(id=user['id'], name=user.get('longName') or user.get('shortName') or user['id'],
                                   last_heard=value.get('lastHeard'), battery=(value.get('deviceMetrics') or {}).get('batteryLevel')))
-        return dict(connected=True, feed_allowed=__import__('mf_feed').public_mf(iface), node_id=f'!{node.nodeNum:08x}', groups=groups, channels=channels,
+        return dict(connected=True, feed_allowed=self.feed_enabled and __import__('mf_feed').public_mf(iface), node_id=f'!{node.nodeNum:08x}', groups=groups, channels=channels,
                     nodes=sorted(nodes, key=lambda n:n['name'].lower()),
                     metadata=MessageToDict(iface.metadata) if iface.metadata else {}, actions=__import__('radio_actions').catalog())
 
@@ -187,20 +192,21 @@ class Control:
                 destination = request.get('destination', '^all')
                 if destination != '^all' and destination not in (iface.nodes or {}):
                     raise ValueError('Choose a known destination node')
-                reply_id = reply_target(request['reply_row_id'], channel, destination) if request.get('reply_row_id') is not None else None
+                reply_id = reply_target(request['reply_row_id'], channel, destination, self.base) if request.get('reply_row_id') is not None else None
                 packet = iface.sendText(text, destinationId=destination, channelIndex=channel, wantAck=destination != '^all', replyId=reply_id)
                 # Save local submissions separately from received RF packets.
                 try:
                     import sent_messages
-                    sent_messages.record(packet, iface.localNode.nodeNum, text)
+                    sent_messages.record(packet, iface.localNode.nodeNum, text, database=self.base/'mesh.db')
                 except Exception as error:
                     self.log('WEB_SENT_HISTORY_ERROR', type(error).__name__)
                 # sendText does not emit a receive event for the local submission.
                 # A queue failure must not turn a successful send into a resend prompt.
                 try:
-                    import mf_feed
-                    if mf_feed.capture_sent_text(packet, iface):
-                        self.log('POTATO_SENT_TEXT_QUEUED', f'packet={packet.id}; public MediumFast')
+                    if self.feed_enabled:
+                        import mf_feed
+                        if mf_feed.capture_sent_text(packet, iface):
+                            self.log('POTATO_SENT_TEXT_QUEUED', f'packet={packet.id}; public MediumFast')
                 except Exception as error:
                     self.log('POTATO_QUEUE_ERROR', type(error).__name__)
                 self.log('WEB_MESSAGE_SENT', f'channel={channel}; destination={destination}; packet={packet.id}')
@@ -239,7 +245,7 @@ class Control:
                         raise ValueError('Long name must contain 1–39 UTF-8 bytes')
                     if not candidate.short_name.strip() or len(candidate.short_name.encode('utf-8')) > 4:
                         raise ValueError('Short name must contain 1–4 UTF-8 bytes')
-                backup = BASE / 'backups' / 'radio-control'
+                backup = self.base / 'backups' / 'radio-control'
                 backup.mkdir(parents=True, exist_ok=True, mode=0o700)
                 path = backup / (str(time.time_ns())+'-'+kind+'-'+str(name)+'.json')
                 fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_EXCL, 0o600)
@@ -252,8 +258,9 @@ class Control:
                     admin.set_owner.CopyFrom(candidate)
                 else:
                     getattr(admin.set_config if kind == 'config' else admin.set_module_config, name).CopyFrom(candidate)
-                import mf_feed
-                mf_feed.pause()
+                if self.feed_enabled:
+                    import mf_feed
+                    mf_feed.pause()
                 iface.localNode._sendAdmin(admin)
                 self.log('WEB_CONFIG_SUBMITTED', f'{kind}/{name}; previous settings backed up')
                 result = dict(message='Changes submitted to Receiver; application is not yet confirmed. The radio may reboot. Refresh after it reconnects to verify.')

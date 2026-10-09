@@ -1,0 +1,9 @@
+name: Rendered portable Python and installation tools
+paths:
+  - codeql-generated/runtime
+  - codeql-generated/installation
+  - tests
+  - tools
+  - deploy
+paths-ignore:
+  - '**/__pycache__/**'
