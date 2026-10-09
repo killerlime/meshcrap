@@ -14,11 +14,16 @@ def node_number(value):
 def attach_feed(c,database):
     path=Path(database).parent/'potato-feed'/'outbox.db'
     if path.exists():c.execute('ATTACH DATABASE ? AS feed',(str(path),))
+    history=Path(database).with_name('mesh-explorer-history.sqlite3')
+    if history.exists():c.execute('ATTACH DATABASE ? AS explorer_history',(str(history),))
 
 def plan(c,num):
     ident=f'!{num:08x}'
     tables={r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     result={}
+    if any(r[1]=='explorer_history' for r in c.execute('PRAGMA database_list')):
+        if c.execute("SELECT 1 FROM explorer_history.sqlite_master WHERE name='hourly'").fetchone():
+            result['explorer_history.hourly']={r[0] for r in c.execute('SELECT rowid FROM explorer_history.hourly WHERE node=?',(ident,))}
     direct={'nodes':['node_num'],'node_notes':['node_num'],'node_reappearance_guards':['node_num'],
             'node_metadata_backfills':['node_num'],'node_metadata_refreshes':['node_num'],
             'pki_jobs':['node_num'],'pki_samples':['node_num'],'pki_schedule':['node_num'],
@@ -72,12 +77,16 @@ def purge(database,num,request_token=None):
             feed=root/'potato-feed'/'outbox.db'
             if feed.exists():
                 with closing(sqlite3.connect(feed,timeout=15)) as source, closing(sqlite3.connect(backup/'outbox.db')) as dest:source.backup(dest)
+            history=root/'mesh-explorer-history.sqlite3'
+            if history.exists():
+                with closing(sqlite3.connect(history,timeout=15)) as source, closing(sqlite3.connect(backup/'mesh-explorer-history.sqlite3')) as dest:source.backup(dest)
             rows,sites=plan(c,num)
             for table,ids in rows.items():c.executemany('DELETE FROM '+table+' WHERE rowid=?',[(i,) for i in ids])
-            c.executemany('UPDATE sites SET node_long_name=NULL WHERE rowid=?',[(i,) for i in sites])
+            if sites:c.executemany('UPDATE sites SET node_long_name=NULL WHERE rowid=?',[(i,) for i in sites])
             if request_token:c.execute('INSERT INTO node_purge_requests VALUES(?,?)',(request_token,time.time()))
             assert c.execute('PRAGMA quick_check').fetchone()[0]=='ok'
             if feed.exists():assert c.execute('PRAGMA feed.quick_check').fetchone()[0]=='ok'
+            if history.exists():assert c.execute('PRAGMA explorer_history.quick_check').fetchone()[0]=='ok'
             c.commit()
         except:
             c.rollback();raise
