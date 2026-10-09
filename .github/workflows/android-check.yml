@@ -1,0 +1,42 @@
+name: Android companion checks
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android-check.yml']
+  pull_request:
+    paths: ['android/**', '.github/workflows/android-check.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  debug:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install target SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build, unit test and lint generic companion
+        working-directory: android
+        run: gradle --console=plain --no-daemon --max-workers=2 assembleDebug testDebugUnitTest lintDebug
+      - name: Retain unit and lint results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-results
+          path: |
+            android/app/build/reports/tests/testDebugUnitTest/
+            android/app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+          retention-days: 7

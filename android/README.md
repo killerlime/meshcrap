@@ -18,7 +18,7 @@ This is a debug-signed test build. Build, unit tests and Android lint pass. Real
 
 Use Java 17, Android SDK 35 and Gradle 8.9. Set `ANDROID_HOME`, then run `gradle assembleDebug testDebugUnitTest lintDebug` in this directory. The APK appears in `app/build/outputs/apk/debug/`. Dependencies download from the configured official repositories.
 
-Source is GPL-3.0; see LICENSE. Meshtastic protocol definitions under `app/src/main/proto` come from the Meshtastic protobufs project. No private pairing tokens or radio keys are included.
+Source is GPL-3.0; see LICENSE. Meshtastic protocol definitions under `app/src/main/proto` match [Meshtastic protobufs revision ad0bf31e82886d794334dcc62abb80da862a8ec7](https://github.com/meshtastic/protobufs/tree/ad0bf31e82886d794334dcc62abb80da862a8ec7) byte for byte. Their GPL-3.0 license and Protocol Buffers Java Lite's BSD-3-Clause notice are included in the app's **Licenses and source** screen. No private pairing tokens or radio keys are included.
 
 ## Everyday use
 
@@ -49,7 +49,7 @@ Each trace retains the travelling fix and the destination's advertised coordinat
 
 Existing pairing stays encrypted with Android Keystore, app backups remain disabled, and revocation blocks uploads immediately. An offline phone learns about revocation only on reconnection; stopping it remotely cannot guarantee immediate radio silence. The collector permits only survey uploads and start/end operations with this credential. App updates must use the same signing identity to preserve installed data; uninstalling clears app data.
 
-The iPhone option remains the HTTPS dashboard added to the Home Screen. Bluetooth surveys are not supported; native dashboard/control source is also available under `ios/`, pending Mac/Xcode validation. The web app does not queue offline control commands.
+The iPhone option includes the HTTPS dashboard added to the Home Screen and native dashboard/control source under [`ios/`](../ios/README.md). Bluetooth surveys are not supported. The native shell has unsigned simulator checks in CI; physical-device testing and signing remain separate requirements. The web app does not queue offline control commands.
 
 ## Live verification
 

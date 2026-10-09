@@ -1,5 +1,5 @@
 Meshcrap Survey is GPL-3.0 software, provided without warranty. You may modify and redistribute it under that license.
 Source and build instructions: https://github.com/killerlime/meshcrap/tree/main/android
-Meshtastic protocol definitions: https://github.com/meshtastic/protobufs (GPL-3.0).
+Meshtastic protocol definitions: https://github.com/meshtastic/protobufs/tree/ad0bf31e82886d794334dcc62abb80da862a8ec7 (GPL-3.0). Bundled definitions match this source revision byte for byte.
 Protocol Buffers Java Lite 4.29.3: https://github.com/protocolbuffers/protobuf/tree/v29.3 (BSD-3-Clause; see Protobuf-LICENSE.txt).
 This independent application is not endorsed by these projects.
