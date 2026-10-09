@@ -55,14 +55,43 @@ public class SurveyRulesTest {
   assertFalse(SurveyRules.travellingAccuracyValid(Double.POSITIVE_INFINITY));
  }
  @Test public void candidatesUseFixAgeSeparatelyFromLastHeard(){
-  assertFalse(SurveyRules.candidateFresh(56799,0,100000,2));
-  assertTrue(SurveyRules.candidateFresh(56800,0,100000,2));
+  long now=1_000_000;
+  assertTrue(SurveyRules.candidateFresh(now-7*86400,0,now,2));
+  assertFalse(SurveyRules.candidateFresh(now-7*86400-1,now,now,2));
+  assertTrue(SurveyRules.candidateFresh(now-86400,0,now,3));
+  assertFalse(SurveyRules.candidateFresh(now-8*86400,now,now,3));
   assertTrue(SurveyRules.candidateFresh(1,999,1000,1));
   assertTrue(SurveyRules.candidateFresh(999,0,1000,1));
+  assertTrue(SurveyRules.candidateFresh(1,0,now,1));
+  assertTrue(SurveyRules.candidateFresh(1,0,now,0));
   assertFalse(SurveyRules.candidateFresh(1001,999,1000,2));
-  assertFalse(SurveyRules.automaticCandidate(0,32));assertFalse(SurveyRules.automaticCandidate(2,0));
-  assertFalse(SurveyRules.automaticCandidate(2,19));assertTrue(SurveyRules.automaticCandidate(2,20));
+  assertTrue(SurveyRules.automaticCandidate(0,32));assertTrue(SurveyRules.automaticCandidate(2,0));
+  assertTrue(SurveyRules.automaticCandidate(2,19));assertTrue(SurveyRules.automaticCandidate(2,20));
   assertTrue(SurveyRules.automaticCandidate(1,32));assertFalse(SurveyRules.automaticCandidate(2,33));
+  for(int bits:new int[]{0,13,14,15,19,20,32})for(int source=0;source<=3;source++)assertTrue(SurveyRules.automaticCandidate(source,bits));
+ }
+ @Test public void radioDatabaseCoordinatesDoNotNeedOptionalGpsMetadata(){
+  var advertised=MeshProtos.Position.newBuilder().setLatitudeI(442000000).setLongitudeI(-940000000).build();
+  assertTrue(SurveyRules.validPosition(advertised.getLatitudeI()*1e-7,advertised.getLongitudeI()*1e-7));
+  assertTrue(SurveyRules.candidateFresh(advertised.getTime(),0,1_000_000,advertised.getLocationSourceValue()));
+  assertTrue(SurveyRules.automaticCandidate(advertised.getLocationSourceValue(),advertised.getPrecisionBits()));
+  assertEquals("position age unknown",SurveyRules.candidateAgeLabel(0,1_000_000));
+  assertEquals("position 2 days old",SurveyRules.candidateAgeLabel(100000,272800));
+  for(int source=0;source<=3;source++)assertTrue(SurveyRules.candidateFresh(0,0,1_000_000,source));
+ }
+ @Test public void discoveryStillRejectsMalformedPositionMetadata(){
+  assertFalse(SurveyRules.candidateFresh(-1,0,1_000_000,0));
+  assertFalse(SurveyRules.candidateFresh(1_000_001,0,1_000_000,1));
+  assertFalse(SurveyRules.candidateFresh(0,0,1_000_000,4));
+  assertFalse(SurveyRules.automaticCandidate(-1,32));assertFalse(SurveyRules.automaticCandidate(4,20));
+  assertFalse(SurveyRules.automaticCandidate(2,-1));assertFalse(SurveyRules.validPosition(0,0));
+ }
+ @Test public void offlineQueueUsesItsActualCapacityAndReservesResults(){
+  assertTrue(SurveyRules.traceStorageAvailable(9990,Outbox.LIMIT));
+  assertTrue(SurveyRules.traceStorageAvailable(Outbox.LIMIT-11,Outbox.LIMIT));
+  assertFalse(SurveyRules.traceStorageAvailable(Outbox.LIMIT-10,Outbox.LIMIT));
+  assertFalse(SurveyRules.traceStorageAvailable(Outbox.LIMIT,Outbox.LIMIT));
+  assertFalse(SurveyRules.traceStorageAvailable(-1,Outbox.LIMIT));
  }
  @Test public void geographicValidityAndFreshness(){assertFalse(SurveyRules.validPosition(Double.NaN,-94));assertFalse(SurveyRules.validPosition(0,0));assertFalse(SurveyRules.validPosition(91,0));assertTrue(SurveyRules.validPosition(44.2,-94));assertEquals(0,SurveyRules.miles(44,-94,44,-94),0.001);assertTrue(SurveyRules.miles(44,-94,45,-94)>68);assertFalse(SurveyRules.fresh(0,10000,300));assertFalse(SurveyRules.fresh(9000,10000,300));assertFalse(SurveyRules.fresh(10200,10000,300));assertTrue(SurveyRules.fresh(9900,10000,300));}
  @Test public void traceWireMessageDoesNotContainConfigWrites() throws Exception {

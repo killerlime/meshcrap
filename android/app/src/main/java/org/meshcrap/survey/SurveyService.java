@@ -146,7 +146,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
     void chooseRadius(int miles){targetCacheUntil=0;radius=miles;getSharedPreferences("survey-settings",0).edit().putInt("radius",miles).apply();}
     String arm(){
         if(controlState.blocksRequests())return "Waiting for collector confirmation of the survey change.";
-        if(!ready||!isLocal()||survey==0||!authorized())return "Connect a local node and start a survey with a live collector connection.";
+        if(!ready||!isLocal()||survey==0||!authorized())return "Connect a local radio and start an outing. The collector may be offline.";
         if(position()==null)return "Waiting for a position within 24 hours and half-mile reported accuracy.";
         if(!channels.containsKey(channel))return "Choose an available radio channel first.";
         armed=true;message="Nearby nodes will be tried one at a time";log("Automatic survey enabled on slot "+channel+". Minimum interval: 30 seconds.");notifyState();return message;
@@ -160,7 +160,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
             int number=from.getMyInfo().getMyNodeNum();if(own!=0&&number!=own){ready=false;pause("Source radio changed. Stop and reconnect to verify it.");return;}if(own==0){channel=getSharedPreferences("survey-settings",0).getInt("channel_"+number,0);own=number;restoreOffline();}own=number;
             tried.clear();for(String saved:getSharedPreferences("cadence",0).getStringSet(triedKey(),Collections.emptySet()))tried.add(Integer.parseInt(saved));
         }
-        if(from.hasNodeInfo())nodes.put(from.getNodeInfo().getNum(),from.getNodeInfo());
+        if(from.hasNodeInfo()){nodes.put(from.getNodeInfo().getNum(),from.getNodeInfo());targetCacheUntil=0;}
         if(from.hasChannel()){
             var c=from.getChannel();
             if(ready){pause("Channel configuration changed. Check the selected channel before resuming.");}
@@ -221,18 +221,39 @@ public final class SurveyService extends Service implements MeshBle.Listener {
     }catch(Exception ignored){}return null;}
     private static long positionTime(MeshProtos.Position p){return unsigned(p.getTimestamp()!=0?p.getTimestamp():p.getTime());}
     private List<Target> targetCache=Collections.emptyList();private long targetCacheUntil=0;
+    private int targetsMissing,targetsOutside,targetsOld,targetsFuture,targetsMqtt;
     List<Target> targets(){if(clock()<targetCacheUntil)return targetCache;List<Target> result=new ArrayList<>();JSONObject loc=position();if(loc==null)return result;
+        targetsMissing=targetsOutside=targetsOld=targetsFuture=targetsMqtt=0;
+        long now=epoch();
         for(var n:nodes.values()){
-            if(n.getViaMqtt()||n.getNum()==own||!SurveyRules.validId(unsigned(n.getNum()))||!n.hasPosition())continue;
+            if(n.getNum()==own||!SurveyRules.validId(unsigned(n.getNum())))continue;
+            if(n.getViaMqtt()){targetsMqtt++;continue;}
+            if(!n.hasPosition()){targetsMissing++;continue;}
             var p=n.getPosition();double lat=p.getLatitudeI()*1e-7,lon=p.getLongitudeI()*1e-7;
-            if(p.getLocationSourceValue()<0||p.getLocationSourceValue()>3||p.getPrecisionBits()<0||p.getPrecisionBits()>32)continue;
-            if(!SurveyRules.validPosition(lat,lon)||!SurveyRules.candidateFresh(positionTime(p),unsigned(n.getLastHeard()),epoch(),p.getLocationSourceValue()))continue;
+            if(p.getLocationSourceValue()<0||p.getLocationSourceValue()>3||p.getPrecisionBits()<0||p.getPrecisionBits()>32||!SurveyRules.validPosition(lat,lon)){targetsMissing++;continue;}
+            if(positionTime(p)>now){targetsFuture++;continue;}
+            if(!SurveyRules.candidateFresh(positionTime(p),unsigned(n.getLastHeard()),now,p.getLocationSourceValue())){targetsOld++;continue;}
             double miles=SurveyRules.miles(loc.optDouble("lat"),loc.optDouble("lon"),lat,lon);
             boolean automatic=SurveyRules.automaticCandidate(p.getLocationSourceValue(),p.getPrecisionBits());
             String source=p.getLocationSourceValue()==1?"fixed/manual (advertised)":p.getLocationSourceValue()==2?"radio GPS":p.getLocationSourceValue()==3?"external GPS":"unknown source";
             String precision=p.getPrecisionBits()==0?"precision unknown":p.getPrecisionBits()+"-bit advertised precision";
-            if(miles<=radius)result.add(new Target(n.getNum(),miles,name(n.getNum())+" · "+id(n.getNum())+" · "+String.format(Locale.ROOT,"~%.1f mi · position %ds old · heard %ds ago",miles,Math.max(0,epoch()-positionTime(p)),Math.max(0,epoch()-unsigned(n.getLastHeard())))+" · "+source+" · "+precision+(automatic?"":" · manual test only"),automatic));
+            boolean approximate=positionTime(p)==0||now-positionTime(p)>43200||p.getLocationSourceValue()==0||p.getPrecisionBits()<20;
+            if(miles<=radius)result.add(new Target(n.getNum(),miles,name(n.getNum())+" · "+id(n.getNum())+" · "+String.format(Locale.ROOT,"~%.1f mi",miles)+" · "+SurveyRules.candidateAgeLabel(positionTime(p),now)+" · "+source+" · "+precision+(approximate?" · approximate location":""),automatic));
+            else targetsOutside++;
         }result.sort(Comparator.comparingDouble(t->t.distance));targetCache=result;targetCacheUntil=clock()+1000;return result;
+    }
+    String uiCandidateSummary(){
+        List<Target> nearby=targets();
+        if(position()==null)return "Nearby nodes · Waiting for your travelling location";
+        int cooling=0;for(Target target:nearby)if(!eligibleAgain(target.number))cooling++;
+        String value="Nearby · "+nearby.size()+" candidates · "+(nearby.size()-cooling)+" ready"+(cooling>0?" · "+cooling+" cooling down":"");
+        List<String> excluded=new ArrayList<>();
+        if(targetsOutside>0)excluded.add(targetsOutside+" outside radius");
+        if(targetsMissing>0)excluded.add(targetsMissing+" without usable coordinates");
+        if(targetsOld>0)excluded.add(targetsOld+" GPS older than 7 days");
+        if(targetsFuture>0)excluded.add(targetsFuture+" future position time");
+        if(targetsMqtt>0)excluded.add(targetsMqtt+" Internet-only");
+        return value+(excluded.isEmpty()?"":"\nNot listed · "+String.join(" · ",excluded));
     }
     private String samplingKey(int dest){return "probe_"+dest;}
     private long sampledAt(int dest){return getSharedPreferences("cadence",0).getLong(samplingKey(dest)+"_time",0);}
@@ -259,10 +280,10 @@ public final class SurveyService extends Service implements MeshBle.Listener {
     String trace(int destination,boolean test){
         if(controlState.blocksRequests())return "Waiting for collector confirmation of the survey change.";
         if(!eligibleAgain(destination))return "This node is waiting for its retry interval or eight-hour cooldown.";
-        if(!SurveyRules.maySend(ready,isLocal(),pending!=null,clock(),lastSent,authorizationDeadline(),survey)||!channels.containsKey(channel))return "Not ready: check the active survey, collector connection, channel, outstanding request and 30-second spacing.";
+        if(!SurveyRules.maySend(ready,isLocal(),pending!=null,clock(),lastSent,authorizationDeadline(),survey)||!channels.containsKey(channel))return "Not ready: check the active survey, radio connection, channel, outstanding request and 30-second spacing.";
 
-        if(targets().stream().noneMatch(t->t.number==destination&&(test||t.automatic)))return "This destination is no longer a nearby candidate with position data within the allowed age.";
-        if(outbox.count()>=9990){pause("Upload the saved results before sending more requests");return message;}
+        if(targets().stream().noneMatch(t->t.number==destination&&(test||t.automatic)))return "This destination is no longer within the selected radius with usable advertised coordinates.";
+        if(!SurveyRules.traceStorageAvailable(outbox.count(),Outbox.LIMIT)){pause("Upload the saved results before sending more requests");return message;}
         Attempt a=new Attempt();a.packet=new java.security.SecureRandom().nextInt();if(a.packet==0)a.packet=1;
         a.outing=outing();a.permit=offlinePermit;a.source=own;a.dest=destination;a.channel=channel;a.survey=survey;a.at=epoch();a.elapsed=clock();a.test=test;a.position=position();
         if(a.position==null)return "Location changed; wait for a position before testing.";
@@ -308,7 +329,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
         if(armed&&pending==null&&now-lastSent>=SurveyRules.SPACING_MS){
             Target candidate=null;for(Target target:targets())if(target.automatic&&eligibleAgain(target.number)&&(candidate==null||sampledAt(target.number)<sampledAt(candidate.number)))candidate=target;
             if(candidate!=null){lastAutomaticWait="";trace(candidate.number,false);}
-            else{String reason=position()==null?"Waiting for a travelling fix within 24 hours / 0.5-mile accuracy; no traceroute sent.":"Waiting for a fresh nearby candidate, an eligible node or the 8-hour repeat interval; no traceroute sent.";if(!reason.equals(lastAutomaticWait)){lastAutomaticWait=reason;message=reason;log(reason);}}
+            else{String reason=position()==null?"Waiting for a travelling fix within 24 hours / 0.5-mile accuracy; no traceroute sent.":"No ready nearby nodes. Check the candidate counts or try a wider radius; retry and 8-hour cooldown rules still apply.";if(!reason.equals(lastAutomaticWait)){lastAutomaticWait=reason;message=reason;log(reason);}}
         }
         while(attempts.size()>32){Integer key=attempts.keySet().iterator().next();if(pending!=null&&key==pending.packet)break;attempts.remove(key);}
         summary=(ready?"Connected: ":"Radio: ")+name(own)+" "+(own==0?"":id(own))+"\nChannel "+channel+" · "+channels.getOrDefault(channel,"waiting for configuration")+
@@ -388,7 +409,7 @@ public final class SurveyService extends Service implements MeshBle.Listener {
         return new String[]{"Radio · "+(own==0?"Connecting…":name(own)+" · "+id(own))+(ready?" · Connected":""),
             "Collector · "+(collectorResponding?"Connected":offlineAllowed()?"Offline   recording on phone; automatic upload when available":"Waiting for connection"),
             "Survey · "+(survey==0?"Not started":area+(!localOuting.isEmpty()?" · saved on phone":" · #"+survey)),
-            "Location · "+locationLabel()+" · "+targets().size()+" nearby candidates (estimated)",
+            "Location · "+locationLabel(),
             "Requests · "+(armed?"Automatic survey running":"Automatic requests paused")+(pending==null?"":" · Waiting for "+name(pending.dest)),
             outbox.count()+" records waiting to upload · "+tried.size()+" nodes tried",
             message,next,"Channel · slot "+channel+" · "+channels.getOrDefault(channel,"Waiting for configuration")};

@@ -14,11 +14,11 @@ def integer(value,low,high):
     if type(value) is not int or not low<=value<=high:raise ValueError('Invalid integer field')
     return value
 
-def validate_position(p,now):
+def validate_position(p,now,allow_unknown_time=False):
     if not isinstance(p,dict):raise ValueError('Position required')
     lat,lon=p.get('lat'),p.get('lon')
     if any(type(v) not in (int,float) or not math.isfinite(v) for v in (lat,lon)) or not -90<=lat<=90 or not -180<=lon<=180 or (lat==lon==0):raise ValueError('Invalid position')
-    stamp=integer(p.get('time'),1,int(now+120))
+    stamp=integer(p.get('time'),0 if allow_unknown_time else 1,int(now+120))
     source=p.get('source')
     if source not in ('phone_gps','radio_position'):raise ValueError('Invalid position source')
     out=dict(lat=lat,lon=lon,time=stamp,source=source)
@@ -27,6 +27,17 @@ def validate_position(p,now):
         if type(accuracy) not in (int,float) or not math.isfinite(accuracy) or not 0<=accuracy<=804.672:raise ValueError('Invalid GPS accuracy')
         out['accuracy_m']=accuracy
     return out
+
+def validate_destination_position(target,observed_at,now):
+    """Advertised coordinates select discovery targets; they do not prove coverage."""
+    position=validate_position(dict(target,source='radio_position'),now,allow_unknown_time=True)
+    position['source']=integer(target.get('source'),0,3)
+    position['precision_bits']=integer(target.get('precision_bits'),0,32)
+    position['last_heard']=integer(target.get('last_heard',0),0,int(now+120))
+    age=observed_at-position['time']
+    if position['time'] and (age<0 or (position['source'] in (2,3) and age>7*86400)):
+        raise ValueError('Destination GPS position is outside the discovery window')
+    return position
 
 class SurveyPhone:
     def __init__(self,app,root):
@@ -145,11 +156,7 @@ class SurveyPhone:
                         target=event.get('destination_position')
                         if target is not None:
                             if not isinstance(target,dict):raise ValueError('Invalid destination position')
-                            position=validate_position(dict(target,source='radio_position'),now)
-                            position['source']=integer(target.get('source'),0,3)
-                            position['precision_bits']=integer(target.get('precision_bits'),0,32)
-                            position['last_heard']=integer(target.get('last_heard',0),0,int(now+120))
-                            if not 0<=at-position['time']<=(86400 if position['source']==1 else 43200):raise ValueError('Stale destination position')
+                            position=validate_destination_position(target,at,now)
                             clean['destination_position']=position
                         details=event.get('details',{})
                         if not isinstance(details,dict):raise ValueError('Invalid response details')
